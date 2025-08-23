@@ -1,0 +1,362 @@
+import { Hono } from 'hono'
+
+type Bindings = {
+  DB: D1Database;
+}
+
+export const userRoutes = new Hono<{ Bindings: Bindings }>()
+
+// Middleware to verify authentication
+const requireAuth = async (c: any, next: any) => {
+  const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Authentication required' }, 401)
+  }
+  
+  const session = await c.env.DB.prepare(`
+    SELECT s.user_id, u.role
+    FROM user_sessions s
+    JOIN users u ON s.user_id = u.id
+    WHERE s.session_token = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.is_active = 1
+  `).bind(sessionToken).first()
+  
+  if (!session) {
+    return c.json({ error: 'Invalid or expired session' }, 401)
+  }
+  
+  c.set('user', session)
+  await next()
+}
+
+// Get user profile
+userRoutes.get('/profile', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    const profile = await c.env.DB.prepare(`
+      SELECT u.*, p.bio, p.profile_image_url, p.address_line1, p.address_line2, p.postal_code,
+             p.date_of_birth, p.emergency_contact_name, p.emergency_contact_phone
+      FROM users u
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      WHERE u.id = ?
+    `).bind(user.user_id).first()
+    
+    if (!profile) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+    
+    // Get additional data based on role
+    let additionalData = {}
+    
+    if (user.role === 'worker') {
+      // Get worker compliance
+      const compliance = await c.env.DB.prepare(`
+        SELECT compliance_status, wsib_valid_until, insurance_valid_until, license_valid_until
+        FROM worker_compliance WHERE user_id = ?
+      `).bind(user.user_id).first()
+      
+      // Get worker services
+      const services = await c.env.DB.prepare(`
+        SELECT service_category, service_name, description, hourly_rate, years_experience
+        FROM worker_services WHERE user_id = ? AND is_available = 1
+      `).bind(user.user_id).all()
+      
+      // Get ratings
+      const ratings = await c.env.DB.prepare(`
+        SELECT AVG(rating) as avg_rating, COUNT(*) as total_reviews
+        FROM reviews WHERE reviewee_id = ?
+      `).bind(user.user_id).first()
+      
+      additionalData = {
+        compliance,
+        services: services.results,
+        avgRating: ratings?.avg_rating || 0,
+        totalReviews: ratings?.total_reviews || 0
+      }
+    }
+    
+    // Get subscription info
+    const subscription = await c.env.DB.prepare(`
+      SELECT plan_type, status, current_period_end, monthly_fee, per_job_fee
+      FROM subscriptions WHERE user_id = ? AND status = 'active'
+    `).bind(user.user_id).first()
+    
+    return c.json({ 
+      profile,
+      subscription,
+      ...additionalData
+    })
+    
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+    return c.json({ error: 'Failed to fetch profile' }, 500)
+  }
+})
+
+// Update user profile
+userRoutes.put('/profile', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const updates = await c.req.json()
+    
+    const {
+      firstName, lastName, phone, bio, addressLine1, addressLine2, postalCode,
+      emergencyContactName, emergencyContactPhone
+    } = updates
+    
+    // Update users table
+    if (firstName || lastName || phone) {
+      await c.env.DB.prepare(`
+        UPDATE users SET 
+          first_name = COALESCE(?, first_name),
+          last_name = COALESCE(?, last_name),
+          phone = COALESCE(?, phone),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).bind(firstName, lastName, phone, user.user_id).run()
+    }
+    
+    // Update user_profiles table
+    if (bio || addressLine1 || addressLine2 || postalCode || emergencyContactName || emergencyContactPhone) {
+      await c.env.DB.prepare(`
+        UPDATE user_profiles SET
+          bio = COALESCE(?, bio),
+          address_line1 = COALESCE(?, address_line1),
+          address_line2 = COALESCE(?, address_line2),
+          postal_code = COALESCE(?, postal_code),
+          emergency_contact_name = COALESCE(?, emergency_contact_name),
+          emergency_contact_phone = COALESCE(?, emergency_contact_phone),
+          updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).bind(bio, addressLine1, addressLine2, postalCode, emergencyContactName, emergencyContactPhone, user.user_id).run()
+    }
+    
+    return c.json({ message: 'Profile updated successfully' })
+    
+  } catch (error) {
+    console.error('Error updating profile:', error)
+    return c.json({ error: 'Failed to update profile' }, 500)
+  }
+})
+
+// Worker onboarding - submit compliance documents
+userRoutes.post('/worker/compliance', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'worker') {
+      return c.json({ error: 'Only workers can submit compliance documents' }, 403)
+    }
+    
+    const {
+      wsibNumber, wsibValidUntil, insuranceProvider, insurancePolicyNumber, insuranceValidUntil,
+      licenseType, licenseNumber, licenseValidUntil
+    } = await c.req.json()
+    
+    // Check if compliance record exists
+    const existingCompliance = await c.env.DB.prepare(`
+      SELECT id FROM worker_compliance WHERE user_id = ?
+    `).bind(user.user_id).first()
+    
+    if (existingCompliance) {
+      // Update existing record
+      await c.env.DB.prepare(`
+        UPDATE worker_compliance SET
+          wsib_number = ?, wsib_valid_until = ?, insurance_provider = ?,
+          insurance_policy_number = ?, insurance_valid_until = ?, license_type = ?,
+          license_number = ?, license_valid_until = ?, documents_uploaded = 1,
+          compliance_status = 'pending', updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).bind(
+        wsibNumber, wsibValidUntil, insuranceProvider, insurancePolicyNumber,
+        insuranceValidUntil, licenseType, licenseNumber, licenseValidUntil, user.user_id
+      ).run()
+    } else {
+      // Create new record
+      await c.env.DB.prepare(`
+        INSERT INTO worker_compliance (
+          user_id, wsib_number, wsib_valid_until, insurance_provider,
+          insurance_policy_number, insurance_valid_until, license_type,
+          license_number, license_valid_until, documents_uploaded, compliance_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending')
+      `).bind(
+        user.user_id, wsibNumber, wsibValidUntil, insuranceProvider, insurancePolicyNumber,
+        insuranceValidUntil, licenseType, licenseNumber, licenseValidUntil
+      ).run()
+    }
+    
+    return c.json({ message: 'Compliance documents submitted for review' })
+    
+  } catch (error) {
+    console.error('Error submitting compliance:', error)
+    return c.json({ error: 'Failed to submit compliance documents' }, 500)
+  }
+})
+
+// Worker services management
+userRoutes.get('/worker/services', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'worker') {
+      return c.json({ error: 'Only workers can access services' }, 403)
+    }
+    
+    const services = await c.env.DB.prepare(`
+      SELECT * FROM worker_services WHERE user_id = ? ORDER BY service_category, service_name
+    `).bind(user.user_id).all()
+    
+    return c.json({ services: services.results })
+    
+  } catch (error) {
+    console.error('Error fetching worker services:', error)
+    return c.json({ error: 'Failed to fetch services' }, 500)
+  }
+})
+
+userRoutes.post('/worker/services', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'worker') {
+      return c.json({ error: 'Only workers can add services' }, 403)
+    }
+    
+    const { serviceCategory, serviceName, description, hourlyRate, serviceArea, yearsExperience } = await c.req.json()
+    
+    if (!serviceCategory || !serviceName) {
+      return c.json({ error: 'Service category and name are required' }, 400)
+    }
+    
+    const result = await c.env.DB.prepare(`
+      INSERT INTO worker_services (
+        user_id, service_category, service_name, description, hourly_rate, service_area, years_experience
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).bind(user.user_id, serviceCategory, serviceName, description, hourlyRate, serviceArea, yearsExperience).run()
+    
+    return c.json({ 
+      message: 'Service added successfully',
+      serviceId: result.meta.last_row_id
+    })
+    
+  } catch (error) {
+    console.error('Error adding service:', error)
+    return c.json({ error: 'Failed to add service' }, 500)
+  }
+})
+
+// Get user notifications
+userRoutes.get('/notifications', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const { page = '1', limit = '20' } = c.req.query()
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+    
+    const notifications = await c.env.DB.prepare(`
+      SELECT * FROM notifications 
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(user.user_id, parseInt(limit), offset).all()
+    
+    // Count unread notifications
+    const unreadCount = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM notifications 
+      WHERE user_id = ? AND is_read = 0
+    `).bind(user.user_id).first()
+    
+    return c.json({ 
+      notifications: notifications.results,
+      unreadCount: unreadCount?.count || 0,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    })
+    
+  } catch (error) {
+    console.error('Error fetching notifications:', error)
+    return c.json({ error: 'Failed to fetch notifications' }, 500)
+  }
+})
+
+// Mark notification as read
+userRoutes.put('/notifications/:id/read', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    const notificationId = c.req.param('id')
+    
+    await c.env.DB.prepare(`
+      UPDATE notifications SET is_read = 1
+      WHERE id = ? AND user_id = ?
+    `).bind(notificationId, user.user_id).run()
+    
+    return c.json({ message: 'Notification marked as read' })
+    
+  } catch (error) {
+    console.error('Error updating notification:', error)
+    return c.json({ error: 'Failed to update notification' }, 500)
+  }
+})
+
+// Search workers
+userRoutes.get('/workers/search', async (c) => {
+  try {
+    const { province, city, serviceCategory, minRating, page = '1', limit = '20' } = c.req.query()
+    
+    let query = `
+      SELECT DISTINCT u.id, u.first_name, u.last_name, u.city, u.province,
+             AVG(r.rating) as avg_rating, COUNT(r.id) as review_count,
+             ws.service_category, ws.hourly_rate, ws.years_experience,
+             wc.compliance_status
+      FROM users u
+      JOIN worker_services ws ON u.id = ws.user_id
+      LEFT JOIN worker_compliance wc ON u.id = wc.user_id
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
+      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
+    `
+    
+    const params: any[] = []
+    
+    if (province) {
+      query += ` AND u.province = ?`
+      params.push(province)
+    }
+    
+    if (city) {
+      query += ` AND u.city LIKE ?`
+      params.push(`%${city}%`)
+    }
+    
+    if (serviceCategory) {
+      query += ` AND ws.service_category = ?`
+      params.push(serviceCategory)
+    }
+    
+    query += ` GROUP BY u.id, ws.service_category`
+    
+    if (minRating) {
+      query += ` HAVING AVG(r.rating) >= ?`
+      params.push(parseFloat(minRating))
+    }
+    
+    query += ` ORDER BY avg_rating DESC, review_count DESC`
+    
+    // Add pagination
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+    query += ` LIMIT ? OFFSET ?`
+    params.push(parseInt(limit), offset)
+    
+    const workers = await c.env.DB.prepare(query).bind(...params).all()
+    
+    return c.json({ 
+      workers: workers.results,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    })
+    
+  } catch (error) {
+    console.error('Error searching workers:', error)
+    return c.json({ error: 'Failed to search workers' }, 500)
+  }
+})
