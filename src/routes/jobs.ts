@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { Logger } from '../utils/logger'
 
 type Bindings = {
   DB: D1Database;
@@ -8,10 +9,35 @@ export const jobRoutes = new Hono<{ Bindings: Bindings }>()
 
 // Middleware to verify authentication
 const requireAuth = async (c: any, next: any) => {
-  const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+  // Try to get token from Authorization header first, then from cookies
+  let sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
   
   if (!sessionToken) {
-    return c.json({ error: 'Authentication required' }, 401)
+    // Try to get from cookies
+    const cookieHeader = c.req.header('Cookie')
+    if (cookieHeader) {
+      const cookies = cookieHeader.split(';')
+      for (const cookie of cookies) {
+        const trimmedCookie = cookie.trim()
+        const equalIndex = trimmedCookie.indexOf('=')
+        if (equalIndex !== -1) {
+          const name = trimmedCookie.substring(0, equalIndex)
+          const value = trimmedCookie.substring(equalIndex + 1)
+          if (name === 'session') {
+            sessionToken = value
+            break
+          }
+        }
+      }
+    }
+  }
+  
+  if (!sessionToken) {
+    Logger.warn('Jobs API authentication failed - no token', {
+      endpoint: c.req.path,
+      userAgent: c.req.header('User-Agent') || 'unknown'
+    })
+    return c.json({ error: 'Authentication required', expired: true }, 401)
   }
   
   const session = await c.env.DB.prepare(`
@@ -22,8 +48,18 @@ const requireAuth = async (c: any, next: any) => {
   `).bind(sessionToken).first()
   
   if (!session) {
-    return c.json({ error: 'Invalid or expired session' }, 401)
+    Logger.warn('Jobs API authentication failed - invalid session', {
+      endpoint: c.req.path,
+      tokenPreview: sessionToken.substring(0, 10) + '...'
+    })
+    return c.json({ error: 'Invalid or expired session', expired: true }, 401)
   }
+  
+  Logger.debug('Jobs API authentication successful', {
+    userId: session.user_id,
+    role: session.role,
+    endpoint: c.req.path
+  })
   
   c.set('user', session)
   await next()
@@ -117,21 +153,175 @@ jobRoutes.get('/', async (c) => {
   }
 })
 
+// Get jobs for a specific client
+jobRoutes.get('/client', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'client') {
+      return c.json({ error: 'Only clients can access their jobs' }, 403)
+    }
+    
+    const jobs = await c.env.DB.prepare(`
+      SELECT j.*, c.name as category_name, c.icon_class,
+             (SELECT COUNT(*) FROM bids WHERE job_id = j.id AND status = 'pending') as bid_count,
+             w.first_name as worker_first_name, w.last_name as worker_last_name
+      FROM jobs j
+      JOIN job_categories c ON j.category_id = c.id
+      LEFT JOIN users w ON j.assigned_worker_id = w.id
+      WHERE j.client_id = ?
+      ORDER BY j.created_at DESC
+    `).bind(user.user_id).all()
+    
+    return c.json({ jobs: jobs.results })
+    
+  } catch (error) {
+    console.error('Error fetching client jobs:', error)
+    return c.json({ error: 'Failed to fetch jobs' }, 500)
+  }
+})
+
+// Get client job statistics
+jobRoutes.get('/client/stats', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'client') {
+      return c.json({ error: 'Only clients can access job stats' }, 403)
+    }
+    
+    // Get total jobs
+    const totalJobs = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM jobs WHERE client_id = ?
+    `).bind(user.user_id).first()
+    
+    // Get active jobs (posted, assigned, in_progress)
+    const activeJobs = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM jobs WHERE client_id = ? AND status IN ('posted', 'assigned', 'in_progress')
+    `).bind(user.user_id).first()
+    
+    // Get completed jobs
+    const completedJobs = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count FROM jobs WHERE client_id = ? AND status = 'completed'
+    `).bind(user.user_id).first()
+    
+    // Get pending bids (total bids on active jobs)
+    const pendingBids = await c.env.DB.prepare(`
+      SELECT COUNT(*) as count 
+      FROM bids b 
+      JOIN jobs j ON b.job_id = j.id 
+      WHERE j.client_id = ? AND b.status = 'pending'
+    `).bind(user.user_id).first()
+    
+    return c.json({
+      total: totalJobs?.count || 0,
+      active: activeJobs?.count || 0,
+      completed: completedJobs?.count || 0,
+      pendingBids: pendingBids?.count || 0
+    })
+    
+  } catch (error) {
+    console.error('Error fetching client stats:', error)
+    return c.json({ error: 'Failed to fetch stats' }, 500)
+  }
+})
+
+// Get available jobs for workers (browse jobs)
+jobRoutes.get('/worker', requireAuth, async (c) => {
+  try {
+    const user = c.get('user')
+    
+    if (user.role !== 'worker') {
+      return c.json({ error: 'Only workers can browse jobs' }, 403)
+    }
+    
+    // Get user's province for location filtering
+    const worker = await c.env.DB.prepare(`
+      SELECT province FROM users WHERE id = ?
+    `).bind(user.user_id).first()
+    
+    // Get posted jobs in the worker's province
+    const jobs = await c.env.DB.prepare(`
+      SELECT j.*, c.name as category_name, c.icon_class,
+             u.first_name as client_first_name, u.last_name as client_last_name, u.city as client_city,
+             (SELECT COUNT(*) FROM bids WHERE job_id = j.id) as bid_count,
+             (SELECT COUNT(*) FROM bids WHERE job_id = j.id AND worker_id = ?) as my_bid_count
+      FROM jobs j
+      JOIN job_categories c ON j.category_id = c.id
+      JOIN users u ON j.client_id = u.id
+      WHERE j.status = 'posted' AND j.location_province = ?
+      ORDER BY j.created_at DESC
+      LIMIT 50
+    `).bind(user.user_id, worker.province).all()
+    
+    Logger.info(`Worker jobs loaded`, {
+      userId: user.user_id,
+      jobCount: jobs.results.length,
+      province: worker.province
+    })
+    
+    return c.json({ jobs: jobs.results })
+    
+  } catch (error) {
+    Logger.error('Error fetching worker jobs', error as Error, { userId: user.user_id })
+    return c.json({ error: 'Failed to fetch jobs' }, 500)
+  }
+})
+
 // Get specific job with details
 jobRoutes.get('/:id', async (c) => {
   try {
     const jobId = c.req.param('id')
     
+    // Get current user if authenticated (support both Authorization header and cookies)
+    let currentUserId = null
+    try {
+      let sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+      
+      if (!sessionToken) {
+        // Try to get from cookies
+        const cookieHeader = c.req.header('Cookie')
+        if (cookieHeader) {
+          const cookies = cookieHeader.split(';')
+          for (const cookie of cookies) {
+            const trimmedCookie = cookie.trim()
+            const equalIndex = trimmedCookie.indexOf('=')
+            if (equalIndex !== -1) {
+              const name = trimmedCookie.substring(0, equalIndex)
+              const value = trimmedCookie.substring(equalIndex + 1)
+              if (name === 'session') {
+                sessionToken = value
+                break
+              }
+            }
+          }
+        }
+      }
+      
+      if (sessionToken) {
+        const session = await c.env.DB.prepare(`
+          SELECT user_id FROM user_sessions WHERE session_token = ? AND expires_at > CURRENT_TIMESTAMP
+        `).bind(sessionToken).first()
+        if (session) {
+          currentUserId = session.user_id
+        }
+      }
+    } catch (e) {
+      // Continue without authentication if session check fails
+    }
+    
     const job = await c.env.DB.prepare(`
       SELECT j.*, u.first_name, u.last_name, u.email, u.city as client_city, u.province as client_province,
              c.name as category_name, c.icon_class, c.requires_license, c.requires_insurance,
-             w.first_name as worker_first_name, w.last_name as worker_last_name
+             w.first_name as worker_first_name, w.last_name as worker_last_name,
+             (SELECT COUNT(*) FROM bids WHERE job_id = j.id) as bid_count,
+             ${currentUserId ? `(SELECT COUNT(*) FROM bids WHERE job_id = j.id AND worker_id = ?) as my_bid_count` : '0 as my_bid_count'}
       FROM jobs j
       JOIN users u ON j.client_id = u.id
       JOIN job_categories c ON j.category_id = c.id
       LEFT JOIN users w ON j.assigned_worker_id = w.id
       WHERE j.id = ?
-    `).bind(jobId).first()
+    `).bind(currentUserId || 0, jobId).first()
     
     if (!job) {
       return c.json({ error: 'Job not found' }, 404)

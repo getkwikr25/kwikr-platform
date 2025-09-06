@@ -20,7 +20,9 @@
     "git:commit": "git add . && git commit -m"
   },
   "dependencies": {
-    "hono": "^4.9.4"
+    "@hono/zod-validator": "^0.7.2",
+    "hono": "^4.9.4",
+    "zod": "^4.1.1"
   },
   "devDependencies": {
     "@hono/vite-build": "^1.2.0",

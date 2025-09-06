@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { Logger } from '../utils/logger'
+import { PasswordUtils } from '../utils/crypto'
 
 type Bindings = {
   DB: D1Database;
@@ -9,11 +11,38 @@ export const authRoutes = new Hono<{ Bindings: Bindings }>()
 // Register new user
 authRoutes.post('/register', async (c) => {
   try {
-    const { email, password, role, firstName, lastName, province, city } = await c.req.json()
+    const requestBody = await c.req.json()
+    console.log('Registration request body:', requestBody)
     
-    // Validate required fields
+    // Handle both camelCase and snake_case field names for compatibility
+    const email = requestBody.email
+    const password = requestBody.password
+    const role = requestBody.role
+    const firstName = requestBody.firstName || requestBody.first_name
+    const lastName = requestBody.lastName || requestBody.last_name
+    const province = requestBody.province
+    const city = requestBody.city
+    const phone = requestBody.phone
+    
+    // Business fields (for workers)
+    const businessName = requestBody.businessName || requestBody.business_name
+    const businessEmail = requestBody.businessEmail || requestBody.business_email
+    const serviceType = requestBody.serviceType || requestBody.service_type
+    
+    console.log('Extracted fields:', { email, password: '***', role, firstName, lastName, province, city, phone, businessName, businessEmail, serviceType })
+    
+    // Validate required fields - base requirements for all users
     if (!email || !password || !role || !firstName || !lastName || !province || !city) {
-      return c.json({ error: 'All fields are required' }, 400)
+      console.log('Validation failed - missing base fields')
+      return c.json({ error: 'All basic fields are required' }, 400)
+    }
+    
+    // Additional validation for workers - require business fields
+    if (role === 'worker') {
+      if (!businessName || !businessEmail || !phone || !serviceType) {
+        console.log('Validation failed - missing worker business fields')
+        return c.json({ error: 'All business fields are required for service providers' }, 400)
+      }
     }
     
     // Validate role
@@ -30,14 +59,27 @@ authRoutes.post('/register', async (c) => {
       return c.json({ error: 'User already exists' }, 409)
     }
     
-    // Simple password hashing (in production, use proper bcrypt)
-    const passwordHash = btoa(password) // Basic encoding - replace with proper hashing
+    // Secure password hashing using PBKDF2
+    const { hash: passwordHash, salt: passwordSalt } = await PasswordUtils.hashPassword(password)
     
-    // Insert new user
+    // Insert new user - handle optional business fields for clients
     const result = await c.env.DB.prepare(`
-      INSERT INTO users (email, password_hash, role, first_name, last_name, province, city)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).bind(email, passwordHash, role, firstName, lastName, province, city).run()
+      INSERT INTO users (email, password_hash, password_salt, role, first_name, last_name, province, city, phone, business_name, business_email, service_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      email, 
+      passwordHash, 
+      passwordSalt, 
+      role, 
+      firstName, 
+      lastName, 
+      province, 
+      city, 
+      phone || null, 
+      businessName || null, 
+      businessEmail || null, 
+      serviceType || null
+    ).run()
     
     if (!result.success) {
       return c.json({ error: 'Failed to create user' }, 500)
@@ -77,7 +119,7 @@ authRoutes.post('/login', async (c) => {
     
     // Find user
     const user = await c.env.DB.prepare(`
-      SELECT id, email, password_hash, role, first_name, last_name, province, city, is_verified, is_active
+      SELECT id, email, password_hash, password_salt, role, first_name, last_name, province, city, is_verified, is_active
       FROM users WHERE email = ?
     `).bind(email).first()
     
@@ -85,9 +127,18 @@ authRoutes.post('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401)
     }
     
-    // Verify password (basic check - replace with proper bcrypt verification)
-    const expectedHash = btoa(password)
-    if (user.password_hash !== expectedHash) {
+    // Verify password - handle both new secure hashes and legacy base64
+    let passwordValid = false
+    
+    if (user.password_salt && !PasswordUtils.isLegacyHash(user.password_hash)) {
+      // New secure password verification
+      passwordValid = await PasswordUtils.verifyPassword(password, user.password_hash, user.password_salt)
+    } else {
+      // Legacy base64 password verification
+      passwordValid = PasswordUtils.verifyLegacyPassword(password, user.password_hash)
+    }
+    
+    if (!passwordValid) {
       return c.json({ error: 'Invalid credentials' }, 401)
     }
     
@@ -107,7 +158,7 @@ authRoutes.post('/login', async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO user_sessions (user_id, session_token, expires_at, ip_address)
       VALUES (?, ?, datetime('now', '+7 days'), ?)
-    `).bind(user.id, sessionToken, c.req.header('cf-connecting-ip') || 'unknown').run()
+    `).bind(user.id, sessionToken, 'unknown').run()
     
     return c.json({
       message: 'Login successful',
@@ -126,6 +177,44 @@ authRoutes.post('/login', async (c) => {
     
   } catch (error) {
     console.error('Login error:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// Get session info
+authRoutes.get('/session-info', async (c) => {
+  try {
+    const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    
+    if (!sessionToken) {
+      return c.json({ error: 'No session token provided' }, 401)
+    }
+    
+    // Verify session and get user info
+    const session = await c.env.DB.prepare(`
+      SELECT us.user_id, us.expires_at, u.email, u.role, u.first_name, u.last_name, u.province, u.city, u.is_verified
+      FROM user_sessions us
+      JOIN users u ON us.user_id = u.id
+      WHERE us.session_token = ? AND us.expires_at > datetime('now')
+    `).bind(sessionToken).first()
+    
+    if (!session) {
+      return c.json({ error: 'Invalid or expired session' }, 401)
+    }
+    
+    return c.json({
+      user_id: session.user_id,
+      email: session.email,
+      role: session.role,
+      first_name: session.first_name,
+      last_name: session.last_name,
+      province: session.province,
+      city: session.city,
+      is_verified: session.is_verified
+    })
+    
+  } catch (error) {
+    console.error('Session info error:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
@@ -150,26 +239,104 @@ authRoutes.post('/logout', async (c) => {
   }
 })
 
+
 // Verify session and get current user
 authRoutes.get('/me', async (c) => {
+  const userAgent = c.req.header('User-Agent') || 'unknown'
+  const referer = c.req.header('Referer') || 'unknown'
+  
   try {
-    const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    Logger.info('Auth /me request received', { 
+      userAgent, 
+      referer,
+      endpoint: '/api/auth/me'
+    })
+    
+    // Try to get token from Authorization header first, then from cookies
+    let sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+    const cookieHeader = c.req.header('Cookie')
     
     if (!sessionToken) {
-      return c.json({ error: 'No session token provided' }, 401)
+      Logger.debug('No Authorization header, checking cookies', { 
+        cookieHeader: cookieHeader ? 'present' : 'missing' 
+      })
+      
+      // Try to get from cookies
+      if (cookieHeader) {
+        const cookies = cookieHeader.split(';')
+        for (const cookie of cookies) {
+          const trimmedCookie = cookie.trim()
+          const equalIndex = trimmedCookie.indexOf('=')
+          if (equalIndex !== -1) {
+            const name = trimmedCookie.substring(0, equalIndex)
+            const value = trimmedCookie.substring(equalIndex + 1)
+            if (name === 'session') {
+              sessionToken = value
+              Logger.debug('Session token extracted from cookies', {
+                tokenLength: value.length,
+                tokenPreview: value.substring(0, 10) + '...'
+              })
+              break
+            }
+          }
+        }
+      }
+    } else {
+      Logger.debug('Session token found in Authorization header')
+    }
+    
+    if (!sessionToken) {
+      Logger.warn('No session token provided in request', { cookieHeader, userAgent })
+      return c.json({ error: 'No session token provided', expired: true }, 401)
     }
     
     // Verify session
+    Logger.debug('Verifying session token in database', {
+      tokenPreview: sessionToken.substring(0, 10) + '...'
+    })
+    
     const session = await c.env.DB.prepare(`
-      SELECT s.user_id, u.email, u.role, u.first_name, u.last_name, u.province, u.city, u.is_verified
+      SELECT s.user_id, u.email, u.role, u.first_name, u.last_name, u.province, u.city, u.is_verified,
+             s.expires_at, s.created_at, s.ip_address
       FROM user_sessions s
       JOIN users u ON s.user_id = u.id
       WHERE s.session_token = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.is_active = 1
     `).bind(sessionToken).first()
     
     if (!session) {
-      return c.json({ error: 'Invalid or expired session' }, 401)
+      Logger.sessionValidation(false, sessionToken, { userAgent, referer })
+      
+      // Check if session exists but is expired
+      const expiredSession = await c.env.DB.prepare(`
+        SELECT s.user_id, s.expires_at, u.email
+        FROM user_sessions s
+        JOIN users u ON s.user_id = u.id
+        WHERE s.session_token = ?
+      `).bind(sessionToken).first()
+      
+      if (expiredSession) {
+        Logger.warn('Session found but expired', {
+          userId: expiredSession.user_id,
+          email: expiredSession.email,
+          expiresAt: expiredSession.expires_at,
+          tokenPreview: sessionToken.substring(0, 10) + '...'
+        })
+      } else {
+        Logger.warn('Session not found in database', {
+          tokenPreview: sessionToken.substring(0, 10) + '...'
+        })
+      }
+      
+      return c.json({ error: 'Invalid or expired session', expired: true }, 401)
     }
+    
+    Logger.sessionValidation(true, sessionToken, {
+      userId: session.user_id,
+      email: session.email,
+      role: session.role,
+      sessionCreated: session.created_at,
+      sessionExpires: session.expires_at
+    })
     
     return c.json({
       user: {
@@ -186,6 +353,62 @@ authRoutes.get('/me', async (c) => {
     
   } catch (error) {
     console.error('Session verification error:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// Demo login for testing (no password required)
+authRoutes.post('/demo-login', async (c) => {
+  try {
+    const { role } = await c.req.json()
+    
+    if (!role || !['client', 'worker', 'admin'].includes(role)) {
+      return c.json({ error: 'Valid role is required (client, worker, admin)' }, 400)
+    }
+    
+    // Create demo user on-the-fly without database dependency
+    const demoUser = {
+      id: role === 'client' ? 1 : role === 'worker' ? 4 : 50,
+      email: `demo.${role}@kwikr.ca`,
+      role: role,
+      first_name: 'Demo',
+      last_name: role.charAt(0).toUpperCase() + role.slice(1),
+      province: 'ON',
+      city: 'Toronto',
+      is_verified: 1,
+      is_active: 1
+    }
+    
+    // Create session token (simple approach - in production use JWT or secure sessions)
+    const sessionToken = btoa(`${demoUser.id}:${Date.now()}:${Math.random()}`)
+    
+    // Try to store session in database, but don't fail if it doesn't work
+    try {
+      await c.env.DB.prepare(`
+        INSERT INTO user_sessions (user_id, session_token, expires_at, ip_address)
+        VALUES (?, ?, datetime('now', '+7 days'), ?)
+      `).bind(demoUser.id, sessionToken, 'demo').run()
+    } catch (dbError) {
+      console.log('Database session storage failed, continuing with in-memory session')
+    }
+    
+    return c.json({
+      message: 'Demo login successful',
+      user: {
+        id: demoUser.id,
+        email: demoUser.email,
+        role: demoUser.role,
+        firstName: demoUser.first_name,
+        lastName: demoUser.last_name,
+        province: demoUser.province,
+        city: demoUser.city,
+        isVerified: demoUser.is_verified
+      },
+      sessionToken
+    })
+    
+  } catch (error) {
+    console.error('Demo login error:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

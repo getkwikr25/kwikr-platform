@@ -17,20 +17,20 @@ INSERT OR IGNORE INTO job_categories (name, description, requires_license, requi
 
 -- Insert test admin user (password: admin123)
 INSERT OR IGNORE INTO users (email, password_hash, role, first_name, last_name, province, city, is_verified, email_verified) VALUES 
-  ('admin@kwikr.ca', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'System', 'Administrator', 'ON', 'Toronto', TRUE, TRUE);
+  ('admin@kwikr.ca', 'YWRtaW4xMjM=', 'admin', 'System', 'Administrator', 'ON', 'Toronto', TRUE, TRUE);
 
 -- Insert test client users (password: client123)
 INSERT OR IGNORE INTO users (email, password_hash, role, first_name, last_name, phone, province, city, is_verified, email_verified) VALUES 
-  ('sarah.johnson@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'client', 'Sarah', 'Johnson', '+1-416-555-0101', 'ON', 'Toronto', TRUE, TRUE),
-  ('mike.chen@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'client', 'Mike', 'Chen', '+1-604-555-0102', 'BC', 'Vancouver', TRUE, TRUE),
-  ('emma.davis@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'client', 'Emma', 'Davis', '+1-403-555-0103', 'AB', 'Calgary', TRUE, TRUE);
+  ('sarah.johnson@example.com', 'Y2xpZW50MTIz', 'client', 'Sarah', 'Johnson', '+1-416-555-0101', 'ON', 'Toronto', TRUE, TRUE),
+  ('mike.chen@example.com', 'Y2xpZW50MTIz', 'client', 'Mike', 'Chen', '+1-604-555-0102', 'BC', 'Vancouver', TRUE, TRUE),
+  ('emma.davis@example.com', 'Y2xpZW50MTIz', 'client', 'Emma', 'Davis', '+1-403-555-0103', 'AB', 'Calgary', TRUE, TRUE);
 
 -- Insert test worker users (password: worker123)
 INSERT OR IGNORE INTO users (email, password_hash, role, first_name, last_name, phone, province, city, is_verified, email_verified) VALUES 
-  ('john.smith@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'worker', 'John', 'Smith', '+1-416-555-0201', 'ON', 'Toronto', TRUE, TRUE),
-  ('maria.gonzalez@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'worker', 'Maria', 'Gonzalez', '+1-604-555-0202', 'BC', 'Vancouver', TRUE, TRUE),
-  ('david.brown@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'worker', 'David', 'Brown', '+1-403-555-0203', 'AB', 'Calgary', TRUE, TRUE),
-  ('lisa.wilson@example.com', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'worker', 'Lisa', 'Wilson', '+1-416-555-0204', 'ON', 'Ottawa', TRUE, TRUE);
+  ('john.smith@example.com', 'd29ya2VyMTIz', 'worker', 'John', 'Smith', '+1-416-555-0201', 'ON', 'Toronto', TRUE, TRUE),
+  ('maria.gonzalez@example.com', 'd29ya2VyMTIz', 'worker', 'Maria', 'Gonzalez', '+1-604-555-0202', 'BC', 'Vancouver', TRUE, TRUE),
+  ('david.brown@example.com', 'd29ya2VyMTIz', 'worker', 'David', 'Brown', '+1-403-555-0203', 'AB', 'Calgary', TRUE, TRUE),
+  ('lisa.wilson@example.com', 'd29ya2VyMTIz', 'worker', 'Lisa', 'Wilson', '+1-416-555-0204', 'ON', 'Ottawa', TRUE, TRUE);
 
 -- Insert user profiles
 INSERT OR IGNORE INTO user_profiles (user_id, bio, address_line1, postal_code) VALUES 
