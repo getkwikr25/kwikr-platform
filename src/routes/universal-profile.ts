@@ -31,7 +31,7 @@ universalProfileRoutes.get('/:workerId', async (c) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Profile Not Found - getKwikr</title>
+            <title>Profile Not Found - Kwikr</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         </head>
@@ -104,7 +104,7 @@ universalProfileRoutes.get('/:workerId', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Service Provider Profile - getKwikr</title>
+          <title>Service Provider Profile - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -229,7 +229,7 @@ universalProfileRoutes.get('/:workerId', async (c) => {
                   <div class="flex justify-between items-center h-16">
                       <div class="flex items-center">
                           <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600 transition-colors">
-                              <i class="fas fa-tools mr-2"></i>getKwikr
+                              <i class="fas fa-tools mr-2"></i>Kwikr
                           </a>
                       </div>
                       <div class="flex items-center space-x-4">

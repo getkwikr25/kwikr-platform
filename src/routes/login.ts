@@ -14,7 +14,7 @@ loginRoutes.get('/', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign In - getKwikr</title>
+        <title>Sign In - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -38,7 +38,7 @@ loginRoutes.get('/', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -57,7 +57,7 @@ loginRoutes.get('/', async (c) => {
                             <i class="fas fa-sign-in-alt text-2xl text-kwikr-green"></i>
                         </div>
                         <h2 class="text-3xl font-bold text-gray-900">Welcome Back</h2>
-                        <p class="mt-2 text-gray-600">Sign in to your getKwikr account</p>
+                        <p class="mt-2 text-gray-600">Sign in to your Kwikr account</p>
                     </div>
                 </div>
                 

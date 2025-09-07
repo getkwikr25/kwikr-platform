@@ -461,7 +461,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Client Dashboard - getKwikr</title>
+        <title>Client Dashboard - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -485,7 +485,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -777,7 +777,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Error - getKwikr</title>
+          <title>Error - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
       </head>
       <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -826,7 +826,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Choose Your Subscription Plan - getKwikr</title>
+        <title>Choose Your Subscription Plan - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -850,7 +850,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </h1>
                         <span class="ml-4 text-gray-400">|</span>
                         <span class="ml-4 text-lg text-gray-600">Subscription Required</span>
@@ -874,7 +874,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                             <i class="fas fa-exclamation-triangle mr-3"></i>
                             <span class="font-medium">Subscription Required</span>
                         </div>
-                        <p class="mt-2 text-sm">To access jobs and start earning on getKwikr, you need to select a subscription plan.</p>
+                        <p class="mt-2 text-sm">To access jobs and start earning on Kwikr, you need to select a subscription plan.</p>
                     </div>
                     
                     <h1 class="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
@@ -1037,7 +1037,7 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Dashboard - getKwikr</title>
+        <title>Worker Dashboard - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -1061,7 +1061,7 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -2377,7 +2377,7 @@ dashboardRoutes.get('/worker/profile', requireAuth, requireWorkerSubscription, a
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Profile - getKwikr</title>
+        <title>My Profile - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -2402,7 +2402,7 @@ dashboardRoutes.get('/worker/profile', requireAuth, requireWorkerSubscription, a
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
+                            <span class="text-2xl font-bold text-gray-900">Kwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             <span class="text-gray-400">Dashboard > </span>Profile
@@ -3548,7 +3548,7 @@ dashboardRoutes.get('/admin', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr Admin
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr Admin
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4030,7 +4030,7 @@ dashboardRoutes.get('/admin', requireAuth, async (c) => {
           console.log('ADMIN DASHBOARD: JavaScript is executing!');
           
           // Set proper page title
-          document.title = 'Admin Dashboard - getKwikr';
+          document.title = 'Admin Dashboard - Kwikr';
           
           // JavaScript working indicator removed to avoid obstructing the view
           
@@ -4502,7 +4502,7 @@ dashboardRoutes.get('/client/profile', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Profile - getKwikr</title>
+        <title>My Profile - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -4526,7 +4526,7 @@ dashboardRoutes.get('/client/profile', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4999,7 +4999,7 @@ dashboardRoutes.get('/client/post-job', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Post a Job - getKwikr</title>
+        <title>Post a Job - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5023,7 +5023,7 @@ dashboardRoutes.get('/client/post-job', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5100,7 +5100,7 @@ dashboardRoutes.get('/client/browse-workers', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Browse Service Providers - getKwikr</title>
+        <title>Browse Service Providers - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5124,7 +5124,7 @@ dashboardRoutes.get('/client/browse-workers', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5646,7 +5646,7 @@ dashboardRoutes.get('/client/job/:id', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Job Details - getKwikr</title>
+        <title>Job Details - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5670,7 +5670,7 @@ dashboardRoutes.get('/client/job/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5734,7 +5734,7 @@ dashboardRoutes.get('/client/job/:id/edit', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Edit Job - getKwikr</title>
+        <title>Edit Job - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5758,7 +5758,7 @@ dashboardRoutes.get('/client/job/:id/edit', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5822,7 +5822,7 @@ dashboardRoutes.get('/client/worker/:id', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Profile - getKwikr</title>
+        <title>Worker Profile - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5846,7 +5846,7 @@ dashboardRoutes.get('/client/worker/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5909,7 +5909,7 @@ dashboardRoutes.get('/worker/kanban', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Job Tracking Board - getKwikr</title>
+        <title>Job Tracking Board - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -5941,7 +5941,7 @@ dashboardRoutes.get('/worker/kanban', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6021,7 +6021,7 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Bids - getKwikr</title>
+        <title>My Bids - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -6032,7 +6032,7 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6129,7 +6129,7 @@ dashboardRoutes.get('/worker/profile', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Profile - getKwikr</title>
+        <title>Worker Profile - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -6165,7 +6165,7 @@ dashboardRoutes.get('/worker/profile', requireAuth, async (c) => {
               <div class="flex items-center">
                 <div class="flex-shrink-0 flex items-center">
                   <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                  <span class="text-xl font-bold text-gray-900">getKwikr</span>
+                  <span class="text-xl font-bold text-gray-900">Kwikr</span>
                 </div>
               </div>
               <div class="flex items-center space-x-4">
@@ -6528,7 +6528,7 @@ dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment Management - getKwikr</title>
+        <title>Payment Management - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -6552,7 +6552,7 @@ dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6769,7 +6769,7 @@ dashboardRoutes.get('/worker/earnings', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Earnings & Tracking - getKwikr</title>
+        <title>Earnings & Tracking - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -6794,7 +6794,7 @@ dashboardRoutes.get('/worker/earnings', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7091,7 +7091,7 @@ dashboardRoutes.get('/worker/calendar', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Calendar & Scheduling - getKwikr</title>
+        <title>Calendar & Scheduling - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7139,7 +7139,7 @@ dashboardRoutes.get('/worker/calendar', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7358,7 +7358,7 @@ dashboardRoutes.get('/worker/messages', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Messages & Communication - getKwikr</title>
+        <title>Messages & Communication - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7382,7 +7382,7 @@ dashboardRoutes.get('/worker/messages', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7642,7 +7642,7 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Service Portfolio - getKwikr</title>
+        <title>Service Portfolio - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7703,7 +7703,7 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">

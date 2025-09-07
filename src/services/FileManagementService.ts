@@ -180,7 +180,7 @@ export class FileManagementService {
 
         if (options.watermark) {
           await this.scheduleProcessingJob(fileId, 'watermark', {
-            text: 'getKwikr',
+            text: 'Kwikr',
             position: 'bottomRight',
             opacity: 0.7
           })

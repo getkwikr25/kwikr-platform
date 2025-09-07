@@ -34,7 +34,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Subscription Plans - getKwikr</title>
+          <title>Subscription Plans - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <script>
             tailwind.config = {
@@ -58,7 +58,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
                   <div class="flex justify-between items-center h-16">
                       <div class="flex items-center">
                           <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                              <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                              <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                           </a>
                       </div>
                       <div class="flex items-center space-x-4">

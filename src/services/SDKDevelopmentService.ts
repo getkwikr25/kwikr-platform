@@ -342,7 +342,7 @@ export class SDKDevelopmentService {
     const packageJson = {
       name: packageName,
       version: '1.0.0',
-      description: 'Official getKwikr API client for JavaScript/Node.js',
+      description: 'Official Kwikr API client for JavaScript/Node.js',
       main: 'index.js',
       scripts: {
         test: 'jest'
@@ -357,8 +357,8 @@ export class SDKDevelopmentService {
 
     const mainFile = `
 /**
- * getKwikr API Client
- * Official JavaScript/Node.js SDK for the getKwikr platform
+ * Kwikr API Client
+ * Official JavaScript/Node.js SDK for the Kwikr platform
  */
 
 const axios = require('axios');
@@ -443,9 +443,9 @@ module.exports = KwikrAPIClient;
 `;
 
     const readmeFile = `
-# getKwikr API Client
+# Kwikr API Client
 
-Official JavaScript/Node.js SDK for the getKwikr platform.
+Official JavaScript/Node.js SDK for the Kwikr platform.
 
 ## Installation
 
@@ -588,10 +588,10 @@ from setuptools import setup, find_packages
 setup(
     name="${packageName}",
     version="1.0.0",
-    description="Official getKwikr API client for Python",
+    description="Official Kwikr API client for Python",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    author="getKwikr",
+    author="Kwikr",
     author_email="support@kwikr.directory",
     url="https://github.com/kwikr/python-sdk",
     packages=find_packages(),
@@ -609,8 +609,8 @@ setup(
 
     const mainFile = `
 """
-getKwikr API Client
-Official Python SDK for the getKwikr platform
+Kwikr API Client
+Official Python SDK for the Kwikr platform
 """
 
 import requests
@@ -618,7 +618,7 @@ from typing import Dict, List, Optional, Any
 
 
 class KwikrAPIClient:
-    """Official getKwikr API client for Python."""
+    """Official Kwikr API client for Python."""
 
     def __init__(self, api_key: str, base_url: str = "${baseUrl}", timeout: int = 30):
         """
@@ -714,7 +714,7 @@ class KwikrAPIClient:
 
     const composerJson = {
       name: packageName,
-      description: 'Official getKwikr API client for PHP',
+      description: 'Official Kwikr API client for PHP',
       type: 'library',
       license: 'MIT',
       require: {
@@ -737,7 +737,7 @@ use GuzzleHttp\\Client;
 use GuzzleHttp\\Exception\\RequestException;
 
 /**
- * Official getKwikr API client for PHP
+ * Official Kwikr API client for PHP
  */
 class KwikrAPIClient
 {
@@ -927,9 +927,9 @@ class KwikrAPIClient
 Gem::Specification.new do |spec|
   spec.name          = "kwikr_api_client"
   spec.version       = "1.0.0"
-  spec.authors       = ["getKwikr"]
+  spec.authors       = ["Kwikr"]
   spec.email         = ["support@kwikr.directory"]
-  spec.summary       = "Official getKwikr API client for Ruby"
+  spec.summary       = "Official Kwikr API client for Ruby"
   spec.license       = "MIT"
   
   spec.add_dependency "httparty", "~> 0.21"

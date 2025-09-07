@@ -363,11 +363,11 @@ export class APIDocumentationService {
     const openApiSpec = {
       openapi: '3.0.3',
       info: {
-        title: 'getKwikr API',
-        description: 'Comprehensive API for the getKwikr platform',
+        title: 'Kwikr API',
+        description: 'Comprehensive API for the Kwikr platform',
         version: version,
         contact: {
-          name: 'getKwikr Support',
+          name: 'Kwikr Support',
           email: 'api-support@kwikr.directory'
         }
       },

@@ -1,7 +1,7 @@
-# getKwikr - Complete Service Marketplace Platform
+# Kwikr - Complete Service Marketplace Platform
 
 ## Project Overview
-- **Name**: getKwikr Platform
+- **Name**: Kwikr Platform
 - **Goal**: Complete service marketplace with comprehensive administrative management system
 - **Features**: Admin Dashboard, User Management, Content Moderation, Financial Reporting, System Monitoring, Feature Flags
 

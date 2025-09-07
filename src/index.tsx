@@ -517,7 +517,7 @@ app.get('/search', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Search Results - getKwikr</title>
+        <title>Search Results - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -542,7 +542,7 @@ app.get('/search', async (c) => {
                     <div class="flex items-center">
                         <a href="/" class="flex-shrink-0">
                             <h1 class="text-2xl font-bold text-kwikr-green">
-                                <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                                <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                             </h1>
                         </a>
                     </div>
@@ -976,7 +976,7 @@ app.get('/profile/:userId', async (c) => {
 app.get('/client-dashboard', (c) => {
   return c.html(`
     <!DOCTYPE html>
-    <html><head><title>Client Dashboard - getKwikr</title></head>
+    <html><head><title>Client Dashboard - Kwikr</title></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h1>Client Dashboard</h1>
       <p><a href="/static/client-dashboard.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Client Dashboard</a></p>
@@ -988,7 +988,7 @@ app.get('/client-dashboard', (c) => {
 app.get('/worker-dashboard', (c) => {
   return c.html(`
     <!DOCTYPE html>
-    <html><head><title>Worker Dashboard - getKwikr</title></head>
+    <html><head><title>Worker Dashboard - Kwikr</title></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h1>Worker Dashboard</h1>
       <p><a href="/static/worker-dashboard.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Worker Dashboard</a></p>
@@ -1000,7 +1000,7 @@ app.get('/worker-dashboard', (c) => {
 app.get('/notifications', (c) => {
   return c.html(`
     <!DOCTYPE html>
-    <html><head><title>Notification Center - getKwikr</title></head>
+    <html><head><title>Notification Center - Kwikr</title></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h1>Notification Center</h1>
       <p><a href="/static/notifications.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Notification Center</a></p>
@@ -1012,7 +1012,7 @@ app.get('/notifications', (c) => {
 app.get('/file-manager', (c) => {
   return c.html(`
     <!DOCTYPE html>
-    <html><head><title>File Manager - getKwikr</title></head>
+    <html><head><title>File Manager - Kwikr</title></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h1>File & Media Manager</h1>
       <p><a href="/static/file-manager.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch File Manager</a></p>
@@ -1050,7 +1050,7 @@ app.get('/payment-demo', (c) => {
 /* Commenting out orphaned HTML
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${worker.first_name} ${worker.last_name} - Professional Profile | getKwikr</title>
+        <title>${worker.first_name} ${worker.last_name} - Professional Profile | Kwikr</title>
         <meta name="description" content="${worker.bio || `Professional ${worker.license_type || 'service provider'} in ${worker.city}, ${worker.province}. View services, reviews, and contact information.`}">
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
@@ -1083,7 +1083,7 @@ app.get('/payment-demo', (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3949,7 +3949,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>getKwikr - Connect with Canadian Service Providers</title>
+        <title>Kwikr - Connect with Canadian Service Providers</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3976,8 +3976,8 @@ app.get('/', (c) => {
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <a href="/" class="flex items-center">
-                                <img src="/getkwikr-logo.png" alt="getKwikr" class="h-12 w-12 mr-3">
-                                <h1 class="text-2xl font-bold text-kwikr-green">getKwikr</h1>
+                                <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-12 mr-3">
+                                <h1 class="text-2xl font-bold text-kwikr-green">Kwikr</h1>
                             </a>
                         </div>
                     </div>
@@ -3991,7 +3991,7 @@ app.get('/', (c) => {
                             <i class="fas fa-sign-out-alt mr-1"></i>Clear Session
                         </a>
                         <a href="/subscriptions/pricing" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
-                            <i class="fas fa-tools mr-1"></i>Join getKwikr
+                            <i class="fas fa-tools mr-1"></i>Join Kwikr
                         </a>
                         <a href="/signup/client" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium inline-flex items-center">
                             <i class="fas fa-briefcase mr-2"></i>Post a Job
@@ -4373,7 +4373,7 @@ app.get('/', (c) => {
         <div class="py-24 bg-kwikr-gray">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Why Choose getKwikr?</h2>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Why Choose Kwikr?</h2>
                     <p class="text-lg text-gray-600">Connecting Canadians with trusted service providers</p>
                 </div>
                 
@@ -4487,7 +4487,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-star"></i>
                             </div>
                         </div>
-                        <p class="text-gray-700 mb-6 italic">"Found an amazing cleaner through getKwikr in just minutes. The booking process was seamless and the service quality exceeded my expectations. Highly recommend!"</p>
+                        <p class="text-gray-700 mb-6 italic">"Found an amazing cleaner through Kwikr in just minutes. The booking process was seamless and the service quality exceeded my expectations. Highly recommend!"</p>
                         <div class="flex items-center">
                             <div class="bg-kwikr-green text-white w-12 h-12 rounded-full flex items-center justify-center font-semibold mr-4">
                                 SM
@@ -4510,7 +4510,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-star"></i>
                             </div>
                         </div>
-                        <p class="text-gray-700 mb-6 italic">"As a contractor, getKwikr has been a game-changer for my business. I get quality leads regularly and the payment system is secure and reliable."</p>
+                        <p class="text-gray-700 mb-6 italic">"As a contractor, Kwikr has been a game-changer for my business. I get quality leads regularly and the payment system is secure and reliable."</p>
                         <div class="flex items-center">
                             <div class="bg-blue-500 text-white w-12 h-12 rounded-full flex items-center justify-center font-semibold mr-4">
                                 MJ
@@ -4668,7 +4668,7 @@ app.get('/', (c) => {
                     <div>
                         <div class="flex items-center mb-6">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-3"></i>
-                            <h3 class="text-2xl font-bold">getKwikr</h3>
+                            <h3 class="text-2xl font-bold">Kwikr</h3>
                         </div>
                         <p class="text-gray-300 mb-6">
                             Connecting Canadians with trusted, verified service providers across the country. Quality work, fair prices, guaranteed satisfaction.
@@ -4737,7 +4737,7 @@ app.get('/', (c) => {
                 <div class="border-t border-gray-700 mt-12 pt-8">
                     <div class="flex flex-col md:flex-row justify-between items-center">
                         <div class="text-gray-300 text-sm mb-4 md:mb-0">
-                            © 2024 getKwikr. All rights reserved. | Connecting Canadians with trusted service providers.
+                            © 2024 Kwikr. All rights reserved. | Connecting Canadians with trusted service providers.
                         </div>
                         <div class="flex items-center text-sm text-gray-300">
                             <i class="fas fa-phone mr-2"></i>
@@ -4758,7 +4758,7 @@ app.get('/', (c) => {
             <div class="bg-white p-8 rounded-lg max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-bold text-kwikr-green">
-                        <i class="fas fa-lightbulb mr-2"></i>How getKwikr Works
+                        <i class="fas fa-lightbulb mr-2"></i>How Kwikr Works
                     </h3>
                     <button onclick="hideHowItWorksModal()" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times text-xl"></i>
@@ -5289,7 +5289,7 @@ app.get('/', (c) => {
                 if (email) {
                   // Here you would normally send the email to your backend
                   // For now, just show a success message
-                  alert('Thank you for subscribing! We will keep you updated with the latest from getKwikr.');
+                  alert('Thank you for subscribing! We will keep you updated with the latest from Kwikr.');
                   document.getElementById('newsletterEmail').value = '';
                 }
               });
@@ -5309,7 +5309,7 @@ app.get('/', (c) => {
                 if (name && email && city && province && type) {
                   // Here you would normally send the data to your backend
                   // For now, just show a success message
-                  alert('Thank you ' + name + '! You have been added to our waitlist for ' + city + ', ' + province + '. We will notify you when getKwikr launches in your area.');
+                  alert('Thank you ' + name + '! You have been added to our waitlist for ' + city + ', ' + province + '. We will notify you when Kwikr launches in your area.');
                   waitlistForm.reset();
                 }
               });
@@ -5729,7 +5729,7 @@ app.get('/debug/sessions', async (c) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Session Debug - getKwikr</title>
+        <title>Session Debug - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <meta http-equiv="refresh" content="30">
       </head>
@@ -6600,7 +6600,7 @@ app.get('/demo/payment-system', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Interactive Payment Demo - getKwikr Platform</title>
+        <title>Interactive Payment Demo - Kwikr Platform</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7068,7 +7068,7 @@ app.get('/demo/lifecycle-test', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Full Lifecycle Test Suite - getKwikr Platform</title>
+        <title>Full Lifecycle Test Suite - Kwikr Platform</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7571,7 +7571,7 @@ function getUserManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>User Management - getKwikr Admin</title>
+        <title>User Management - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7913,7 +7913,7 @@ function getWorkerManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Management - getKwikr Admin</title>
+        <title>Worker Management - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -8238,7 +8238,7 @@ function getAnalyticsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Analytics Dashboard - getKwikr Admin</title>
+        <title>Analytics Dashboard - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -8609,7 +8609,7 @@ function getComplianceHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Compliance Management - getKwikr Admin</title>
+        <title>Compliance Management - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9019,7 +9019,7 @@ function getPaymentSystemHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment System Management - getKwikr Admin</title>
+        <title>Payment System Management - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9282,7 +9282,7 @@ function getSystemSettingsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>System Settings - getKwikr Admin</title>
+        <title>System Settings - Kwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9364,7 +9364,7 @@ function getSystemSettingsHTML() {
                         <div class="p-6 space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Platform Name</label>
-                                <input type="text" value="getKwikr" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
+                                <input type="text" value="Kwikr" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Support Email</label>
@@ -9930,7 +9930,7 @@ function getWorkerProfileHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Profile - getKwikr</title>
+        <title>My Profile - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9955,7 +9955,7 @@ function getWorkerProfileHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
+                            <span class="text-2xl font-bold text-gray-900">Kwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > My Profile
@@ -10657,7 +10657,7 @@ function getWorkerPaymentManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment Management - getKwikr</title>
+        <title>Payment Management - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -10682,7 +10682,7 @@ function getWorkerPaymentManagementHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
+                            <span class="text-2xl font-bold text-gray-900">Kwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > Payment Management
@@ -11040,7 +11040,7 @@ function getWorkerEarningsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Earnings History - getKwikr</title>
+        <title>Earnings History - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11065,7 +11065,7 @@ function getWorkerEarningsHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
+                            <span class="text-2xl font-bold text-gray-900">Kwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > Earnings History
@@ -11296,7 +11296,7 @@ function createInfoPage(title: string, content: string) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title} - getKwikr</title>
+        <title>${title} - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11320,7 +11320,7 @@ function createInfoPage(title: string, content: string) {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -11412,7 +11412,7 @@ app.get('/contact', async (c) => {
 app.get('/about', async (c) => {
   return c.html(createInfoPage('About Us', `
     <h2 class="text-xl font-semibold mb-4">Our Mission</h2>
-    <p class="text-gray-600 mb-6">getKwikr connects Canadian homeowners with trusted, verified service providers across the country. We make it easy to find reliable professionals for any home service need.</p>
+    <p class="text-gray-600 mb-6">Kwikr connects Canadian homeowners with trusted, verified service providers across the country. We make it easy to find reliable professionals for any home service need.</p>
     
     <h2 class="text-xl font-semibold mb-4">Why Choose Kwikr?</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -11429,7 +11429,7 @@ app.get('/about', async (c) => {
 app.get('/safety', async (c) => {
   return c.html(createInfoPage('Safety Guidelines', `
     <h2 class="text-xl font-semibold mb-4">Our Safety Commitment</h2>
-    <p class="text-gray-600 mb-6">Your safety is our top priority. All service providers on getKwikr are thoroughly vetted.</p>
+    <p class="text-gray-600 mb-6">Your safety is our top priority. All service providers on Kwikr are thoroughly vetted.</p>
     
     <h2 class="text-xl font-semibold mb-4">Safety Tips</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -11463,7 +11463,7 @@ app.get('/trust-safety', async (c) => {
 app.get('/insurance', async (c) => {
   return c.html(createInfoPage('Insurance Claims', `
     <h2 class="text-xl font-semibold mb-4">Comprehensive Coverage</h2>
-    <p class="text-gray-600 mb-6">All jobs on getKwikr are covered by comprehensive insurance for your peace of mind.</p>
+    <p class="text-gray-600 mb-6">All jobs on Kwikr are covered by comprehensive insurance for your peace of mind.</p>
     
     <h2 class="text-xl font-semibold mb-4">Filing a Claim</h2>
     <ol class="list-decimal pl-6 space-y-2 text-gray-600">
@@ -11501,7 +11501,7 @@ app.get('/privacy', async (c) => {
 app.get('/terms', async (c) => {
   return c.html(createInfoPage('Terms of Service', `
     <h2 class="text-xl font-semibold mb-4">Platform Usage</h2>
-    <p class="text-gray-600 mb-6">By using getKwikr, you agree to these terms and conditions.</p>
+    <p class="text-gray-600 mb-6">By using Kwikr, you agree to these terms and conditions.</p>
     
     <h2 class="text-xl font-semibold mb-4">User Responsibilities</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -11611,7 +11611,7 @@ app.get('/admin/login', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Portal Login - getKwikr</title>
+        <title>Admin Portal Login - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11633,7 +11633,7 @@ app.get('/admin/login', async (c) => {
             <!-- Logo -->
             <div class="text-center mb-8">
                 <a href="/" class="text-3xl font-bold text-kwikr-green">
-                    <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                    <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                 </a>
                 <p class="text-gray-300 mt-2">Platform Administration</p>
             </div>
@@ -11739,7 +11739,7 @@ app.get('/admin/portal', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Portal - getKwikr Platform Management</title>
+        <title>Admin Portal - Kwikr Platform Management</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11780,7 +11780,7 @@ app.get('/admin/portal', requireAdminAuth, async (c) => {
             <!-- Header -->
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900">Platform Administration</h1>
-                <p class="text-gray-600 mt-2">Manage and monitor the getKwikr platform</p>
+                <p class="text-gray-600 mt-2">Manage and monitor the Kwikr platform</p>
             </div>
 
             <!-- Quick Actions -->
@@ -11935,7 +11935,7 @@ function getSubscriptionPricingHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Choose Your Growth Plan - getKwikr</title>
+        <title>Choose Your Growth Plan - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -11951,7 +11951,7 @@ function getSubscriptionPricingHTML() {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -12106,7 +12106,7 @@ function getSubscriptionPricingHTML() {
                 <div class="bg-yellow-400 text-green-900 px-4 py-2 rounded-full text-sm font-bold inline-block mb-4">
                     <i class="fas fa-lightbulb mr-1"></i>Want to See the Platform First?
                 </div>
-                <p class="text-lg text-gray-700 mb-6">Not ready to commit? Explore getKwikr and see how it works.</p>
+                <p class="text-lg text-gray-700 mb-6">Not ready to commit? Explore Kwikr and see how it works.</p>
                 <a href="/" class="bg-kwikr-green text-white px-8 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold inline-block">
                     <i class="fas fa-eye mr-2"></i>Browse Platform
                 </a>

@@ -14,7 +14,7 @@ signupRoutes.get('/client', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up as Client - getKwikr</title>
+        <title>Sign Up as Client - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -38,7 +38,7 @@ signupRoutes.get('/client', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -226,10 +226,10 @@ signupRoutes.get('/client', async (c) => {
                         <p class="text-sm text-gray-500 mb-6">Last Updated: September 5, 2025</p>
                         
                         <h4 class="text-lg font-semibold mb-3">1. Acceptance of Terms</h4>
-                        <p class="mb-4">By accessing and using getKwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                        <p class="mb-4">By accessing and using Kwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">2. Service Description</h4>
-                        <p class="mb-4">getKwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
+                        <p class="mb-4">Kwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">3. User Obligations</h4>
                         <ul class="list-disc pl-6 mb-4">
@@ -251,7 +251,7 @@ signupRoutes.get('/client', async (c) => {
                         <p class="mb-4">Payment terms vary by subscription plan. Service fees and subscription costs are outlined in your chosen plan. All payments are processed securely through our payment partners.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">6. Limitation of Liability</h4>
-                        <p class="mb-4">getKwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
+                        <p class="mb-4">Kwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">7. Privacy</h4>
                         <p class="mb-4">Your privacy is important to us. Please review our Privacy Policy to understand how we collect, use, and protect your information.</p>
@@ -372,7 +372,7 @@ signupRoutes.get('/worker', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up as Service Provider - getKwikr</title>
+        <title>Sign Up as Service Provider - Kwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -396,7 +396,7 @@ signupRoutes.get('/worker', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -753,10 +753,10 @@ signupRoutes.get('/worker', async (c) => {
                         <p class="text-sm text-gray-500 mb-6">Last Updated: September 5, 2025</p>
                         
                         <h4 class="text-lg font-semibold mb-3">1. Acceptance of Terms</h4>
-                        <p class="mb-4">By accessing and using getKwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                        <p class="mb-4">By accessing and using Kwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">2. Service Description</h4>
-                        <p class="mb-4">getKwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
+                        <p class="mb-4">Kwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">3. User Obligations</h4>
                         <ul class="list-disc pl-6 mb-4">
@@ -778,7 +778,7 @@ signupRoutes.get('/worker', async (c) => {
                         <p class="mb-4">Payment terms vary by subscription plan. Service fees and subscription costs are outlined in your chosen plan. All payments are processed securely through our payment partners.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">6. Limitation of Liability</h4>
-                        <p class="mb-4">getKwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
+                        <p class="mb-4">Kwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">7. Privacy</h4>
                         <p class="mb-4">Your privacy is important to us. Please review our Privacy Policy to understand how we collect, use, and protect your information.</p>

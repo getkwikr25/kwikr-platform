@@ -385,7 +385,7 @@ searchRoutes.get('/directory', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Worker Directory - getKwikr</title>
+          <title>Worker Directory - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -801,7 +801,7 @@ searchRoutes.get('/advanced', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Advanced Search - getKwikr</title>
+          <title>Advanced Search - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -1360,7 +1360,7 @@ searchRoutes.get('/categories', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Service Categories - getKwikr</title>
+          <title>Service Categories - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -1774,7 +1774,7 @@ searchRoutes.get('/nearby', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Nearby Workers - getKwikr</title>
+          <title>Nearby Workers - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -2088,7 +2088,7 @@ searchRoutes.get('/featured', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Featured Professionals - getKwikr</title>
+          <title>Featured Professionals - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>

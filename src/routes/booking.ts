@@ -131,7 +131,7 @@ bookingRoutes.get('/calendar/:workerId?', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Calendar - ${worker.first_name} ${worker.last_name} - getKwikr</title>
+          <title>Calendar - ${worker.first_name} ${worker.last_name} - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -519,7 +519,7 @@ bookingRoutes.get('/schedule', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Book Appointment - getKwikr</title>
+          <title>Book Appointment - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -992,7 +992,7 @@ bookingRoutes.get('/confirmation/:bookingId', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Booking Confirmation - getKwikr</title>
+          <title>Booking Confirmation - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -1243,7 +1243,7 @@ bookingRoutes.get('/manage', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Manage Bookings - getKwikr</title>
+          <title>Manage Bookings - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>

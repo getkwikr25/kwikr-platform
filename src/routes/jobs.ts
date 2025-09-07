@@ -145,7 +145,7 @@ jobsRoutes.get('/post', requireAuth, requireClient, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Post a Job - getKwikr</title>
+          <title>Post a Job - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -520,7 +520,7 @@ jobsRoutes.get('/browse', requireAuth, requireWorker, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Browse Jobs - getKwikr</title>
+          <title>Browse Jobs - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -840,7 +840,7 @@ jobsRoutes.get('/:id', requireAuth, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${job.title} - getKwikr</title>
+          <title>${job.title} - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -1256,7 +1256,7 @@ jobsRoutes.get('/:id/apply', requireAuth, requireWorker, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Apply for ${job.title} - getKwikr</title>
+          <title>Apply for ${job.title} - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -1834,7 +1834,7 @@ jobsRoutes.get('/my-applications', requireAuth, requireWorker, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>My Applications - getKwikr</title>
+          <title>My Applications - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>
@@ -2126,7 +2126,7 @@ jobsRoutes.get('/my-jobs', requireAuth, requireClient, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>My Jobs - getKwikr</title>
+          <title>My Jobs - Kwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
           <script>

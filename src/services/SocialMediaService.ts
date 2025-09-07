@@ -568,7 +568,7 @@ export class SocialMediaService {
       case 'job_listing':
         return {
           title: `Job Opportunity: ${additionalData?.title || 'Service Required'}`,
-          description: `Check out this job opportunity on getKwikr. ${additionalData?.description || ''}`,
+          description: `Check out this job opportunity on Kwikr. ${additionalData?.description || ''}`,
           url: `${baseUrl}/jobs/${contentId}`,
           image_url: additionalData?.image_url,
           hashtags: ['KwikrDirectory', 'Jobs', 'ServiceProviders']
@@ -577,7 +577,7 @@ export class SocialMediaService {
       case 'worker_profile':
         return {
           title: `${additionalData?.name || 'Service Provider'} - Professional Services`,
-          description: `Connect with ${additionalData?.name || 'this professional'} on getKwikr for quality service solutions.`,
+          description: `Connect with ${additionalData?.name || 'this professional'} on Kwikr for quality service solutions.`,
           url: `${baseUrl}/profile/${contentId}`,
           image_url: additionalData?.profile_image_url,
           hashtags: ['KwikrDirectory', 'ServiceProvider', 'Professional']
@@ -586,7 +586,7 @@ export class SocialMediaService {
       case 'service':
         return {
           title: `${additionalData?.service_name || 'Professional Service'} Available`,
-          description: `Quality ${additionalData?.service_name || 'professional service'} available on getKwikr.`,
+          description: `Quality ${additionalData?.service_name || 'professional service'} available on Kwikr.`,
           url: `${baseUrl}/services/${contentId}`,
           image_url: additionalData?.service_image_url,
           hashtags: ['KwikrDirectory', 'Services', 'Professional']
@@ -594,8 +594,8 @@ export class SocialMediaService {
 
       default:
         return {
-          title: 'getKwikr - Connect with Service Providers',
-          description: 'Find trusted service providers in your area on getKwikr.',
+          title: 'Kwikr - Connect with Service Providers',
+          description: 'Find trusted service providers in your area on Kwikr.',
           url: baseUrl,
           hashtags: ['KwikrDirectory', 'Services', 'LocalBusiness']
         }

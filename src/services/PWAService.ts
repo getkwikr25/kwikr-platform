@@ -554,7 +554,7 @@ export class PWAService {
    */
   generatePWAManifest(customizations?: Partial<PWAManifest>): PWAManifest {
     const defaultManifest: PWAManifest = {
-      name: 'getKwikr',
+      name: 'Kwikr',
       short_name: 'Kwikr',
       description: 'Connect with Canadian service providers for all your needs',
       start_url: '/?utm_source=pwa',
@@ -626,7 +626,7 @@ export class PWAService {
    */
   generateServiceWorker(): string {
     return `
-// getKwikr Service Worker
+// Kwikr Service Worker
 const CACHE_NAME = 'kwikr-directory-v1';
 const OFFLINE_URL = '/offline.html';
 
@@ -736,7 +736,7 @@ self.addEventListener('push', event => {
       notificationData = event.data.json();
     } catch (e) {
       notificationData = {
-        title: 'getKwikr',
+        title: 'Kwikr',
         body: event.data.text() || 'You have a new notification'
       };
     }
@@ -753,7 +753,7 @@ self.addEventListener('push', event => {
 
   event.waitUntil(
     self.registration.showNotification(
-      notificationData.title || 'getKwikr',
+      notificationData.title || 'Kwikr',
       options
     )
   );
