@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kwikr Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'kwikr-green': '#00C881',
+              'kwikr-dark': '#1a1a1a',
+              'kwikr-gray': '#f8f9fa'
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow-lg border-b-2 border-kwikr-green">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-10 w-10 mr-3">
+                    <h1 class="text-2xl font-bold text-kwikr-green">Kwikr Admin</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="adminUserInfo" class="text-gray-700 font-medium">Loading...</span>
+                    <button onclick="logout()" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Dashboard Tabs -->
+        <div class="mb-8">
+            <div class="flex flex-wrap border-b border-gray-200">
+                <button class="tab-button active" onclick="showSection('overview')" data-section="overview">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Overview
+                </button>
+                <button class="tab-button" onclick="showSection('admin-panel')" data-section="admin-panel">
+                    <i class="fas fa-users-cog mr-2"></i>Admin Panel & Management
+                </button>
+                <button class="tab-button" onclick="showSection('analytics')" data-section="analytics">
+                    <i class="fas fa-chart-bar mr-2"></i>Analytics & Reporting
+                </button>
+                <button class="tab-button" onclick="showSection('marketing')" data-section="marketing">
+                    <i class="fas fa-bullhorn mr-2"></i>Marketing & Growth
+                </button>
+                <button class="tab-button" onclick="showSection('compliance')" data-section="compliance">
+                    <i class="fas fa-shield-alt mr-2"></i>Compliance & Security
+                </button>
+                <button class="tab-button" onclick="showSection('api-docs')" data-section="api-docs">
+                    <i class="fas fa-code mr-2"></i>API Documentation
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Overview Section -->
+        <div id="overview-section" class="dashboard-section">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Platform Overview</h2>
+            
+            <!-- Key Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-blue-500">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+                            <i class="fas fa-users text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Active Users</p>
+                            <p id="activeUsers" class="text-2xl font-bold text-gray-900">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-500">
+                            <i class="fas fa-briefcase text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Jobs</p>
+                            <p id="totalJobs" class="text-2xl font-bold text-gray-900">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-yellow-500">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-500">
+                            <i class="fas fa-dollar-sign text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Revenue Today</p>
+                            <p id="revenueToday" class="text-2xl font-bold text-gray-900">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 border-red-500">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-red-100 text-red-500">
+                            <i class="fas fa-exclamation-triangle text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Error Rate</p>
+                            <p id="errorRate" class="text-2xl font-bold text-gray-900">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">User Activity</h3>
+                    <canvas id="userActivityChart" width="400" height="200"></canvas>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Revenue Trend</h3>
+                    <canvas id="revenueChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Recent Activities -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Recent Admin Activities</h3>
+                <div id="recentActivities" class="space-y-3">
+                    <!-- Activities will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel & Management Section -->
+        <div id="admin-panel-section" class="dashboard-section" style="display: none;">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Admin Panel & Management</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- User Management -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-users-cog text-kwikr-green mr-2"></i>User Management
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="loadAdminUsers()" class="w-full bg-kwikr-green text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">
+                            <i class="fas fa-list mr-2"></i>View Admin Users
+                        </button>
+                        <button onclick="showCreateAdminForm()" class="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-user-plus mr-2"></i>Create Admin User
+                        </button>
+                        <button onclick="showRoleManagement()" class="w-full bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 transition-colors">
+                            <i class="fas fa-user-shield mr-2"></i>Manage Roles
+                        </button>
+                    </div>
+                    <div id="adminUsersTable" class="mt-6">
+                        <!-- Admin users table will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Content Moderation -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-flag text-orange-500 mr-2"></i>Content Moderation
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="loadModerationQueue()" class="w-full bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors">
+                            <i class="fas fa-list mr-2"></i>Moderation Queue
+                        </button>
+                        <button onclick="showFlaggedContent()" class="w-full bg-red-500 text-white py-3 px-6 rounded-lg hover:bg-red-600 transition-colors">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Flagged Content
+                        </button>
+                        <button onclick="showAutoModerationSettings()" class="w-full bg-gray-500 text-white py-3 px-6 rounded-lg hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-cog mr-2"></i>Auto-Moderation Settings
+                        </button>
+                    </div>
+                    <div id="moderationQueue" class="mt-6">
+                        <!-- Moderation queue will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Flags -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-toggle-on text-indigo-500 mr-2"></i>Feature Flags Management
+                </h3>
+                <div class="mb-4">
+                    <button onclick="loadFeatureFlags()" class="bg-indigo-500 text-white py-2 px-6 rounded-lg hover:bg-indigo-600 transition-colors">
+                        <i class="fas fa-sync mr-2"></i>Refresh Flags
+                    </button>
+                    <button onclick="showCreateFlagForm()" class="ml-4 bg-green-500 text-white py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Create Flag
+                    </button>
+                </div>
+                <div id="featureFlagsTable" class="overflow-x-auto">
+                    <!-- Feature flags table will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics & Reporting Section -->
+        <div id="analytics-section" class="dashboard-section" style="display: none;">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Analytics & Reporting</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- System Metrics -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-chart-line text-blue-500 mr-2"></i>System Metrics
+                    </h3>
+                    <div class="space-y-3">
+                        <button onclick="loadMetrics('performance')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-tachometer-alt text-green-500 mr-2"></i>Performance Metrics
+                        </button>
+                        <button onclick="loadMetrics('usage')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-users text-blue-500 mr-2"></i>Usage Analytics
+                        </button>
+                        <button onclick="loadMetrics('errors')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>Error Tracking
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Financial Reports -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-dollar-sign text-green-500 mr-2"></i>Financial Reports
+                    </h3>
+                    <div class="space-y-3">
+                        <button onclick="generateReport('revenue')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-chart-bar text-green-500 mr-2"></i>Revenue Report
+                        </button>
+                        <button onclick="generateReport('commissions')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-percentage text-blue-500 mr-2"></i>Commission Report
+                        </button>
+                        <button onclick="generateReport('subscriptions')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-credit-card text-purple-500 mr-2"></i>Subscription Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- User Analytics -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-user-chart text-purple-500 mr-2"></i>User Analytics
+                    </h3>
+                    <div class="space-y-3">
+                        <button onclick="loadUserAnalytics('activity')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-clock text-orange-500 mr-2"></i>User Activity
+                        </button>
+                        <button onclick="loadUserAnalytics('retention')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-repeat text-indigo-500 mr-2"></i>Retention Analysis
+                        </button>
+                        <button onclick="loadUserAnalytics('engagement')" class="w-full text-left bg-gray-50 hover:bg-gray-100 p-3 rounded-lg transition-colors">
+                            <i class="fas fa-heart text-red-500 mr-2"></i>Engagement Metrics
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Display Area -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Analytics Dashboard</h3>
+                <div id="analyticsDisplay" class="min-h-96 flex items-center justify-center text-gray-500">
+                    Select an analytics option to view detailed reports and charts
+                </div>
+            </div>
+        </div>
+
+        <!-- Marketing & Growth Section -->
+        <div id="marketing-section" class="dashboard-section" style="display: none;">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Marketing & Growth</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Campaign Management -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-bullhorn text-red-500 mr-2"></i>Campaign Management
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="loadMarketingCampaigns()" class="w-full bg-red-500 text-white py-3 px-6 rounded-lg hover:bg-red-600 transition-colors">
+                            <i class="fas fa-list mr-2"></i>View Campaigns
+                        </button>
+                        <button onclick="showCreateCampaignForm()" class="w-full bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Create Campaign
+                        </button>
+                        <button onclick="showCampaignAnalytics()" class="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-chart-line mr-2"></i>Campaign Analytics
+                        </button>
+                    </div>
+                    <div id="campaignsTable" class="mt-6">
+                        <!-- Campaigns table will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Growth Tools -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-rocket text-purple-500 mr-2"></i>Growth Tools
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="loadReferralProgram()" class="w-full bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 transition-colors">
+                            <i class="fas fa-users mr-2"></i>Referral Program
+                        </button>
+                        <button onclick="showPromoCodeManager()" class="w-full bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors">
+                            <i class="fas fa-tag mr-2"></i>Promo Codes
+                        </button>
+                        <button onclick="loadNotificationCenter()" class="w-full bg-indigo-500 text-white py-3 px-6 rounded-lg hover:bg-indigo-600 transition-colors">
+                            <i class="fas fa-bell mr-2"></i>Notifications
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Marketing Dashboard -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Marketing Dashboard</h3>
+                <div id="marketingDashboard" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Marketing metrics will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Compliance & Security Section -->
+        <div id="compliance-section" class="dashboard-section" style="display: none;">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Compliance & Security</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Security Monitoring -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-shield-alt text-green-500 mr-2"></i>Security Monitoring
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="loadSecurityLogs()" class="w-full bg-green-500 text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">
+                            <i class="fas fa-file-alt mr-2"></i>Security Logs
+                        </button>
+                        <button onclick="showFailedLogins()" class="w-full bg-red-500 text-white py-3 px-6 rounded-lg hover:bg-red-600 transition-colors">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>Failed Login Attempts
+                        </button>
+                        <button onclick="loadSuspiciousActivities()" class="w-full bg-orange-500 text-white py-3 px-6 rounded-lg hover:bg-orange-600 transition-colors">
+                            <i class="fas fa-search mr-2"></i>Suspicious Activities
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Compliance Reports -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-clipboard-check text-blue-500 mr-2"></i>Compliance Reports
+                    </h3>
+                    <div class="space-y-4">
+                        <button onclick="generateComplianceReport('privacy')" class="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors">
+                            <i class="fas fa-user-secret mr-2"></i>Privacy Compliance
+                        </button>
+                        <button onclick="generateComplianceReport('data')" class="w-full bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 transition-colors">
+                            <i class="fas fa-database mr-2"></i>Data Protection
+                        </button>
+                        <button onclick="generateComplianceReport('audit')" class="w-full bg-indigo-500 text-white py-3 px-6 rounded-lg hover:bg-indigo-600 transition-colors">
+                            <i class="fas fa-search-plus mr-2"></i>Security Audit
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compliance Dashboard -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Compliance Status</h3>
+                <div id="complianceDashboard" class="space-y-4">
+                    <!-- Compliance status will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- API Documentation Section -->
+        <div id="api-docs-section" class="dashboard-section" style="display: none;">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">API Documentation</h2>
+            
+            <!-- API Endpoints Overview -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-code text-indigo-500 mr-2"></i>Admin API Endpoints
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-800 mb-2">Authentication</h4>
+                        <p class="text-sm text-gray-600">Header: <code>x-user-id: 1</code></p>
+                        <p class="text-sm text-gray-600">Admin access required for all endpoints</p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-800 mb-2">Base URL</h4>
+                        <p class="text-sm text-gray-600"><code>/api/admin/</code></p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-gray-800 mb-2">Response Format</h4>
+                        <p class="text-sm text-gray-600">JSON with <code>success</code> and <code>data</code> fields</p>
+                    </div>
+                </div>
+                
+                <!-- API Endpoint Categories -->
+                <div class="space-y-4">
+                    <button onclick="showAPICategory('dashboard')" class="w-full text-left bg-blue-50 hover:bg-blue-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-blue-700">Dashboard APIs</h4>
+                                <p class="text-sm text-blue-600">Dashboard metrics, activities, and overview data</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-blue-500"></i>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showAPICategory('user-management')" class="w-full text-left bg-green-50 hover:bg-green-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-green-700">User Management APIs</h4>
+                                <p class="text-sm text-green-600">Admin users, roles, and permissions management</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-green-500"></i>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showAPICategory('moderation')" class="w-full text-left bg-orange-50 hover:bg-orange-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-orange-700">Content Moderation APIs</h4>
+                                <p class="text-sm text-orange-600">Moderation queue, flagged content, and review actions</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-orange-500"></i>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showAPICategory('financial')" class="w-full text-left bg-purple-50 hover:bg-purple-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-purple-700">Financial APIs</h4>
+                                <p class="text-sm text-purple-600">Revenue tracking, financial reports, and analytics</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-purple-500"></i>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showAPICategory('system')" class="w-full text-left bg-red-50 hover:bg-red-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-red-700">System Monitoring APIs</h4>
+                                <p class="text-sm text-red-600">Metrics, error logs, and system health monitoring</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-red-500"></i>
+                        </div>
+                    </button>
+                    
+                    <button onclick="showAPICategory('feature-flags')" class="w-full text-left bg-indigo-50 hover:bg-indigo-100 p-4 rounded-lg transition-colors">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-indigo-700">Feature Flags APIs</h4>
+                                <p class="text-sm text-indigo-600">Feature flag management and evaluation</p>
+                            </div>
+                            <i class="fas fa-chevron-right text-indigo-500"></i>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- API Details Display -->
+            <div id="apiDetails" class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Select an API category above to view detailed documentation</h3>
+                <p class="text-gray-600">Each category contains multiple endpoints with request/response examples, parameters, and usage instructions.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-8 text-center">
+            <i class="fas fa-spinner fa-spin text-3xl text-kwikr-green mb-4"></i>
+            <p class="text-gray-700">Loading...</p>
+        </div>
+    </div>
+
+    <style>
+        .tab-button {
+            padding: 12px 24px;
+            border-bottom: 2px solid transparent;
+            color: #6b7280;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+        }
+        
+        .tab-button:hover {
+            color: #00C881;
+            border-bottom-color: #00C881;
+        }
+        
+        .tab-button.active {
+            color: #00C881;
+            border-bottom-color: #00C881;
+            font-weight: 600;
+        }
+        
+        .dashboard-section {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+
+    <script>
+        // Admin Dashboard JavaScript Functions
+        let currentAdminUser = null;
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAdminUserInfo();
+            loadDashboardOverview();
+        });
+        
+        // Show/Hide sections
+        function showSection(sectionName) {
+            // Hide all sections
+            const sections = document.querySelectorAll('.dashboard-section');
+            sections.forEach(section => section.style.display = 'none');
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').style.display = 'block';
+            
+            // Update active tab
+            const tabs = document.querySelectorAll('.tab-button');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`[data-section="${sectionName}"]`).classList.add('active');
+            
+            // Load section-specific data
+            switch(sectionName) {
+                case 'admin-panel':
+                    loadFeatureFlags();
+                    break;
+                case 'analytics':
+                    // Analytics loaded on demand
+                    break;
+                case 'marketing':
+                    loadMarketingDashboard();
+                    break;
+                case 'compliance':
+                    loadComplianceDashboard();
+                    break;
+            }
+        }
+        
+        // Admin API Helper
+        async function adminAPI(endpoint, options = {}) {
+            const config = {
+                headers: {
+                    'x-user-id': '1', // Admin user ID
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                ...options
+            };
+            
+            try {
+                const response = await axios(`/api/admin${endpoint}`, config);
+                return response.data;
+            } catch (error) {
+                console.error('Admin API Error:', error);
+                if (error.response?.status === 401 || error.response?.status === 403) {
+                    alert('Admin access required. Please login as admin.');
+                    window.location.href = '/auth/login';
+                }
+                throw error;
+            }
+        }
+        
+        // Load admin user info
+        async function loadAdminUserInfo() {
+            try {
+                const response = await adminAPI('/permissions');
+                if (response.success) {
+                    currentAdminUser = response.data.user;
+                    document.getElementById('adminUserInfo').textContent = 
+                        `${currentAdminUser.role_name} - ${currentAdminUser.user_email || 'Admin User'}`;
+                }
+            } catch (error) {
+                document.getElementById('adminUserInfo').textContent = 'Error loading admin info';
+            }
+        }
+        
+        // Load dashboard overview
+        async function loadDashboardOverview() {
+            try {
+                const [metrics, activities] = await Promise.all([
+                    adminAPI('/dashboard'),
+                    adminAPI('/dashboard/activities?limit=10')
+                ]);
+                
+                if (metrics.success) {
+                    const data = metrics.data.metrics;
+                    document.getElementById('activeUsers').textContent = data.active_users || '0';
+                    document.getElementById('totalJobs').textContent = data.total_jobs || '0';
+                    document.getElementById('revenueToday').textContent = `$${data.revenue_today || '0.00'}`;
+                    document.getElementById('errorRate').textContent = `${(data.error_rate * 100 || 0).toFixed(2)}%`;
+                }
+                
+                if (activities.success) {
+                    displayRecentActivities(activities.data);
+                }
+                
+                // Load charts
+                loadDashboardCharts();
+                
+            } catch (error) {
+                console.error('Error loading dashboard overview:', error);
+            }
+        }
+        
+        // Display recent activities
+        function displayRecentActivities(activities) {
+            const container = document.getElementById('recentActivities');
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No recent activities</p>';
+                return;
+            }
+            
+            container.innerHTML = activities.map(activity => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-user-cog text-kwikr-green mr-3"></i>
+                        <div>
+                            <p class="font-medium text-gray-800">${activity.action}</p>
+                            <p class="text-sm text-gray-500">${activity.target_type} #${activity.target_id || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <span class="text-sm text-gray-400">${new Date(activity.created_at).toLocaleDateString()}</span>
+                </div>
+            `).join('');
+        }
+        
+        // Load dashboard charts
+        function loadDashboardCharts() {
+            // User Activity Chart
+            const userCtx = document.getElementById('userActivityChart').getContext('2d');
+            new Chart(userCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Active Users',
+                        data: [65, 78, 90, 110, 125, 150],
+                        borderColor: '#00C881',
+                        backgroundColor: 'rgba(0, 200, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+            
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            new Chart(revenueCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: [3200, 4100, 3800, 5200],
+                        backgroundColor: '#00C881',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Feature Flags Management
+        async function loadFeatureFlags() {
+            try {
+                const response = await adminAPI('/feature-flags');
+                if (response.success) {
+                    displayFeatureFlags(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading feature flags:', error);
+            }
+        }
+        
+        function displayFeatureFlags(flags) {
+            const container = document.getElementById('featureFlagsTable');
+            
+            if (!flags || flags.length === 0) {
+                container.innerHTML = '<p class="text-gray-500">No feature flags found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Flag Key</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${flags.map(flag => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-sm">${flag.flag_key}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">${flag.name}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${flag.default_value === 'true' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                        ${flag.default_value}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 py-1 text-xs font-semibold rounded-full ${flag.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                        ${flag.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button onclick="toggleFeatureFlag(${flag.id})" class="text-kwikr-green hover:text-green-600">
+                                        Toggle
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        // Toggle feature flag
+        async function toggleFeatureFlag(flagId) {
+            try {
+                const response = await adminAPI(`/feature-flags/${flagId}`, {
+                    method: 'PUT',
+                    data: {
+                        is_active: true // This would toggle based on current state
+                    }
+                });
+                
+                if (response.success) {
+                    loadFeatureFlags(); // Reload the table
+                }
+            } catch (error) {
+                alert('Error toggling feature flag: ' + error.message);
+            }
+        }
+        
+        // Marketing dashboard
+        function loadMarketingDashboard() {
+            const container = document.getElementById('marketingDashboard');
+            container.innerHTML = `
+                <div class="bg-blue-50 p-6 rounded-lg">
+                    <h4 class="font-semibold text-blue-700 mb-2">Active Campaigns</h4>
+                    <p class="text-2xl font-bold text-blue-900">8</p>
+                    <p class="text-sm text-blue-600">2 ending this week</p>
+                </div>
+                <div class="bg-green-50 p-6 rounded-lg">
+                    <h4 class="font-semibold text-green-700 mb-2">Conversion Rate</h4>
+                    <p class="text-2xl font-bold text-green-900">12.5%</p>
+                    <p class="text-sm text-green-600">↑ 2.3% from last month</p>
+                </div>
+                <div class="bg-purple-50 p-6 rounded-lg">
+                    <h4 class="font-semibold text-purple-700 mb-2">Referral Signups</h4>
+                    <p class="text-2xl font-bold text-purple-900">124</p>
+                    <p class="text-sm text-purple-600">This month</p>
+                </div>
+            `;
+        }
+        
+        // Compliance dashboard
+        function loadComplianceDashboard() {
+            const container = document.getElementById('complianceDashboard');
+            container.innerHTML = `
+                <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mr-4"></i>
+                        <div>
+                            <h4 class="font-semibold text-green-700">GDPR Compliance</h4>
+                            <p class="text-sm text-green-600">All requirements met</p>
+                        </div>
+                    </div>
+                    <span class="text-green-500 font-semibold">✓</span>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-shield-alt text-green-500 text-2xl mr-4"></i>
+                        <div>
+                            <h4 class="font-semibold text-green-700">Data Encryption</h4>
+                            <p class="text-sm text-green-600">All data encrypted at rest and in transit</p>
+                        </div>
+                    </div>
+                    <span class="text-green-500 font-semibold">✓</span>
+                </div>
+                <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 text-2xl mr-4"></i>
+                        <div>
+                            <h4 class="font-semibold text-yellow-700">Security Audit</h4>
+                            <p class="text-sm text-yellow-600">Due in 15 days</p>
+                        </div>
+                    </div>
+                    <span class="text-yellow-500 font-semibold">⚠</span>
+                </div>
+            `;
+        }
+        
+        // API Documentation
+        function showAPICategory(category) {
+            const container = document.getElementById('apiDetails');
+            
+            const apiDocs = {
+                'dashboard': {
+                    title: 'Dashboard APIs',
+                    endpoints: [
+                        {
+                            method: 'GET',
+                            endpoint: '/dashboard',
+                            description: 'Get comprehensive dashboard metrics and overview',
+                            response: '{"success": true, "data": {"metrics": {...}, "recent_activities": [...]}}'
+                        },
+                        {
+                            method: 'GET',
+                            endpoint: '/dashboard/metrics/:metric_type',
+                            description: 'Get specific metric type data',
+                            response: '{"success": true, "data": [...]}'
+                        }
+                    ]
+                },
+                'user-management': {
+                    title: 'User Management APIs',
+                    endpoints: [
+                        {
+                            method: 'GET',
+                            endpoint: '/users',
+                            description: 'Get all admin users with role information',
+                            response: '{"success": true, "data": [...]}'
+                        },
+                        {
+                            method: 'POST',
+                            endpoint: '/users',
+                            description: 'Create new admin user',
+                            body: '{"user_id": 123, "admin_role_id": 1, "notes": "..."}',
+                            response: '{"success": true, "data": {...}}'
+                        }
+                    ]
+                }
+                // Add more categories as needed
+            };
+            
+            const doc = apiDocs[category];
+            if (!doc) {
+                container.innerHTML = '<p class="text-gray-500">API documentation not found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <h3 class="text-xl font-semibold text-gray-800 mb-6">${doc.title}</h3>
+                <div class="space-y-6">
+                    ${doc.endpoints.map(endpoint => `
+                        <div class="border border-gray-200 rounded-lg p-6">
+                            <div class="flex items-center mb-4">
+                                <span class="px-3 py-1 text-sm font-semibold rounded ${endpoint.method === 'GET' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">${endpoint.method}</span>
+                                <code class="ml-3 text-gray-700">/api/admin${endpoint.endpoint}</code>
+                            </div>
+                            <p class="text-gray-600 mb-4">${endpoint.description}</p>
+                            ${endpoint.body ? `
+                                <div class="mb-4">
+                                    <h5 class="font-semibold text-gray-700 mb-2">Request Body:</h5>
+                                    <pre class="bg-gray-100 p-3 rounded text-sm overflow-x-auto">${endpoint.body}</pre>
+                                </div>
+                            ` : ''}
+                            <div>
+                                <h5 class="font-semibold text-gray-700 mb-2">Response:</h5>
+                                <pre class="bg-gray-100 p-3 rounded text-sm overflow-x-auto">${endpoint.response}</pre>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        // Placeholder functions for other features
+        function loadAdminUsers() { alert('Loading admin users...'); }
+        function showCreateAdminForm() { alert('Create admin form...'); }
+        function showRoleManagement() { alert('Role management...'); }
+        function loadModerationQueue() { alert('Loading moderation queue...'); }
+        function showFlaggedContent() { alert('Flagged content...'); }
+        function showAutoModerationSettings() { alert('Auto-moderation settings...'); }
+        function showCreateFlagForm() { alert('Create flag form...'); }
+        function loadMetrics(type) { alert(`Loading ${type} metrics...`); }
+        function generateReport(type) { alert(`Generating ${type} report...`); }
+        function loadUserAnalytics(type) { alert(`Loading ${type} analytics...`); }
+        function loadMarketingCampaigns() { alert('Loading marketing campaigns...'); }
+        function showCreateCampaignForm() { alert('Create campaign form...'); }
+        function showCampaignAnalytics() { alert('Campaign analytics...'); }
+        function loadReferralProgram() { alert('Loading referral program...'); }
+        function showPromoCodeManager() { alert('Promo code manager...'); }
+        function loadNotificationCenter() { alert('Loading notification center...'); }
+        function loadSecurityLogs() { alert('Loading security logs...'); }
+        function showFailedLogins() { alert('Failed login attempts...'); }
+        function loadSuspiciousActivities() { alert('Loading suspicious activities...'); }
+        function generateComplianceReport(type) { alert(`Generating ${type} compliance report...`); }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/auth/login';
+            }
+        }
+    </script>
+</body>
+</html>

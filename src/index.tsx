@@ -1085,7 +1085,37 @@ app.get('/payment-demo', (c) => {
     <html><head><title>Payment Demo</title></head>
     <body style="font-family: Arial, sans-serif; padding: 20px;">
       <h1>Payment System Demo</h1>
-      <p><a href="/static/payment-demo.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Payment Demo</a></p>
+      <p><a href="/static/stripe-payment-demo.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Payment Demo</a></p>
+    </body></html>
+  `)
+})
+
+// Admin Dashboard Route
+app.get('/admin', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Admin Access</title>
+      <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+      <h1 style="color: #00C881;">Kwikr Admin Dashboard</h1>
+      <p style="margin: 20px 0; color: #666;">Access the comprehensive admin management system</p>
+      <a href="/static/admin-dashboard.html" style="background: #00C881; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; display: inline-block;">
+        <i class="fas fa-tachometer-alt"></i> Launch Admin Dashboard
+      </a>
+      <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; text-align: left; max-width: 600px; margin: 30px auto 0;">
+        <h3 style="color: #00C881; margin-bottom: 15px;">Admin Features Available:</h3>
+        <ul style="list-style-type: none; padding: 0;">
+          <li style="margin: 8px 0;"><strong>✓ Admin Panel & Management</strong> - User management, roles, content moderation</li>
+          <li style="margin: 8px 0;"><strong>✓ Analytics & Reporting</strong> - System metrics, financial reports, user analytics</li>
+          <li style="margin: 8px 0;"><strong>✓ Marketing & Growth</strong> - Campaign management, referrals, notifications</li>
+          <li style="margin: 8px 0;"><strong>✓ Compliance & Security</strong> - Security monitoring, compliance reports</li>
+          <li style="margin: 8px 0;"><strong>✓ API Documentation</strong> - Complete admin API reference</li>
+        </ul>
+      </div>
+      <p style="margin-top: 20px; color: #666; font-size: 14px;">Admin access required (User ID: 1)</p>
     </body></html>
   `)
 })

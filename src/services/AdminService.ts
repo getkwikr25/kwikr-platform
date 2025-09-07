@@ -390,9 +390,9 @@ export class AdminService {
       const result = await this.db.prepare(`
         SELECT 
           au.*,
-          ar.name as role_name,
+          ar.role_name as role_name,
           ar.permissions,
-          u.name as user_name,
+          (u.first_name || ' ' || u.last_name) as user_name,
           u.email as user_email
         FROM admin_users au
         LEFT JOIN admin_roles ar ON au.admin_role_id = ar.id
@@ -436,9 +436,9 @@ export class AdminService {
       const adminUser = await this.db.prepare(`
         SELECT 
           au.*,
-          ar.name as role_name,
+          ar.role_name as role_name,
           ar.permissions,
-          u.name as user_name,
+          (u.first_name || ' ' || u.last_name) as user_name,
           u.email as user_email
         FROM admin_users au
         LEFT JOIN admin_roles ar ON au.admin_role_id = ar.id
@@ -501,9 +501,9 @@ export class AdminService {
       const adminUser = await this.db.prepare(`
         SELECT 
           au.*,
-          ar.name as role_name,
+          ar.role_name as role_name,
           ar.permissions,
-          u.name as user_name,
+          (u.first_name || ' ' || u.last_name) as user_name,
           u.email as user_email
         FROM admin_users au
         LEFT JOIN admin_roles ar ON au.admin_role_id = ar.id
@@ -1470,9 +1470,9 @@ export class AdminService {
       const result = await this.db.prepare(`
         SELECT 
           au.*,
-          ar.name as role_name,
+          ar.role_name as role_name,
           ar.permissions,
-          u.name as user_name,
+          (u.first_name || ' ' || u.last_name) as user_name,
           u.email as user_email
         FROM admin_users au
         LEFT JOIN admin_roles ar ON au.admin_role_id = ar.id
