@@ -1493,4 +1493,384 @@ export class AdminService {
       return null;
     }
   }
+
+  // ================================
+  // PLATFORM USER MANAGEMENT
+  // ================================
+
+  /**
+   * Get all platform users (clients, workers, admin)
+   */
+  async getAllPlatformUsers(filters: {
+    role?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    try {
+      const {
+        role,
+        status,
+        search,
+        limit = 50,
+        offset = 0
+      } = filters;
+
+      // Simplified query to avoid complex JOINs that might be causing issues
+      let query = `
+        SELECT 
+          u.*,
+          (u.first_name || ' ' || u.last_name) as full_name
+        FROM users u
+        WHERE 1=1
+      `;
+
+      const bindings: any[] = [];
+
+      if (role) {
+        query += ` AND u.role = ?`;
+        bindings.push(role);
+      }
+
+      if (status) {
+        query += ` AND u.is_active = ?`;
+        bindings.push(status === 'active' ? 1 : 0);
+      }
+
+      if (search) {
+        query += ` AND (
+          u.first_name LIKE ? OR 
+          u.last_name LIKE ? OR 
+          u.email LIKE ? OR
+          u.phone LIKE ?
+        )`;
+        const searchPattern = `%${search}%`;
+        bindings.push(searchPattern, searchPattern, searchPattern, searchPattern);
+      }
+
+      query += `
+        ORDER BY u.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+      bindings.push(limit, offset);
+
+      const result = await this.db.prepare(query).bind(...bindings).all();
+      
+      // Add job and review counts as separate queries for each user if needed
+      const users = result.results || [];
+      
+      // For now, let's return basic user data - we can add stats later
+      return users.map((user: any) => ({
+        ...user,
+        active_jobs: 0,
+        completed_jobs: 0,
+        average_rating: null,
+        total_reviews: 0
+      }));
+    } catch (error) {
+      console.error('Error getting platform users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get detailed user profile with all related data
+   */
+  async getUserDetails(userId: number) {
+    try {
+      // Get user basic info
+      const user = await this.db.prepare(`
+        SELECT * FROM users WHERE id = ?
+      `).bind(userId).first();
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Get user jobs
+      const jobs = await this.db.prepare(`
+        SELECT 
+          j.*,
+          jc.name as category_name,
+          (CASE 
+            WHEN j.client_id = ? THEN 'client'
+            WHEN j.worker_id = ? THEN 'worker'
+            ELSE 'none'
+          END) as user_role_in_job
+        FROM jobs j
+        LEFT JOIN job_categories jc ON j.category_id = jc.id
+        WHERE j.client_id = ? OR j.assigned_worker_id = ?
+        ORDER BY j.created_at DESC
+      `).bind(userId, userId, userId, userId).all();
+
+      // Get user reviews
+      const reviews = await this.db.prepare(`
+        SELECT 
+          r.*,
+          (u_reviewer.first_name || ' ' || u_reviewer.last_name) as reviewer_name,
+          (u_reviewee.first_name || ' ' || u_reviewee.last_name) as reviewee_name
+        FROM reviews r
+        LEFT JOIN users u_reviewer ON r.reviewer_id = u_reviewer.id
+        LEFT JOIN users u_reviewee ON (
+          (r.client_id = u_reviewee.id AND r.client_id = ?) OR
+          (r.worker_id = u_reviewee.id AND r.worker_id = ?)
+        )
+        WHERE r.client_id = ? OR r.worker_id = ?
+        ORDER BY r.created_at DESC
+      `).bind(userId, userId, userId, userId).all();
+
+      // Get worker-specific data if applicable
+      let workerProfile = null;
+      if (user.role === 'worker') {
+        workerProfile = await this.db.prepare(`
+          SELECT 
+            wp.*,
+            GROUP_CONCAT(ws.skill_name) as skills,
+            GROUP_CONCAT(wsa.area_name) as service_areas
+          FROM worker_profiles wp
+          LEFT JOIN worker_skills ws ON wp.user_id = ws.user_id
+          LEFT JOIN worker_service_areas wsa ON wp.user_id = wsa.user_id
+          WHERE wp.user_id = ?
+          GROUP BY wp.user_id
+        `).bind(userId).first();
+      }
+
+      return {
+        user: {
+          ...user,
+          full_name: (user.first_name + ' ' + user.last_name).trim()
+        },
+        jobs: jobs.results || [],
+        reviews: reviews.results || [],
+        worker_profile: workerProfile,
+        stats: {
+          total_jobs: (jobs.results || []).length,
+          active_jobs: (jobs.results || []).filter((j: any) => j.status === 'active').length,
+          completed_jobs: (jobs.results || []).filter((j: any) => j.status === 'completed').length,
+          total_reviews: (reviews.results || []).length,
+          average_rating: (reviews.results || []).length > 0 ? 
+            (reviews.results || []).reduce((sum: number, r: any) => sum + r.rating, 0) / (reviews.results || []).length : 0
+        }
+      };
+    } catch (error) {
+      console.error('Error getting user details:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user account status and details
+   */
+  async updateUserAccount(userId: number, updates: {
+    is_active?: boolean;
+    is_verified?: boolean;
+    email_verified?: boolean;
+    notes?: string;
+    admin_action?: string;
+  }, adminUserId: number) {
+    try {
+      const updateFields: string[] = [];
+      const bindings: any[] = [];
+
+      if (updates.is_active !== undefined) {
+        updateFields.push('is_active = ?');
+        bindings.push(updates.is_active ? 1 : 0);
+      }
+
+      if (updates.is_verified !== undefined) {
+        updateFields.push('is_verified = ?');
+        bindings.push(updates.is_verified ? 1 : 0);
+      }
+
+      if (updates.email_verified !== undefined) {
+        updateFields.push('email_verified = ?');
+        bindings.push(updates.email_verified ? 1 : 0);
+      }
+
+      if (updateFields.length === 0) {
+        throw new Error('No valid updates provided');
+      }
+
+      updateFields.push('updated_at = CURRENT_TIMESTAMP');
+      bindings.push(userId);
+
+      const query = `
+        UPDATE users 
+        SET ${updateFields.join(', ')}
+        WHERE id = ?
+      `;
+
+      await this.db.prepare(query).bind(...bindings).run();
+
+      // Log admin activity
+      await this.logAdminActivity(
+        adminUserId,
+        updates.admin_action || 'user_account_updated',
+        'user',
+        userId,
+        JSON.stringify(updates)
+      );
+
+      return { success: true, message: 'User account updated successfully' };
+    } catch (error) {
+      console.error('Error updating user account:', error);
+      throw error;
+    }
+  }
+
+  // ================================
+  // JOB MANAGEMENT
+  // ================================
+
+  /**
+   * Get all jobs with filtering and search
+   */
+  async getAllJobs(filters: {
+    status?: string;
+    category_id?: number;
+    client_id?: number;
+    worker_id?: number;
+    search?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) {
+    try {
+      const {
+        status,
+        category_id,
+        client_id,
+        worker_id,
+        search,
+        date_from,
+        date_to,
+        limit = 50,
+        offset = 0
+      } = filters;
+
+      // Simplified query
+      let query = `
+        SELECT 
+          j.*,
+          jc.name as category_name,
+          (u_client.first_name || ' ' || u_client.last_name) as client_name,
+          u_client.email as client_email,
+          (u_worker.first_name || ' ' || u_worker.last_name) as worker_name,
+          u_worker.email as worker_email
+        FROM jobs j
+        LEFT JOIN job_categories jc ON j.category_id = jc.id
+        LEFT JOIN users u_client ON j.client_id = u_client.id
+        LEFT JOIN users u_worker ON j.assigned_worker_id = u_worker.id
+        WHERE 1=1
+      `;
+
+      const bindings: any[] = [];
+
+      if (status) {
+        query += ` AND j.status = ?`;
+        bindings.push(status);
+      }
+
+      if (category_id) {
+        query += ` AND j.category_id = ?`;
+        bindings.push(category_id);
+      }
+
+      if (client_id) {
+        query += ` AND j.client_id = ?`;
+        bindings.push(client_id);
+      }
+
+      if (worker_id) {
+        query += ` AND j.assigned_worker_id = ?`;
+        bindings.push(worker_id);
+      }
+
+      if (search) {
+        query += ` AND (
+          j.title LIKE ? OR 
+          j.description LIKE ?
+        )`;
+        const searchPattern = `%${search}%`;
+        bindings.push(searchPattern, searchPattern);
+      }
+
+      if (date_from) {
+        query += ` AND j.created_at >= ?`;
+        bindings.push(date_from);
+      }
+
+      if (date_to) {
+        query += ` AND j.created_at <= ?`;
+        bindings.push(date_to);
+      }
+
+      query += `
+        ORDER BY j.created_at DESC
+        LIMIT ? OFFSET ?
+      `;
+      bindings.push(limit, offset);
+
+      const result = await this.db.prepare(query).bind(...bindings).all();
+      
+      // Add basic counts as placeholder
+      return (result.results || []).map((job: any) => ({
+        ...job,
+        application_count: 0,
+        job_rating: null,
+        location: `${job.location_city || ''}, ${job.location_province || ''}`.trim().replace(/^,\s*/, '')
+      }));
+    } catch (error) {
+      console.error('Error getting jobs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get platform statistics
+   */
+  async getPlatformStats() {
+    try {
+      const stats = await Promise.all([
+        // Total users by role
+        this.db.prepare(`SELECT role, COUNT(*) as count FROM users GROUP BY role`).all(),
+        
+        // Jobs by status
+        this.db.prepare(`SELECT status, COUNT(*) as count FROM jobs GROUP BY status`).all(),
+        
+        // Recent activity counts (last 7 days)
+        this.db.prepare(`
+          SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as new_users
+          FROM users 
+          WHERE created_at >= datetime('now', '-7 days')
+          GROUP BY DATE(created_at)
+          ORDER BY date DESC
+        `).all(),
+        
+        this.db.prepare(`
+          SELECT 
+            DATE(created_at) as date,
+            COUNT(*) as new_jobs
+          FROM jobs 
+          WHERE created_at >= datetime('now', '-7 days')
+          GROUP BY DATE(created_at)
+          ORDER BY date DESC
+        `).all()
+      ]);
+
+      return {
+        users_by_role: stats[0].results || [],
+        jobs_by_status: stats[1].results || [],
+        daily_new_users: stats[2].results || [],
+        daily_new_jobs: stats[3].results || []
+      };
+    } catch (error) {
+      console.error('Error getting platform stats:', error);
+      throw error;
+    }
+  }
 }

@@ -148,27 +148,176 @@
         <div id="admin-panel-section" class="dashboard-section" style="display: none;">
             <h2 class="text-3xl font-bold text-gray-800 mb-6">Admin Panel & Management</h2>
             
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <!-- User Management -->
-                <div class="bg-white rounded-lg shadow-lg p-6">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">
-                        <i class="fas fa-users-cog text-kwikr-green mr-2"></i>User Management
-                    </h3>
-                    <div class="space-y-4">
-                        <button onclick="loadAdminUsers()" class="w-full bg-kwikr-green text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors">
-                            <i class="fas fa-list mr-2"></i>View Admin Users
-                        </button>
-                        <button onclick="showCreateAdminForm()" class="w-full bg-blue-500 text-white py-3 px-6 rounded-lg hover:bg-blue-600 transition-colors">
-                            <i class="fas fa-user-plus mr-2"></i>Create Admin User
-                        </button>
-                        <button onclick="showRoleManagement()" class="w-full bg-purple-500 text-white py-3 px-6 rounded-lg hover:bg-purple-600 transition-colors">
-                            <i class="fas fa-user-shield mr-2"></i>Manage Roles
-                        </button>
-                    </div>
-                    <div id="adminUsersTable" class="mt-6">
-                        <!-- Admin users table will be loaded here -->
+            <!-- Platform Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-blue-50 rounded-lg p-6 border-l-4 border-blue-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-blue-600">Total Users</p>
+                            <p id="totalPlatformUsers" class="text-2xl font-bold text-blue-900">Loading...</p>
+                        </div>
+                        <i class="fas fa-users text-blue-500 text-2xl"></i>
                     </div>
                 </div>
+                <div class="bg-green-50 rounded-lg p-6 border-l-4 border-green-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-green-600">Active Jobs</p>
+                            <p id="totalActiveJobs" class="text-2xl font-bold text-green-900">Loading...</p>
+                        </div>
+                        <i class="fas fa-briefcase text-green-500 text-2xl"></i>
+                    </div>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-6 border-l-4 border-purple-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-purple-600">Workers</p>
+                            <p id="totalWorkers" class="text-2xl font-bold text-purple-900">Loading...</p>
+                        </div>
+                        <i class="fas fa-hammer text-purple-500 text-2xl"></i>
+                    </div>
+                </div>
+                <div class="bg-orange-50 rounded-lg p-6 border-l-4 border-orange-500">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-orange-600">Clients</p>
+                            <p id="totalClients" class="text-2xl font-bold text-orange-900">Loading...</p>
+                        </div>
+                        <i class="fas fa-building text-orange-500 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Management Tabs -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex flex-wrap border-b border-gray-200 mb-6">
+                    <button class="management-tab-button active" onclick="showManagementTab('platform-users')" data-tab="platform-users">
+                        <i class="fas fa-users mr-2"></i>Platform Users
+                    </button>
+                    <button class="management-tab-button" onclick="showManagementTab('job-management')" data-tab="job-management">
+                        <i class="fas fa-briefcase mr-2"></i>Job Management
+                    </button>
+                    <button class="management-tab-button" onclick="showManagementTab('admin-users')" data-tab="admin-users">
+                        <i class="fas fa-user-shield mr-2"></i>Admin Users
+                    </button>
+                    <button class="management-tab-button" onclick="showManagementTab('content-moderation')" data-tab="content-moderation">
+                        <i class="fas fa-flag mr-2"></i>Content Moderation
+                    </button>
+                </div>
+
+                <!-- Platform Users Tab -->
+                <div id="platform-users-tab" class="management-tab-content">
+                    <div class="flex flex-col lg:flex-row gap-6 mb-6">
+                        <div class="flex-1">
+                            <input type="text" id="userSearchInput" placeholder="Search users by name, email, or phone..." 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent"
+                                   onkeyup="searchUsers()">
+                        </div>
+                        <div class="flex gap-3">
+                            <select id="userRoleFilter" onchange="filterUsers()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green">
+                                <option value="">All Roles</option>
+                                <option value="client">Clients</option>
+                                <option value="worker">Workers</option>
+                                <option value="admin">Admins</option>
+                            </select>
+                            <select id="userStatusFilter" onchange="filterUsers()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                            <button onclick="loadPlatformUsers()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-sync mr-2"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div id="platformUsersTable" class="overflow-x-auto">
+                        <!-- Platform users table will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Job Management Tab -->
+                <div id="job-management-tab" class="management-tab-content" style="display: none;">
+                    <div class="flex flex-col lg:flex-row gap-6 mb-6">
+                        <div class="flex-1">
+                            <input type="text" id="jobSearchInput" placeholder="Search jobs by title, description, or location..." 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent"
+                                   onkeyup="searchJobs()">
+                        </div>
+                        <div class="flex gap-3">
+                            <select id="jobStatusFilter" onchange="filterJobs()" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                            </select>
+                            <button onclick="loadPlatformJobs()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-sync mr-2"></i>Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div id="platformJobsTable" class="overflow-x-auto">
+                        <!-- Platform jobs table will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Admin Users Tab -->
+                <div id="admin-users-tab" class="management-tab-content" style="display: none;">
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <button onclick="loadAdminUsers()" class="bg-kwikr-green text-white py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-list mr-2"></i>View Admin Users
+                            </button>
+                            <button onclick="showCreateAdminForm()" class="bg-blue-500 text-white py-2 px-6 rounded-lg hover:bg-blue-600 transition-colors">
+                                <i class="fas fa-user-plus mr-2"></i>Create Admin User
+                            </button>
+                            <button onclick="showRoleManagement()" class="bg-purple-500 text-white py-2 px-6 rounded-lg hover:bg-purple-600 transition-colors">
+                                <i class="fas fa-user-shield mr-2"></i>Manage Roles
+                            </button>
+                        </div>
+                        <div id="adminUsersTable">
+                            <!-- Admin users table will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content Moderation Tab -->
+                <div id="content-moderation-tab" class="management-tab-content" style="display: none;">
+                    <div class="space-y-4">
+                        <div class="flex gap-4">
+                            <button onclick="loadModerationQueue()" class="bg-orange-500 text-white py-2 px-6 rounded-lg hover:bg-orange-600 transition-colors">
+                                <i class="fas fa-list mr-2"></i>Moderation Queue
+                            </button>
+                            <button onclick="showFlaggedContent()" class="bg-red-500 text-white py-2 px-6 rounded-lg hover:bg-red-600 transition-colors">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>Flagged Content
+                            </button>
+                            <button onclick="showAutoModerationSettings()" class="bg-gray-500 text-white py-2 px-6 rounded-lg hover:bg-gray-600 transition-colors">
+                                <i class="fas fa-cog mr-2"></i>Auto-Moderation Settings
+                            </button>
+                        </div>
+                        <div id="moderationQueue">
+                            <!-- Moderation queue will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Details Modal -->
+            <div id="userDetailsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-xl font-semibold text-gray-800">User Details</h3>
+                            <button onclick="closeUserDetailsModal()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        <div id="userDetailsContent">
+                            <!-- User details will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
 
                 <!-- Content Moderation -->
                 <div class="bg-white rounded-lg shadow-lg p-6">
@@ -524,6 +673,35 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .management-tab-button {
+            padding: 12px 24px;
+            border-bottom: 2px solid transparent;
+            color: #6b7280;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            margin-right: 8px;
+        }
+        
+        .management-tab-button:hover {
+            color: #00C881;
+            border-bottom-color: #00C881;
+        }
+        
+        .management-tab-button.active {
+            color: #00C881;
+            border-bottom-color: #00C881;
+            font-weight: 600;
+        }
+        
+        .management-tab-content {
+            animation: fadeIn 0.3s ease-in-out;
+        }
     </style>
 
     <script>
@@ -554,6 +732,7 @@
             switch(sectionName) {
                 case 'admin-panel':
                     loadFeatureFlags();
+                    loadPlatformUsers(); // Load platform users by default
                     break;
                 case 'analytics':
                     // Analytics loaded on demand
@@ -917,6 +1096,378 @@
             `;
         }
         
+        // Platform Management Functions
+        
+        // Management tab switching
+        function showManagementTab(tabName) {
+            // Hide all tab contents
+            const tabs = document.querySelectorAll('.management-tab-content');
+            tabs.forEach(tab => tab.style.display = 'none');
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            
+            // Update active tab button
+            const buttons = document.querySelectorAll('.management-tab-button');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Load tab-specific data
+            switch(tabName) {
+                case 'platform-users':
+                    loadPlatformUsers();
+                    break;
+                case 'job-management':
+                    loadPlatformJobs();
+                    break;
+                case 'admin-users':
+                    loadAdminUsers();
+                    break;
+                case 'content-moderation':
+                    loadModerationQueue();
+                    break;
+            }
+        }
+
+        // Load platform users
+        async function loadPlatformUsers(search = '', role = '', status = '') {
+            try {
+                const params = new URLSearchParams();
+                if (search) params.append('search', search);
+                if (role) params.append('role', role);
+                if (status) params.append('status', status);
+                params.append('limit', '100');
+
+                const response = await adminAPI(`/platform/users?${params.toString()}`);
+                if (response.success) {
+                    displayPlatformUsers(response.data);
+                    updatePlatformStats(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading platform users:', error);
+            }
+        }
+
+        // Display platform users table
+        function displayPlatformUsers(users) {
+            const container = document.getElementById('platformUsersTable');
+            
+            if (!users || users.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No users found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stats</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Joined</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${users.map(user => `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10">
+                                            <div class="h-10 w-10 rounded-full bg-kwikr-green flex items-center justify-center text-white font-semibold">
+                                                ${user.first_name?.[0] || 'U'}${user.last_name?.[0] || ''}
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-gray-900">${user.first_name || ''} ${user.last_name || ''}</div>
+                                            <div class="text-sm text-gray-500">ID: ${user.id}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeColor(user.role)}">
+                                        ${user.role}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    <div>${user.email}</div>
+                                    ${user.phone ? `<div class="text-gray-500">${user.phone}</div>` : ''}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <div>Jobs: ${user.active_jobs || 0}/${user.completed_jobs || 0}</div>
+                                    ${user.average_rating ? `<div>Rating: ${parseFloat(user.average_rating).toFixed(1)}/5</div>` : ''}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                        ${user.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${new Date(user.created_at).toLocaleDateString()}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                    <button onclick="viewUserDetails(${user.id})" class="text-kwikr-green hover:text-green-600">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="editUser(${user.id})" class="text-blue-600 hover:text-blue-500">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="toggleUserStatus(${user.id}, ${user.is_active})" class="text-${user.is_active ? 'red' : 'green'}-600 hover:text-${user.is_active ? 'red' : 'green'}-500">
+                                        <i class="fas fa-${user.is_active ? 'ban' : 'check'}"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Load platform jobs
+        async function loadPlatformJobs(search = '', status = '') {
+            try {
+                const params = new URLSearchParams();
+                if (search) params.append('search', search);
+                if (status) params.append('status', status);
+                params.append('limit', '100');
+
+                const response = await adminAPI(`/platform/jobs?${params.toString()}`);
+                if (response.success) {
+                    displayPlatformJobs(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading platform jobs:', error);
+            }
+        }
+
+        // Display platform jobs table
+        function displayPlatformJobs(jobs) {
+            const container = document.getElementById('platformJobsTable');
+            
+            if (!jobs || jobs.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">No jobs found</p>';
+                return;
+            }
+            
+            container.innerHTML = `
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Job</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Worker</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Budget</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Applications</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        ${jobs.map(job => `
+                            <tr>
+                                <td class="px-6 py-4">
+                                    <div class="text-sm font-medium text-gray-900">${job.title}</div>
+                                    <div class="text-sm text-gray-500">${job.category_name || 'No category'}</div>
+                                    <div class="text-sm text-gray-500">${job.location || 'No location'}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <div class="font-medium text-gray-900">${job.client_name || 'Unknown'}</div>
+                                    <div class="text-gray-500">${job.client_email || ''}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    ${job.worker_name ? `
+                                        <div class="font-medium text-gray-900">${job.worker_name}</div>
+                                        <div class="text-gray-500">${job.worker_email}</div>
+                                    ` : '<span class="text-gray-400">Not assigned</span>'}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getJobStatusBadgeColor(job.status)}">
+                                        ${job.status}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    $${job.budget_min || 0} - $${job.budget_max || 0}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    ${job.application_count || 0}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    ${new Date(job.created_at).toLocaleDateString()}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                    <button onclick="viewJobDetails(${job.id})" class="text-kwikr-green hover:text-green-600">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button onclick="editJob(${job.id})" class="text-blue-600 hover:text-blue-500">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // View user details
+        async function viewUserDetails(userId) {
+            try {
+                const response = await adminAPI(`/platform/users/${userId}`);
+                if (response.success) {
+                    showUserDetailsModal(response.data);
+                }
+            } catch (error) {
+                alert('Error loading user details: ' + error.message);
+            }
+        }
+
+        // Show user details modal
+        function showUserDetailsModal(userData) {
+            const { user, jobs, reviews, worker_profile, stats } = userData;
+            
+            document.getElementById('userDetailsContent').innerHTML = `
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- User Info -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-lg">User Information</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p><strong>Name:</strong> ${user.full_name}</p>
+                            <p><strong>Email:</strong> ${user.email}</p>
+                            <p><strong>Phone:</strong> ${user.phone || 'Not provided'}</p>
+                            <p><strong>Role:</strong> ${user.role}</p>
+                            <p><strong>Location:</strong> ${user.city || ''}, ${user.province || ''}</p>
+                            <p><strong>Verified:</strong> ${user.is_verified ? 'Yes' : 'No'}</p>
+                            <p><strong>Active:</strong> ${user.is_active ? 'Yes' : 'No'}</p>
+                            <p><strong>Joined:</strong> ${new Date(user.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="space-y-4">
+                        <h4 class="font-semibold text-lg">Statistics</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p><strong>Total Jobs:</strong> ${stats.total_jobs}</p>
+                            <p><strong>Active Jobs:</strong> ${stats.active_jobs}</p>
+                            <p><strong>Completed Jobs:</strong> ${stats.completed_jobs}</p>
+                            <p><strong>Reviews:</strong> ${stats.total_reviews}</p>
+                            <p><strong>Average Rating:</strong> ${stats.average_rating ? stats.average_rating.toFixed(1) : 'N/A'}/5</p>
+                        </div>
+                    </div>
+                </div>
+
+                ${worker_profile ? `
+                    <div class="mt-6">
+                        <h4 class="font-semibold text-lg mb-3">Worker Profile</h4>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <p><strong>Hourly Rate:</strong> $${worker_profile.hourly_rate || 'Not set'}</p>
+                            <p><strong>Experience:</strong> ${worker_profile.experience_years || 'Not specified'} years</p>
+                            <p><strong>Skills:</strong> ${worker_profile.skills || 'None listed'}</p>
+                            <p><strong>Service Areas:</strong> ${worker_profile.service_areas || 'None listed'}</p>
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="mt-6 flex gap-3">
+                    <button onclick="editUser(${user.id})" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Edit User
+                    </button>
+                    <button onclick="toggleUserStatus(${user.id}, ${user.is_active})" class="bg-${user.is_active ? 'red' : 'green'}-500 text-white px-4 py-2 rounded hover:bg-${user.is_active ? 'red' : 'green'}-600">
+                        ${user.is_active ? 'Deactivate' : 'Activate'} User
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('userDetailsModal').classList.remove('hidden');
+            document.getElementById('userDetailsModal').classList.add('flex');
+        }
+
+        // Close user details modal
+        function closeUserDetailsModal() {
+            document.getElementById('userDetailsModal').classList.add('hidden');
+            document.getElementById('userDetailsModal').classList.remove('flex');
+        }
+
+        // Update platform stats
+        function updatePlatformStats(users) {
+            const totalUsers = users.length;
+            const workers = users.filter(u => u.role === 'worker').length;
+            const clients = users.filter(u => u.role === 'client').length;
+            const activeJobs = users.reduce((sum, u) => sum + (u.active_jobs || 0), 0);
+
+            document.getElementById('totalPlatformUsers').textContent = totalUsers;
+            document.getElementById('totalWorkers').textContent = workers;
+            document.getElementById('totalClients').textContent = clients;
+            document.getElementById('totalActiveJobs').textContent = activeJobs;
+        }
+
+        // Helper functions
+        function getRoleBadgeColor(role) {
+            switch(role) {
+                case 'client': return 'bg-blue-100 text-blue-800';
+                case 'worker': return 'bg-green-100 text-green-800';
+                case 'admin': return 'bg-purple-100 text-purple-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getJobStatusBadgeColor(status) {
+            switch(status) {
+                case 'active': return 'bg-green-100 text-green-800';
+                case 'in_progress': return 'bg-blue-100 text-blue-800';
+                case 'completed': return 'bg-gray-100 text-gray-800';
+                case 'cancelled': return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        // Search and filter functions
+        function searchUsers() {
+            const search = document.getElementById('userSearchInput').value;
+            const role = document.getElementById('userRoleFilter').value;
+            const status = document.getElementById('userStatusFilter').value;
+            loadPlatformUsers(search, role, status);
+        }
+
+        function filterUsers() {
+            searchUsers();
+        }
+
+        function searchJobs() {
+            const search = document.getElementById('jobSearchInput').value;
+            const status = document.getElementById('jobStatusFilter').value;
+            loadPlatformJobs(search, status);
+        }
+
+        function filterJobs() {
+            searchJobs();
+        }
+
+        // Toggle user status
+        async function toggleUserStatus(userId, currentStatus) {
+            try {
+                const action = currentStatus ? 'deactivate' : 'activate';
+                if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+
+                const response = await adminAPI(`/platform/users/${userId}`, {
+                    method: 'PUT',
+                    data: {
+                        is_active: !currentStatus,
+                        admin_action: `user_${action}d`
+                    }
+                });
+
+                if (response.success) {
+                    alert(`User ${action}d successfully`);
+                    loadPlatformUsers(); // Reload the table
+                }
+            } catch (error) {
+                alert(`Error ${currentStatus ? 'deactivating' : 'activating'} user: ` + error.message);
+            }
+        }
+
         // Placeholder functions for other features
         function loadAdminUsers() { alert('Loading admin users...'); }
         function showCreateAdminForm() { alert('Create admin form...'); }
@@ -924,6 +1475,9 @@
         function loadModerationQueue() { alert('Loading moderation queue...'); }
         function showFlaggedContent() { alert('Flagged content...'); }
         function showAutoModerationSettings() { alert('Auto-moderation settings...'); }
+        function editUser(userId) { alert(`Edit user ${userId}`); }
+        function viewJobDetails(jobId) { alert(`View job details ${jobId}`); }
+        function editJob(jobId) { alert(`Edit job ${jobId}`); }
         function showCreateFlagForm() { alert('Create flag form...'); }
         function loadMetrics(type) { alert(`Loading ${type} metrics...`); }
         function generateReport(type) { alert(`Generating ${type} report...`); }

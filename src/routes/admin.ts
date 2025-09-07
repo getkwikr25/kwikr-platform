@@ -792,6 +792,142 @@ admin.post('/log-activity', async (c) => {
 });
 
 // ================================
+// PLATFORM USER MANAGEMENT ROUTES
+// ================================
+
+/**
+ * GET /api/admin/platform/users
+ * Get all platform users with filtering
+ */
+admin.get('/platform/users', requirePermission('user_management'), async (c) => {
+  try {
+    const adminService = c.get('adminService') as AdminService;
+    
+    const filters = {
+      role: c.req.query('role'),
+      status: c.req.query('status'),
+      search: c.req.query('search'),
+      limit: parseInt(c.req.query('limit') || '50'),
+      offset: parseInt(c.req.query('offset') || '0')
+    };
+
+    const users = await adminService.getAllPlatformUsers(filters);
+
+    return c.json({
+      success: true,
+      data: users
+    });
+  } catch (error) {
+    console.error('Get platform users error:', error);
+    return c.json({ error: 'Failed to get platform users' }, 500);
+  }
+});
+
+/**
+ * GET /api/admin/platform/users/:id
+ * Get detailed user information
+ */
+admin.get('/platform/users/:id', requirePermission('user_management'), async (c) => {
+  try {
+    const adminService = c.get('adminService') as AdminService;
+    const userId = parseInt(c.req.param('id'));
+
+    const userDetails = await adminService.getUserDetails(userId);
+
+    return c.json({
+      success: true,
+      data: userDetails
+    });
+  } catch (error) {
+    console.error('Get user details error:', error);
+    return c.json({ error: 'Failed to get user details' }, 500);
+  }
+});
+
+/**
+ * PUT /api/admin/platform/users/:id
+ * Update user account status and details
+ */
+admin.put('/platform/users/:id', requirePermission('user_management'), async (c) => {
+  try {
+    const adminService = c.get('adminService') as AdminService;
+    const adminUser = c.get('adminUser');
+    const userId = parseInt(c.req.param('id'));
+    const body = await c.req.json();
+
+    const result = await adminService.updateUserAccount(userId, body, adminUser.id);
+
+    return c.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('Update user account error:', error);
+    return c.json({ error: 'Failed to update user account' }, 500);
+  }
+});
+
+// ================================
+// JOB MANAGEMENT ROUTES
+// ================================
+
+/**
+ * GET /api/admin/platform/jobs
+ * Get all jobs with filtering and search
+ */
+admin.get('/platform/jobs', requirePermission('content_moderation'), async (c) => {
+  try {
+    const adminService = c.get('adminService') as AdminService;
+    
+    const filters = {
+      status: c.req.query('status'),
+      category_id: c.req.query('category_id') ? parseInt(c.req.query('category_id')!) : undefined,
+      client_id: c.req.query('client_id') ? parseInt(c.req.query('client_id')!) : undefined,
+      worker_id: c.req.query('worker_id') ? parseInt(c.req.query('worker_id')!) : undefined,
+      search: c.req.query('search'),
+      date_from: c.req.query('date_from'),
+      date_to: c.req.query('date_to'),
+      limit: parseInt(c.req.query('limit') || '50'),
+      offset: parseInt(c.req.query('offset') || '0')
+    };
+
+    const jobs = await adminService.getAllJobs(filters);
+
+    return c.json({
+      success: true,
+      data: jobs
+    });
+  } catch (error) {
+    console.error('Get jobs error:', error);
+    return c.json({ error: 'Failed to get jobs' }, 500);
+  }
+});
+
+// ================================
+// PLATFORM STATISTICS ROUTES
+// ================================
+
+/**
+ * GET /api/admin/platform/stats
+ * Get comprehensive platform statistics
+ */
+admin.get('/platform/stats', requirePermission('system_monitoring'), async (c) => {
+  try {
+    const adminService = c.get('adminService') as AdminService;
+    
+    const stats = await adminService.getPlatformStats();
+
+    return c.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Get platform stats error:', error);
+    return c.json({ error: 'Failed to get platform stats' }, 500);
+  }
+});
+
+// ================================
 // ERROR HANDLING
 // ================================
 
