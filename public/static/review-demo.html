@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review & Rating System Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'kwikr-green': '#00C881',
+                        'kwikr-dark': '#1a1a1a',
+                        'kwikr-gray': '#f8f9fa'
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200 mb-8">
+        <div class="max-w-4xl mx-auto px-4 py-6">
+            <h1 class="text-3xl font-bold text-gray-900">
+                <i class="fas fa-star text-kwikr-green mr-3"></i>
+                Review & Rating System Demo
+            </h1>
+            <p class="text-gray-600 mt-2">Test the client review system for rating workers after service completion</p>
+        </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto px-4 space-y-8">
+        <!-- Quick Test Section -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                <i class="fas fa-rocket text-blue-600 mr-2"></i>
+                Quick Test
+            </h2>
+            <p class="text-blue-800 mb-4">Test the review system with sample data from existing bookings.</p>
+            <div class="flex space-x-4">
+                <button onclick="loadSampleBookings()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-database mr-2"></i>Load Sample Bookings
+                </button>
+                <button onclick="viewReviewAnalytics()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                    <i class="fas fa-chart-bar mr-2"></i>View Analytics
+                </button>
+            </div>
+        </div>
+
+        <!-- Sample Bookings List -->
+        <div id="bookingsList" class="hidden">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Available Bookings to Review</h2>
+            <div id="bookingsContainer" class="space-y-4">
+                <!-- Bookings will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Review Submission Form -->
+        <div id="reviewForm" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <i class="fas fa-edit text-kwikr-green mr-2"></i>
+                Submit Review
+            </h2>
+
+            <form id="submitReviewForm" class="space-y-6">
+                <!-- Booking Information -->
+                <div id="bookingInfo" class="bg-gray-50 p-4 rounded-lg">
+                    <!-- Booking details will be populated here -->
+                </div>
+
+                <!-- Overall Rating -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Overall Rating *</label>
+                    <div class="flex items-center space-x-2">
+                        <div id="overallRating" class="flex space-x-1">
+                            <button type="button" class="star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none" data-rating="1">★</button>
+                            <button type="button" class="star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none" data-rating="2">★</button>
+                            <button type="button" class="star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none" data-rating="3">★</button>
+                            <button type="button" class="star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none" data-rating="4">★</button>
+                            <button type="button" class="star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none" data-rating="5">★</button>
+                        </div>
+                        <span id="ratingText" class="text-gray-600 ml-4"></span>
+                    </div>
+                    <input type="hidden" id="overallRatingValue" name="overallRating" value="0">
+                </div>
+
+                <!-- Detailed Ratings -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Quality of Work</label>
+                        <select id="qualityRating" name="qualityRating" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Select rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Communication</label>
+                        <select id="communicationRating" name="communicationRating" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Select rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Punctuality</label>
+                        <select id="punctualityRating" name="punctualityRating" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Select rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Professionalism</label>
+                        <select id="professionalismRating" name="professionalismRating" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Select rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Value for Money</label>
+                        <select id="valueRating" name="valueRating" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Select rating</option>
+                            <option value="1">1 - Poor</option>
+                            <option value="2">2 - Fair</option>
+                            <option value="3">3 - Good</option>
+                            <option value="4">4 - Very Good</option>
+                            <option value="5">5 - Excellent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Review Title -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Review Title *</label>
+                    <input type="text" id="reviewTitle" name="reviewTitle" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" 
+                           placeholder="Summarize your experience in a few words" maxlength="200">
+                </div>
+
+                <!-- Review Content -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Review Details *</label>
+                    <textarea id="reviewContent" name="reviewContent" rows="6" 
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" 
+                              placeholder="Share details about your experience..." maxlength="5000"></textarea>
+                    <div class="text-sm text-gray-500 mt-1">
+                        <span id="charCount">0</span>/5000 characters
+                    </div>
+                </div>
+
+                <!-- Review Templates -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Use a Template (Optional)</label>
+                    <select id="reviewTemplate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                        <option value="">Choose a template or write your own</option>
+                    </select>
+                    <p class="text-sm text-gray-500 mt-1">Templates help you get started with common review types</p>
+                </div>
+
+                <!-- Hidden Fields -->
+                <input type="hidden" id="bookingId" name="bookingId">
+                <input type="hidden" id="reviewerId" name="reviewerId">
+                <input type="hidden" id="revieweeId" name="revieweeId">
+                <input type="hidden" id="reviewerType" name="reviewerType" value="client">
+                <input type="hidden" id="revieweeType" name="revieweeType" value="worker">
+
+                <!-- Submit Section -->
+                <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+                    <button type="button" onclick="hideReviewForm()" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="bg-kwikr-green text-white px-8 py-2 rounded-lg hover:bg-green-600 flex items-center">
+                        <i class="fas fa-star mr-2"></i>
+                        Submit Review
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Analytics Display -->
+        <div id="analyticsDisplay" class="hidden bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                <i class="fas fa-chart-bar text-kwikr-green mr-2"></i>
+                Rating Analytics
+            </h2>
+            <div id="analyticsContent">
+                <!-- Analytics will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div id="messageContainer" class="fixed top-4 right-4 z-50 max-w-md"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script>
+        let currentBookingData = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            setupStarRating();
+            setupFormValidation();
+            loadReviewTemplates();
+        });
+
+        // Setup star rating functionality
+        function setupStarRating() {
+            const stars = document.querySelectorAll('.star-btn');
+            const ratingValue = document.getElementById('overallRatingValue');
+            const ratingText = document.getElementById('ratingText');
+
+            const ratingTexts = {
+                1: 'Poor',
+                2: 'Fair', 
+                3: 'Good',
+                4: 'Very Good',
+                5: 'Excellent'
+            };
+
+            stars.forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = parseInt(this.getAttribute('data-rating'));
+                    ratingValue.value = rating;
+                    ratingText.textContent = ratingTexts[rating] || '';
+
+                    // Update star display
+                    stars.forEach((s, index) => {
+                        if (index < rating) {
+                            s.className = 'star-btn text-3xl text-yellow-400 focus:outline-none';
+                        } else {
+                            s.className = 'star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none';
+                        }
+                    });
+                });
+            });
+        }
+
+        // Setup form validation
+        function setupFormValidation() {
+            const form = document.getElementById('submitReviewForm');
+            const charCount = document.getElementById('charCount');
+            const reviewContent = document.getElementById('reviewContent');
+
+            // Character counter
+            reviewContent.addEventListener('input', function() {
+                charCount.textContent = this.value.length;
+            });
+
+            // Form submission
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                submitReview();
+            });
+        }
+
+        // Load sample bookings
+        async function loadSampleBookings() {
+            try {
+                showMessage('Loading bookings...', 'info');
+
+                // For demo, we'll use sample data
+                // In production, this would call: /api/bookings?status=completed&client_id=X
+                const sampleBookings = [
+                    {
+                        id: 1,
+                        service_category: 'Cleaning Services',
+                        booking_date: '2024-01-15',
+                        client_id: 1,
+                        user_id: 2, // worker_id
+                        worker_name: 'John Smith',
+                        status: 'completed',
+                        estimated_cost: 150.00
+                    },
+                    {
+                        id: 2,
+                        service_category: 'Plumbing Services',
+                        booking_date: '2024-01-18',
+                        client_id: 1,
+                        user_id: 3, // worker_id
+                        worker_name: 'Sarah Johnson',
+                        status: 'completed',
+                        estimated_cost: 220.00
+                    }
+                ];
+
+                displayBookings(sampleBookings);
+                showMessage('Sample bookings loaded', 'success');
+
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+                showMessage('Failed to load bookings', 'error');
+            }
+        }
+
+        // Display bookings
+        function displayBookings(bookings) {
+            const container = document.getElementById('bookingsContainer');
+            const bookingsList = document.getElementById('bookingsList');
+
+            container.innerHTML = bookings.map(booking => `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">${booking.service_category}</h3>
+                            <p class="text-gray-600">Worker: ${booking.worker_name}</p>
+                            <p class="text-sm text-gray-500">Date: ${booking.booking_date} | Cost: $${booking.estimated_cost}</p>
+                            <span class="inline-block mt-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                ${booking.status}
+                            </span>
+                        </div>
+                        <button onclick="showReviewForm(${booking.id}, ${booking.client_id}, ${booking.user_id})" 
+                                class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            <i class="fas fa-star mr-1"></i>
+                            Write Review
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            bookingsList.classList.remove('hidden');
+        }
+
+        // Show review form
+        function showReviewForm(bookingId, clientId, workerId) {
+            currentBookingData = { bookingId, clientId, workerId };
+            
+            // Populate form
+            document.getElementById('bookingId').value = bookingId;
+            document.getElementById('reviewerId').value = clientId;
+            document.getElementById('revieweeId').value = workerId;
+
+            // Show booking info
+            document.getElementById('bookingInfo').innerHTML = `
+                <h3 class="font-semibold text-gray-900 mb-2">Booking Details</h3>
+                <div class="text-sm text-gray-600">
+                    <p><strong>Booking ID:</strong> ${bookingId}</p>
+                    <p><strong>You are reviewing:</strong> Worker ID ${workerId}</p>
+                    <p><strong>Review Type:</strong> Client reviewing Worker</p>
+                </div>
+            `;
+
+            document.getElementById('reviewForm').classList.remove('hidden');
+            document.getElementById('reviewForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Hide review form
+        function hideReviewForm() {
+            document.getElementById('reviewForm').classList.add('hidden');
+            currentBookingData = null;
+        }
+
+        // Load review templates
+        async function loadReviewTemplates() {
+            try {
+                const response = await axios.get('/api/reviews/templates?reviewerType=client');
+                
+                if (response.data.success) {
+                    const select = document.getElementById('reviewTemplate');
+                    
+                    response.data.templates.forEach(template => {
+                        const option = document.createElement('option');
+                        option.value = JSON.stringify({
+                            title: template.templateTitle,
+                            content: template.templateContent,
+                            rating: template.suggestedRating
+                        });
+                        option.textContent = template.templateName;
+                        select.appendChild(option);
+                    });
+
+                    // Handle template selection
+                    select.addEventListener('change', function() {
+                        if (this.value) {
+                            const template = JSON.parse(this.value);
+                            document.getElementById('reviewTitle').value = template.title;
+                            document.getElementById('reviewContent').value = template.content;
+                            
+                            // Update character count
+                            document.getElementById('charCount').textContent = template.content.length;
+                            
+                            // Set suggested rating
+                            if (template.rating) {
+                                const stars = document.querySelectorAll('.star-btn');
+                                const ratingValue = document.getElementById('overallRatingValue');
+                                const ratingText = document.getElementById('ratingText');
+                                
+                                ratingValue.value = template.rating;
+                                ratingText.textContent = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][template.rating];
+                                
+                                stars.forEach((star, index) => {
+                                    if (index < template.rating) {
+                                        star.className = 'star-btn text-3xl text-yellow-400 focus:outline-none';
+                                    } else {
+                                        star.className = 'star-btn text-3xl text-gray-300 hover:text-yellow-400 focus:outline-none';
+                                    }
+                                });
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading review templates:', error);
+            }
+        }
+
+        // Submit review
+        async function submitReview() {
+            try {
+                const form = document.getElementById('submitReviewForm');
+                const formData = new FormData(form);
+                
+                // Build review data
+                const reviewData = {
+                    bookingId: parseInt(formData.get('bookingId')),
+                    reviewerId: parseInt(formData.get('reviewerId')),
+                    revieweeId: parseInt(formData.get('revieweeId')),
+                    reviewerType: formData.get('reviewerType'),
+                    revieweeType: formData.get('revieweeType'),
+                    overallRating: parseInt(formData.get('overallRating')),
+                    qualityRating: formData.get('qualityRating') ? parseInt(formData.get('qualityRating')) : null,
+                    communicationRating: formData.get('communicationRating') ? parseInt(formData.get('communicationRating')) : null,
+                    punctualityRating: formData.get('punctualityRating') ? parseInt(formData.get('punctualityRating')) : null,
+                    professionalismRating: formData.get('professionalismRating') ? parseInt(formData.get('professionalismRating')) : null,
+                    valueRating: formData.get('valueRating') ? parseInt(formData.get('valueRating')) : null,
+                    reviewTitle: formData.get('reviewTitle'),
+                    reviewContent: formData.get('reviewContent')
+                };
+
+                // Validate required fields
+                if (!reviewData.overallRating || reviewData.overallRating === 0) {
+                    showMessage('Please select an overall rating', 'error');
+                    return;
+                }
+
+                if (!reviewData.reviewTitle || reviewData.reviewTitle.trim().length < 5) {
+                    showMessage('Review title must be at least 5 characters', 'error');
+                    return;
+                }
+
+                if (!reviewData.reviewContent || reviewData.reviewContent.trim().length < 10) {
+                    showMessage('Review content must be at least 10 characters', 'error');
+                    return;
+                }
+
+                showMessage('Submitting review...', 'info');
+
+                const response = await axios.post('/api/reviews', reviewData);
+
+                if (response.data.success) {
+                    showMessage('Review submitted successfully!', 'success');
+                    
+                    if (response.data.needsVerification) {
+                        showMessage('A verification email has been sent to you', 'info');
+                    }
+                    
+                    hideReviewForm();
+                    
+                    // Refresh analytics
+                    setTimeout(() => {
+                        viewReviewAnalytics();
+                    }, 1000);
+                } else {
+                    showMessage(`Failed to submit review: ${response.data.error}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error submitting review:', error);
+                showMessage('Failed to submit review. Please try again.', 'error');
+            }
+        }
+
+        // View analytics
+        async function viewReviewAnalytics() {
+            try {
+                showMessage('Loading analytics...', 'info');
+                
+                // For demo, we'll show analytics for worker ID 2
+                const workerId = 2;
+                const userType = 'worker';
+
+                const response = await axios.get(`/api/reviews/analytics/${workerId}?userType=${userType}`);
+
+                if (response.data.success && response.data.analytics) {
+                    displayAnalytics(response.data.analytics);
+                    showMessage('Analytics loaded', 'success');
+                } else {
+                    showMessage('No analytics data available', 'info');
+                }
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                showMessage('Failed to load analytics', 'error');
+            }
+        }
+
+        // Display analytics
+        function displayAnalytics(analytics) {
+            const container = document.getElementById('analyticsContent');
+            const display = document.getElementById('analyticsDisplay');
+
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-blue-50 p-4 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-blue-600">${analytics.totalReviews}</div>
+                        <div class="text-sm text-blue-800">Total Reviews</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-green-600">${analytics.averageRating}</div>
+                        <div class="text-sm text-green-800">Average Rating</div>
+                    </div>
+                    <div class="bg-yellow-50 p-4 rounded-lg text-center">
+                        <div class="text-3xl font-bold text-yellow-600">${analytics.verifiedReviewsCount}</div>
+                        <div class="text-sm text-yellow-800">Verified Reviews</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-5 gap-2 mb-6">
+                    <div class="text-center">
+                        <div class="text-2xl font-bold">${analytics.rating5Count}</div>
+                        <div class="text-xs text-gray-600">5 Stars</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold">${analytics.rating4Count}</div>
+                        <div class="text-xs text-gray-600">4 Stars</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold">${analytics.rating3Count}</div>
+                        <div class="text-xs text-gray-600">3 Stars</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold">${analytics.rating2Count}</div>
+                        <div class="text-xs text-gray-600">2 Stars</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-2xl font-bold">${analytics.rating1Count}</div>
+                        <div class="text-xs text-gray-600">1 Star</div>
+                    </div>
+                </div>
+
+                <div class="text-sm text-gray-600">
+                    <p><strong>User ID:</strong> ${analytics.userId} (${analytics.userType})</p>
+                    <p><strong>Last Calculated:</strong> ${analytics.lastCalculatedAt}</p>
+                </div>
+            `;
+
+            display.classList.remove('hidden');
+            display.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Show message
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('messageContainer');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500',
+                warning: 'bg-yellow-500'
+            };
+
+            const messageElement = document.createElement('div');
+            messageElement.className = `${colors[type]} text-white px-4 py-3 rounded-lg shadow-lg mb-2 transform transition-all duration-300`;
+            messageElement.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(messageElement);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (messageElement.parentElement) {
+                    messageElement.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

@@ -2,23 +2,41 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { authRoutes } from './routes/auth'
-import { jobRoutes } from './routes/jobs'
+import { jobsRoutes } from './routes/jobs'
 import { userRoutes } from './routes/users'
-import { adminRoutes } from './routes/admin'
+import admin from './routes/admin'
 import { workerRoutes } from './routes/worker'
+import { workerProfileRoutes } from './routes/worker-profile'
+import { workerProfilePageRoutes } from './routes/worker-profile-page'
+import { universalProfileRoutes } from './routes/universal-profile'
 import clientRoutes from './routes/client'
+import clientDashboard from './routes/client-dashboard'
 import { dashboardRoutes } from './routes/dashboard'
-import { complianceRoutes } from './routes/compliance'
+import complianceRoutes from './routes/compliance'
 import { subscriptionRoutes } from './routes/subscriptions'
 import { workerSubscriptionRoutes } from './routes/worker-subscriptions'
 import { adminSubscriptionRoutes } from './routes/admin-subscriptions'
 import { signupRoutes } from './routes/signup'
 import { loginRoutes } from './routes/login'
 import { legalRoutes } from './routes/legal'
+import { searchRoutes } from './routes/search-discovery'
+import { communicationRoutes } from './routes/communication'
+import { bookingRoutes } from './routes/booking'
+import { bookingApiRoutes } from './routes/booking-api'
+import { escrow } from './routes/escrow'
+import { payment } from './routes/payment'
+import { reviewRoutes } from './routes/reviews'
+import workerDashboard from './routes/worker-dashboard'
+import notifications from './routes/notifications'
+import files from './routes/files'
+import analyticsRoutes from './routes/analytics'
+import marketingRoutes from './routes/marketing'
+import mobileApiRoutes from './routes/mobile-api'
 import { Logger } from './utils/logger'
 
 type Bindings = {
   DB: D1Database;
+  R2?: R2Bucket;
 }
 
 const app = new Hono<{ Bindings: Bindings }>()
@@ -31,22 +49,55 @@ app.use('/static/*', serveStatic({ root: './public' }))
 
 // API Routes
 app.route('/api/auth', authRoutes)
-app.route('/api/jobs', jobRoutes)
+app.route('/api/jobs', jobsRoutes)
 app.route('/api/users', userRoutes)
-app.route('/api/admin', adminRoutes)
+app.route('/api/admin', admin)
 app.route('/api/worker', workerRoutes)
+app.route('/api/worker', workerProfileRoutes)
 app.route('/api/client', clientRoutes)
+app.route('/api/client-dashboard', clientDashboard)
 app.route('/api/compliance', complianceRoutes)
 app.route('/api/subscriptions', subscriptionRoutes)
+
+// Booking & Scheduling System API Routes
+app.route('/', bookingApiRoutes)
+
+// Payment & Escrow API Routes
+app.route('/api/escrow', escrow)
+app.route('/api/payment', payment)
+
+// Review & Rating System API Routes
+app.route('/api/reviews', reviewRoutes)
+
+// Worker Dashboard API Routes
+app.route('/api/worker-dashboard', workerDashboard)
+
+// Notification System API Routes
+app.route('/api/notifications', notifications)
+
+// File & Media Management API Routes
+app.route('/api/files', files)
+
+// Analytics & Reporting API Routes
+app.route('/api/analytics', analyticsRoutes)
+
+// Marketing & Growth API Routes
+app.route('/api/marketing', marketingRoutes)
+
+// Mobile & API Management API Routes
+app.route('/api/mobile-api', mobileApiRoutes)
 
 // Admin Subscription Management Pages
 app.route('/admin', adminSubscriptionRoutes)
 
 // Worker Subscription Pages
-app.route('/', workerSubscriptionRoutes)
+app.route('/subscriptions', workerSubscriptionRoutes)
 
 // Dashboard Routes (SSR)
 app.route('/dashboard', dashboardRoutes)
+
+// Job Management Routes (SSR)
+app.route('/jobs', jobsRoutes)
 
 // Signup Routes (SSR)
 app.route('/signup', signupRoutes)
@@ -56,6 +107,21 @@ app.route('/auth/login', loginRoutes)
 
 // Legal Routes (SSR)
 app.route('/legal', legalRoutes)
+
+// Worker Profile Pages (SSR)
+app.route('/profile', workerProfilePageRoutes)
+
+// Universal Profile Pages (SSR) - New combined layout
+app.route('/universal-profile', universalProfileRoutes)
+
+// Search & Discovery Routes (SSR)
+app.route('/search', searchRoutes)
+
+// Communication System Routes (SSR)
+app.route('/communication', communicationRoutes)
+
+// Booking & Scheduling System Routes (SSR)
+app.route('/booking', bookingRoutes)
 
 // Public API routes for profile data
 app.get('/api/public/profile/:userId/service-areas', async (c) => {
@@ -123,88 +189,200 @@ app.get('/api/popular-categories', async (c) => {
   }
 });
 
+// Location API Endpoints for Dropdowns
+app.get('/api/locations/provinces', async (c) => {
+  try {
+    const provinces = await c.env.DB.prepare(`
+      SELECT DISTINCT u.province, COUNT(*) as worker_count 
+      FROM users u 
+      WHERE u.role = 'worker' AND u.province IS NOT NULL 
+      GROUP BY u.province 
+      ORDER BY worker_count DESC
+    `).all()
+    
+    return c.json({ 
+      success: true, 
+      provinces: provinces.results 
+    })
+  } catch (error) {
+    console.error('Failed to fetch provinces:', error)
+    return c.json({ 
+      success: false, 
+      error: 'Failed to fetch provinces' 
+    }, 500)
+  }
+})
+
+app.get('/api/locations/cities/:province', async (c) => {
+  try {
+    const province = c.req.param('province')
+    
+    const cities = await c.env.DB.prepare(`
+      SELECT DISTINCT u.city, COUNT(*) as worker_count 
+      FROM users u 
+      WHERE u.role = 'worker' AND u.province = ? AND u.city IS NOT NULL 
+      GROUP BY u.city 
+      ORDER BY worker_count DESC
+    `).bind(province).all()
+    
+    return c.json({ 
+      success: true, 
+      cities: cities.results 
+    })
+  } catch (error) {
+    console.error('Failed to fetch cities:', error)
+    return c.json({ 
+      success: false, 
+      error: 'Failed to fetch cities' 
+    }, 500)
+  }
+})
+
 // Provider Search API Endpoint
 app.post('/api/providers/search', async (c) => {
   try {
     const body = await c.req.json()
-    const { serviceType, location, budget, task, additionalServices } = body
+    const { serviceType, province, city, budget, additionalServices } = body
     
-    Logger.info('Provider search request', { serviceType, location, budget })
+    Logger.info('Provider search request', { serviceType, province, city, budget })
     
-    // Build search query
-    let whereConditions = ['u.role = ?', 'u.is_active = 1']
-    let values: any[] = ['worker']
-    
-    // Filter by service type if provided
-    if (serviceType) {
-      whereConditions.push('EXISTS (SELECT 1 FROM worker_services ws WHERE ws.user_id = u.id AND LOWER(ws.service_category) LIKE ?)')
-      values.push(`%${serviceType.toLowerCase()}%`)
-    }
-    
-    // Filter by location if provided
-    if (location) {
-      const locationParts = location.split(',').map((part: string) => part.trim())
-      if (locationParts.length > 0) {
-        whereConditions.push('(LOWER(u.city) LIKE ? OR LOWER(u.province) LIKE ?)')
-        const locationSearch = `%${locationParts[0].toLowerCase()}%`
-        values.push(locationSearch, locationSearch)
-      }
-    }
-    
-    // Build the main query
-    const searchQuery = `
+    // Build the main query using same structure as SSR search (users + worker_services)
+    let searchQuery = `
       SELECT DISTINCT
         u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-        p.bio, p.profile_image_url, p.company_name, p.website_url,
-        COALESCE(AVG(r.rating), 4.5) as avg_rating,
-        COUNT(r.id) as review_count,
-        GROUP_CONCAT(DISTINCT ws.service_category) as services
+        p.bio, p.profile_image_url, p.company_name,
+        AVG(ws.hourly_rate) as avg_rate,
+        COUNT(ws.id) as service_count,
+        GROUP_CONCAT(ws.service_name) as services_list
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id
-      LEFT JOIN reviews r ON u.id = r.reviewee_id
-      WHERE ${whereConditions.join(' AND ')}
-      GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-               p.bio, p.profile_image_url, p.company_name, p.website_url
-      ORDER BY avg_rating DESC, review_count DESC
-      LIMIT 20
+      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
     `
     
-    const searchResults = await c.env.DB.prepare(searchQuery).bind(...values).all()
+    const params = []
     
-    // Transform results to match expected format
-    const providers = searchResults.results.map((worker: any) => ({
-      id: worker.id,
-      name: `${worker.first_name} ${worker.last_name}`,
-      company: worker.company_name || `${worker.first_name}'s Services`,
-      rating: Math.round(worker.avg_rating * 10) / 10,
-      reviews: worker.review_count || 0,
-      rate: Math.floor(Math.random() * 30) + 35, // Random rate between $35-65
-      distance: Math.round(Math.random() * 10 * 10) / 10, // Random distance up to 10km
-      services: worker.services ? worker.services.split(',').slice(0, 3) : [serviceType || 'General Services'],
-      image: worker.profile_image_url,
-      initials: `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`,
-      verified: worker.is_verified === 1,
-      available: ['Today', 'Tomorrow', 'This Week'][Math.floor(Math.random() * 3)],
-      bio: worker.bio || 'Professional service provider with excellent customer reviews.',
-      location: `${worker.city}, ${worker.province}`
-    }))
+    // Filter by service type if specified (with enhanced synonyms)
+    if (serviceType && serviceType.trim()) {
+      const serviceTypeLower = serviceType.toLowerCase().trim()
+      
+      // Enhanced service type synonym mapping for better matching
+      const synonymMap: { [key: string]: string[] } = {
+        'electricians': ['electrical services', 'electrical', 'electric', 'electrician'],
+        'plumbers': ['plumbing services', 'plumbing', 'professional plumbing services', 'residential plumbing', 'commercial plumbing', 'plumber'],
+        'cleaners': ['cleaning services', 'cleaning', 'cleaner', 'house cleaning', 'commercial cleaning'],
+        'cleaning services': ['cleaners', 'cleaning', 'cleaner', 'house cleaning', 'commercial cleaning'],
+        'hvac': ['hvac services', 'heating', 'cooling', 'air conditioning', 'furnace'],
+        'contractors': ['general contracting services', 'general contractor', 'contractor', 'construction'],
+        'flooring': ['flooring services', 'floor installation', 'hardwood', 'carpet', 'tile'],
+        'roofing': ['roofing services', 'roof repair', 'roof installation'],
+        'landscaping': ['landscaping services', 'lawn care', 'gardening', 'yard work']
+      }
+      
+      // Get all possible search terms including synonyms
+      let searchTerms = [serviceTypeLower]
+      
+      // Add synonyms if available
+      if (synonymMap[serviceTypeLower]) {
+        searchTerms = [...searchTerms, ...synonymMap[serviceTypeLower]]
+      }
+      
+      // Also check reverse mapping (in case user searches for synonym first)
+      Object.entries(synonymMap).forEach(([key, synonyms]) => {
+        if (synonyms.includes(serviceTypeLower) && !searchTerms.includes(key)) {
+          searchTerms.push(key)
+        }
+      })
+      
+      // Remove duplicates and empty terms
+      searchTerms = [...new Set(searchTerms.filter(term => term && term.length > 0))]
+      
+      // Build LIKE conditions for all search terms against service_name
+      const likeConditions = searchTerms.map(() => 'LOWER(ws.service_name) LIKE ?').join(' OR ')
+      searchQuery += ` AND (${likeConditions})`
+      params.push(...searchTerms.map(term => `%${term}%`))
+    }
     
-    Logger.info(`Provider search completed`, { 
-      resultsCount: providers.length,
-      serviceType,
-      location 
+    // Filter by province if specified
+    if (province && province.trim()) {
+      searchQuery += ` AND LOWER(u.province) = LOWER(?)`
+      params.push(province.trim())
+    }
+    
+    // Filter by city if specified
+    if (city && city.trim()) {
+      searchQuery += ` AND LOWER(u.city) LIKE LOWER(?)`
+      params.push(`%${city.trim()}%`)
+    }
+    
+    // Filter by budget if specified
+    if (budget && budget > 0) {
+      searchQuery += ` AND ws.hourly_rate <= ?`
+      params.push(budget)
+    }
+    
+    searchQuery += `
+      GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
+               p.bio, p.profile_image_url, p.company_name
+      ORDER BY u.is_verified DESC, avg_rate ASC
+      LIMIT 100
+    `
+    
+    Logger.info('Executing search query', { query: searchQuery, params })
+    const searchResults = await c.env.DB.prepare(searchQuery).bind(...params).all()
+    
+    // Transform results to match expected frontend format
+    const providers = (searchResults.results || []).map((worker: any) => {
+      const fullName = `${worker.first_name || ''} ${worker.last_name || ''}`.trim()
+      const displayName = worker.company_name || fullName || 'Professional Service Provider'
+      
+      // Parse services list
+      const servicesList = worker.services_list ? worker.services_list.split(',') : []
+      
+      // Generate initials from display name
+      const nameParts = displayName.split(' ')
+      const initials = nameParts.length >= 2 
+        ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
+        : displayName.charAt(0) + (displayName.charAt(1) || '')
+      
+      return {
+        id: worker.id,
+        name: displayName,
+        company: worker.company_name || displayName,
+        rating: 4.5 + Math.random() * 0.4, // Random rating between 4.5-4.9
+        reviews: Math.floor(Math.random() * 100) + 10, // Random reviews 10-110
+        rate: Math.round(worker.avg_rate || 75 + Math.random() * 50), // Use actual rate or random
+        distance: Math.round(Math.random() * 15 * 10) / 10, // Random distance 0-15km
+        services: servicesList.length > 0 ? servicesList : ['General Services'],
+        image: worker.profile_image_url,
+        initials: initials.toUpperCase(),
+        verified: worker.is_verified === 1,
+        available: ['Available Today', 'Available Tomorrow', 'Available This Week'][Math.floor(Math.random() * 3)],
+        bio: worker.bio || 'Professional service provider with excellent customer reviews.',
+        location: `${worker.city || 'City'}, ${worker.province || 'Province'}`,
+        phone: worker.phone,
+        email: worker.email
+      }
     })
     
-    return c.json({ 
+    Logger.info('Provider search completed', { 
+      resultsCount: providers.length,
+      serviceType,
+      province,
+      city
+    })
+    
+    return c.json({
+      success: true,
       providers,
       total: providers.length,
-      searchParams: { serviceType, location, budget, task, additionalServices }
+      searchParams: { serviceType, province, city, budget, additionalServices }
     })
     
   } catch (error) {
     Logger.error('Provider search error', error as Error)
     return c.json({ 
+      success: false,
       error: 'Search failed',
       providers: [],
       total: 0 
@@ -234,28 +412,40 @@ function getAvatarColor(initials: string): string {
 app.get('/search', async (c) => {
   const searchParams = {
     serviceType: c.req.query('serviceType') || 'Cleaning',
-    location: c.req.query('location') || 'Toronto, ON',
-    task: c.req.query('task') || '',
+    province: c.req.query('province') || '',
+    city: c.req.query('city') || '',
     budget: c.req.query('budget') || '5000',
     additionalServices: c.req.query('additionalServices') || '',
     page: parseInt(c.req.query('page') || '1'),
-    limit: parseInt(c.req.query('limit') || '10'),
+    limit: parseInt(c.req.query('limit') || '20'), // 20 results per page
     sortBy: c.req.query('sortBy') || 'rating'
   }
 
-  // Fetch providers from API
+  // Fetch providers with pagination
   let providers = []
+  let totalResults = 0
+  
   try {
-    const formData = {
-      serviceType: searchParams.serviceType,
-      location: searchParams.location,
-      task: searchParams.task,
-      budget: searchParams.budget,
-      additionalServices: searchParams.additionalServices ? searchParams.additionalServices.split(',') : []
-    }
-
-    // Build query based on search parameters (same logic as API endpoint)
-    let query = `
+    // First, get total count of all matching results without pagination
+    const countQuery = `
+      SELECT COUNT(DISTINCT u.id) as total
+      FROM users u
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      LEFT JOIN worker_services ws ON u.id = ws.user_id
+      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
+        ${searchParams.serviceType ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%')` : ''}
+        ${searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
+        ${searchParams.city ? `AND LOWER(u.city) LIKE LOWER('%${searchParams.city}%')` : ''}
+        ${searchParams.budget && searchParams.budget > 0 ? `AND ws.hourly_rate <= ${searchParams.budget}` : ''}
+    `
+    
+    const countResult = await c.env.DB.prepare(countQuery).all()
+    totalResults = countResult.results[0]?.total || 0
+    
+    // Then get the paginated results  
+    const offset = (searchParams.page - 1) * searchParams.limit
+    
+    const query = `
       SELECT DISTINCT
         u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
         p.bio, p.profile_image_url, p.company_name,
@@ -265,41 +455,17 @@ app.get('/search', async (c) => {
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id
       WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
-    `
-    
-    const params = []
-    
-    // Filter by service type if specified
-    if (searchParams.serviceType && searchParams.serviceType !== '') {
-      query += ` AND LOWER(ws.service_name) LIKE LOWER(?)`
-      params.push(`%${searchParams.serviceType}%`)
-    }
-    
-    // Filter by location if specified
-    if (searchParams.location && searchParams.location !== '') {
-      const locationParts = searchParams.location.split(',')
-      if (locationParts.length > 0) {
-        const city = locationParts[0].trim()
-        query += ` AND LOWER(u.city) LIKE LOWER(?)`
-        params.push(`%${city}%`)
-      }
-    }
-    
-    // Filter by budget if specified
-    if (searchParams.budget && searchParams.budget > 0) {
-      query += ` AND ws.hourly_rate <= ?`
-      params.push(searchParams.budget)
-    }
-    
-    query += `
+        ${searchParams.serviceType ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%')` : ''}
+        ${searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
+        ${searchParams.city ? `AND LOWER(u.city) LIKE LOWER('%${searchParams.city}%')` : ''}
+        ${searchParams.budget && searchParams.budget > 0 ? `AND ws.hourly_rate <= ${searchParams.budget}` : ''}
       GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
                p.bio, p.profile_image_url, p.company_name
       ORDER BY u.is_verified DESC, avg_rate ASC
-      LIMIT 20
+      LIMIT ${searchParams.limit} OFFSET ${offset}
     `
     
-    const stmt = c.env.DB.prepare(query)
-    const results = await stmt.bind(...params).all()
+    const results = await c.env.DB.prepare(query).all()
     
     // Get actual services for each provider
     const providersWithServices = []
@@ -340,10 +506,10 @@ app.get('/search', async (c) => {
     providers = []
   }
 
-  const totalResults = providers.length
+  // Calculate pagination display values
   const startIndex = (searchParams.page - 1) * searchParams.limit
-  const endIndex = Math.min(startIndex + searchParams.limit, totalResults)
-  const pageResults = providers.slice(startIndex, endIndex)
+  const endIndex = Math.min(startIndex + providers.length, totalResults)
+  const pageResults = providers
 
   return c.html(`
     <!DOCTYPE html>
@@ -351,7 +517,7 @@ app.get('/search', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Search Results - Kwikr Directory</title>
+        <title>Search Results - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -376,7 +542,7 @@ app.get('/search', async (c) => {
                     <div class="flex items-center">
                         <a href="/" class="flex-shrink-0">
                             <h1 class="text-2xl font-bold text-kwikr-green">
-                                <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                                <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                             </h1>
                         </a>
                     </div>
@@ -407,7 +573,7 @@ app.get('/search', async (c) => {
                         <p class="text-gray-600 mt-1">
                             <span class="font-bold text-kwikr-green">${totalResults}</span> providers found for 
                             <span class="font-medium text-kwikr-green">${searchParams.serviceType}</span> 
-                            in <span class="font-medium">${searchParams.location}</span>
+                            ${(searchParams.province || searchParams.city) ? `in <span class="font-medium">${searchParams.city && searchParams.province ? `${searchParams.city}, ${searchParams.province}` : (searchParams.city || searchParams.province || 'All Canada')}</span>` : 'across Canada'}
                         </p>
                     </div>
                     <a href="/" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
@@ -420,10 +586,12 @@ app.get('/search', async (c) => {
                     <span class="bg-kwikr-green bg-opacity-10 text-kwikr-green px-3 py-1 rounded-full text-sm">
                         ${searchParams.serviceType}
                     </span>
-                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                        <i class="fas fa-map-marker-alt mr-1"></i>${searchParams.location}
-                    </span>
-                    ${searchParams.task ? '<span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">' + searchParams.task + '</span>' : ''}
+                    ${searchParams.province || searchParams.city ? `
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                            <i class="fas fa-map-marker-alt mr-1"></i>${searchParams.city ? `${searchParams.city}, ${searchParams.province}` : (searchParams.province || 'All Canada')}
+                        </span>
+                    ` : ''}
+
                     <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
                         Budget: $${searchParams.budget}
                     </span>
@@ -555,7 +723,7 @@ app.get('/search', async (c) => {
                                                 <i class="fas fa-user-plus mr-2"></i>
                                                 <span class="invite-text">Invite to Bid</span>
                                             </button>
-                                            <a href="/profile/${provider.id}" class="border border-kwikr-green text-kwikr-green px-6 py-2 rounded-lg hover:bg-kwikr-green hover:text-white transition-colors inline-flex items-center">
+                                            <a href="/universal-profile/${provider.id}" class="border border-kwikr-green text-kwikr-green px-6 py-2 rounded-lg hover:bg-kwikr-green hover:text-white transition-colors inline-flex items-center">
                                                 <i class="fas fa-eye mr-2"></i>View Profile
                                             </a>
                                             <button class="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors">
@@ -574,11 +742,15 @@ app.get('/search', async (c) => {
                             Showing <span class="font-medium">${startIndex + 1}</span> to <span class="font-medium">${endIndex}</span> of <span class="font-medium">${totalResults}</span> results
                         </div>
                         <div class="flex items-center space-x-2">
-                            ${searchParams.page > 1 ? '<a href="/search?' + new URLSearchParams({...searchParams, page: searchParams.page - 1}).toString() + '" class="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50"><i class="fas fa-chevron-left"></i> Previous</a>' : '<span class="px-3 py-1 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed"><i class="fas fa-chevron-left"></i> Previous</span>'}
+                            ${searchParams.page > 1 ? 
+                              '<a href="/search?' + new URLSearchParams({serviceType: searchParams.serviceType, province: searchParams.province, city: searchParams.city, budget: searchParams.budget, page: String(searchParams.page - 1)}).toString() + '" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center"><i class="fas fa-chevron-left mr-2"></i>Previous</a>' : 
+                              '<span class="px-3 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed flex items-center"><i class="fas fa-chevron-left mr-2"></i>Previous</span>'}
                             
-                            <span class="px-3 py-1 bg-kwikr-green text-white rounded-lg">${searchParams.page}</span>
+                            <span class="px-3 py-2 bg-kwikr-green text-white rounded-lg font-medium">${searchParams.page}</span>
                             
-                            ${endIndex < totalResults ? '<a href="/search?' + new URLSearchParams({...searchParams, page: searchParams.page + 1}).toString() + '" class="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50">Next <i class="fas fa-chevron-right"></i></a>' : '<span class="px-3 py-1 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed">Next <i class="fas fa-chevron-right"></i></span>'}
+                            ${endIndex < totalResults ? 
+                              '<a href="/search?' + new URLSearchParams({serviceType: searchParams.serviceType, province: searchParams.province, city: searchParams.city, budget: searchParams.budget, page: String(searchParams.page + 1)}).toString() + '" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center">Next<i class="fas fa-chevron-right ml-2"></i></a>' : 
+                              '<span class="px-3 py-2 border border-gray-300 rounded-lg opacity-50 cursor-not-allowed flex items-center">Next<i class="fas fa-chevron-right ml-2"></i></span>'}
                         </div>
                     </div>
                 </div>
@@ -782,157 +954,103 @@ app.get('/search', async (c) => {
   `)
 })
 
-// Worker Profile Routes (Public)
+// Worker Profile Routes (Public) - REDIRECT TO UNIVERSAL PROFILE
 app.get('/profile/:userId', async (c) => {
   const userId = c.req.param('userId')
   const userAgent = c.req.header('User-Agent') || 'unknown'
   const referer = c.req.header('Referer') || 'unknown'
   
-  Logger.info(`Profile page request for user ${userId}`, { 
+  Logger.info(`Profile page request for user ${userId} - redirecting to universal profile`, { 
     userId, 
     userAgent, 
     referer,
-    endpoint: `/profile/${userId}`
+    endpoint: `/profile/${userId}`,
+    redirect: `/universal-profile/${userId}`
   })
   
-  try {
-    // Get worker profile data
-    const worker = await c.env.DB.prepare(`
-      SELECT 
-        u.id, u.first_name, u.last_name, u.email, u.phone, u.province, u.city, u.is_verified, u.created_at,
-        p.bio, p.profile_image_url, p.address_line1, p.address_line2, p.postal_code,
-        p.company_name, p.company_description, p.company_logo_url, p.website_url, p.years_in_business
-      FROM users u
-      LEFT JOIN user_profiles p ON u.id = p.user_id
-      WHERE u.id = ? AND u.role = 'worker' AND u.is_active = 1
-    `).bind(userId).first()
-    
-    // Get worker compliance data separately (in case table doesn't exist)
-    let compliance = null
-    try {
-      compliance = await c.env.DB.prepare(`
-        SELECT wsib_number, wsib_valid_until, insurance_provider, insurance_policy_number, insurance_valid_until,
-               license_type, license_number, license_valid_until
-        FROM worker_compliance WHERE user_id = ?
-      `).bind(userId).first()
-    } catch (error) {
-      Logger.warn('Worker compliance table not available', { userId, error: (error as Error).message })
-    }
-    
-    // Merge compliance data with worker data
-    if (compliance && worker) {
-      Object.assign(worker, compliance)
-    }
-    
-    if (worker) {
-      Logger.info('Worker profile found successfully', {
-        userId,
-        workerId: worker.id,
-        workerName: `${worker.first_name} ${worker.last_name}`,
-        email: worker.email,
-        isVerified: worker.is_verified,
-        hasCompliance: !!compliance
-      })
-    }
-    
-    if (!worker) {
-      Logger.warn('Worker profile not found', { 
-        userId, 
-        userAgent, 
-        referer,
-        message: 'Worker not found in database or is inactive'
-      })
-      return c.html(`
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Worker Not Found - Kwikr Directory</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-            <div class="text-center">
-                <h1 class="text-2xl font-bold text-red-600 mb-4">Worker Profile Not Found</h1>
-                <p class="text-gray-600 mb-4">The worker profile you're looking for doesn't exist.</p>
-                <a href="/" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Home</a>
-            </div>
-        </body>
-        </html>
-      `)
-    }
-    
-    // Get worker services (simplified, may not exist)
-    let services = { results: [] }
-    try {
-      services = await c.env.DB.prepare(`
-        SELECT ws.*, jc.name as category_name, jc.icon_class
-        FROM worker_services ws
-        LEFT JOIN job_categories jc ON LOWER(ws.service_category) = LOWER(jc.name)
-        WHERE ws.user_id = ? AND ws.is_available = 1
-        ORDER BY ws.created_at DESC
-      `).bind(userId).all()
-    } catch (error) {
-      Logger.warn('Worker services query failed', { 
-        userId, 
-        error: (error as Error).message,
-        context: 'Profile services lookup'
-      })
-    }
-    
-    // Get worker reviews/ratings (placeholder for now)
-    const reviews = [] // TODO: Implement reviews system
-    
-    // Get recent completed jobs count (simplified)
-    let jobStats = { jobs_won: 0, total_bids: 0, avg_rating: null }
-    try {
-      jobStats = await c.env.DB.prepare(`
-        SELECT 
-          COUNT(CASE WHEN b.status = 'accepted' THEN 1 END) as jobs_won,
-          COUNT(*) as total_bids
-        FROM bids b
-        WHERE b.worker_id = ?
-      `).bind(userId).first() || jobStats
-    } catch (error) {
-      console.log('Bids table not available')
-    }
-    
-    return c.html(generateWorkerProfileHTML(worker, services.results || [], reviews, jobStats, userId))
-    
-  } catch (error) {
-    Logger.error('Worker profile error', error as Error, { userId, userAgent, referer })
-    return c.html(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Error - Kwikr Directory</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-      </head>
-      <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-          <div class="text-center">
-              <h1 class="text-2xl font-bold text-red-600 mb-4">Profile Error</h1>
-              <p class="text-gray-600 mb-4">There was an error loading this profile.</p>
-              <a href="/" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Home</a>
-          </div>
-      </body>
-      </html>
-    `)
-  }
+  // Redirect all /profile/:userId requests to the new universal profile system
+  return c.redirect(`/universal-profile/${userId}`, 301)
 })
 
-// Function to generate worker profile HTML
-function generateWorkerProfileHTML(worker: any, services: any[], reviews: any[], jobStats: any, userId: string) {
-  const isOwnProfile = false // TODO: Check if current user is viewing their own profile
-  
-  return `
+// Client Dashboard page
+app.get('/client-dashboard', (c) => {
+  return c.html(`
     <!DOCTYPE html>
-    <html lang="en">
-    <head>
+    <html><head><title>Client Dashboard - getKwikr</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>Client Dashboard</h1>
+      <p><a href="/static/client-dashboard.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Client Dashboard</a></p>
+    </body></html>
+  `)
+})
+
+// Worker Dashboard page
+app.get('/worker-dashboard', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html><head><title>Worker Dashboard - getKwikr</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>Worker Dashboard</h1>
+      <p><a href="/static/worker-dashboard.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Worker Dashboard</a></p>
+    </body></html>
+  `)
+})
+
+// Notification Center page
+app.get('/notifications', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html><head><title>Notification Center - getKwikr</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>Notification Center</h1>
+      <p><a href="/static/notifications.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Notification Center</a></p>
+    </body></html>
+  `)
+})
+
+// File Manager page
+app.get('/file-manager', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html><head><title>File Manager - getKwikr</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>File & Media Manager</h1>
+      <p><a href="/static/file-manager.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch File Manager</a></p>
+    </body></html>
+  `)
+})
+
+// Admin Panel page
+app.get('/admin-panel', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html><head><title>Admin Panel - Platform Management</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>Admin Panel & Management</h1>
+      <p><a href="/static/admin-panel.html" style="background: #3B82F6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Admin Panel</a></p>
+    </body></html>
+  `)
+})
+
+// Payment system demo page
+app.get('/payment-demo', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html><head><title>Payment Demo</title></head>
+    <body style="font-family: Arial, sans-serif; padding: 20px;">
+      <h1>Payment System Demo</h1>
+      <p><a href="/static/payment-demo.html" style="background: #00C881; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Launch Payment Demo</a></p>
+    </body></html>
+  `)
+})
+
+// All worker profiles now redirect to universal profile system
+
+// All orphaned HTML removed - clean routes only
+/* Commenting out orphaned HTML
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${worker.first_name} ${worker.last_name} - Professional Profile | Kwikr Directory</title>
+        <title>${worker.first_name} ${worker.last_name} - Professional Profile | getKwikr</title>
         <meta name="description" content="${worker.bio || `Professional ${worker.license_type || 'service provider'} in ${worker.city}, ${worker.province}. View services, reviews, and contact information.`}">
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
@@ -965,7 +1083,7 @@ function generateWorkerProfileHTML(worker: any, services: any[], reviews: any[],
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -976,7 +1094,7 @@ function generateWorkerProfileHTML(worker: any, services: any[], reviews: any[],
                         <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green">
                             Sign In
                         </a>
-                        <button onclick="showSignupModal()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                        <a href="/subscriptions/pricing" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 inline-block">
                             Get Started
                         </button>
                     </div>
@@ -3168,33 +3286,9 @@ function generateWorkerProfileHTML(worker: any, services: any[], reviews: any[],
               showNotification('Failed to update hours. Please try again.', 'error')
             }
           }
+*/ 
+// End of orphaned HTML comment block
 
-          // Additional utility function for testing
-          function testButtonClick() {
-            console.log('Test button clicked - JavaScript is working!')
-            showNotification('JavaScript is working correctly!', 'success')
-            
-            // Test if functions exist
-            console.log('Available functions:', {
-              showAddAreaForm: typeof showAddAreaForm,
-              handleSaveServiceArea: typeof handleSaveServiceArea,
-              handleSaveHours: typeof handleSaveHours,
-              loadServiceAreas: typeof loadServiceAreas,
-              loadWorkingHours: typeof loadWorkingHours
-            })
-          }
-
-          // Run ownership check and load data when page loads
-          checkProfileOwnership()
-          loadServiceAreas()
-          loadWorkingHours()
-        </script>
-    </body>
-    </html>
-  `
-}
-
-// Search Provider Interface (matching provided design)
 app.get('/search', (c) => {
   return c.html(`
     <!DOCTYPE html>
@@ -3284,15 +3378,6 @@ app.get('/search', (c) => {
                             </div>
                         </div>
                         
-                        <!-- Task Description -->
-                        <div class="space-y-2">
-                            <label class="flex items-center text-sm font-medium text-gray-700">
-                                <i class="fas fa-clipboard-list text-primary-blue mr-2"></i>
-                                Task
-                            </label>
-                            <input type="text" id="taskDescription" placeholder="e.g., clean my house" value="e.g., clean my house"
-                                   class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-primary-blue focus:ring-0 text-gray-800">
-                        </div>
                         
                         <!-- Additional Services (Optional) -->
                         <div class="space-y-3">
@@ -3337,11 +3422,11 @@ app.get('/search', (c) => {
                                 <i class="fas fa-search mr-3"></i>
                                 Find Service Providers
                             </button>
-                            <button type="button" id="postJobBtn"
+                            <a href="/signup/client"
                                     class="w-full border-2 border-primary-blue text-primary-blue py-4 px-8 rounded-xl font-semibold text-lg hover:bg-primary-blue hover:text-white transition-all duration-300 hover-lift flex items-center justify-center">
                                 <i class="fas fa-briefcase mr-3"></i>
                                 Post a Job
-                            </button>
+                            </a>
                         </div>
                     </form>
                 </div>
@@ -3375,7 +3460,7 @@ app.get('/search', (c) => {
                         →
                     </p>
                     <p class="text-blue-100">
-                        <button onclick="showSignupModal()" class="text-white font-semibold hover:underline">Create Account</button>
+                        <a href="/subscriptions/pricing" class="text-white font-semibold hover:underline">Create Account</a>
                         →
                         <span class="mx-2">|</span>
                         <a href="/browse-jobs" class="text-white font-semibold hover:underline">Browse All Jobs</a>
@@ -3458,7 +3543,7 @@ app.get('/search', (c) => {
                 </form>
                 <p class="text-center text-sm text-gray-600 mt-4">
                     Don't have an account? 
-                    <button onclick="hideLoginModal(); showSignupModal()" class="text-primary-blue hover:underline">Sign up</button>
+                    <a href="/subscriptions/pricing" class="text-primary-blue hover:underline">Sign up</a>
                 </p>
             </div>
         </div>
@@ -3494,7 +3579,7 @@ app.get('/search', (c) => {
                 </form>
                 <p class="text-center text-sm text-gray-600 mt-4">
                     Already have an account? 
-                    <button onclick="hideSignupModal(); showLoginModal()" class="text-primary-blue hover:underline">Sign in</button>
+                    <a href="/auth/login" class="text-primary-blue hover:underline">Sign in</a>
                 </p>
             </div>
         </div>
@@ -3521,18 +3606,13 @@ app.get('/search', (c) => {
             performSearch();
           });
           
-          // Popular task buttons
-          document.querySelectorAll('.popular-task').forEach(button => {
-            button.addEventListener('click', function() {
-              document.getElementById('taskDescription').value = this.textContent.trim();
-            });
-          });
+
           
           async function performSearch() {
             const formData = {
               serviceType: document.getElementById('serviceTypeSearch').value,
               location: document.getElementById('location').value,
-              task: document.getElementById('taskDescription').value,
+
               budget: document.getElementById('budgetRange').value,
               additionalServices: Array.from(document.querySelectorAll('input[name="additionalServices"]:checked')).map(cb => cb.value)
             };
@@ -3555,19 +3635,20 @@ app.get('/search', (c) => {
               
               if (response.ok) {
                 const data = await response.json();
-                loadSearchResults(data.providers || []);
+                if (data.success && data.providers) {
+                  console.log('API search successful:', data.total, 'providers found');
+                  loadSearchResults(data.providers);
+                } else {
+                  console.warn('API search returned no results or failed:', data.error);
+                  loadSearchResults([]);
+                }
               } else {
-                // Use demo data if API fails
-                setTimeout(() => {
-                  loadSearchResults(getDemoProviders());
-                }, 1500);
+                console.error('API search failed with status:', response.status);
+                loadSearchResults([]);
               }
             } catch (error) {
               console.error('Search error:', error);
-              // Use demo data if API fails
-              setTimeout(() => {
-                loadSearchResults(getDemoProviders());
-              }, 1500);
+              loadSearchResults([]);
             }
           }
           
@@ -3691,7 +3772,7 @@ app.get('/search', (c) => {
                         <i class="fas fa-user-plus mr-2"></i>
                         <span class="invite-text">Invite to Bid</span>
                       </button>
-                      <a href="/profile/\${provider.id}" class="border border-kwikr-green text-kwikr-green px-6 py-2 rounded-lg hover:bg-kwikr-green hover:text-white transition-colors inline-flex items-center">
+                      <a href="/universal-profile/\${provider.id}" class="border border-kwikr-green text-kwikr-green px-6 py-2 rounded-lg hover:bg-kwikr-green hover:text-white transition-colors inline-flex items-center">
                         <i class="fas fa-eye mr-2"></i>View Profile
                       </a>
                       <button class="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors">
@@ -3808,107 +3889,7 @@ app.get('/search', (c) => {
   `)
 })
 
-// API endpoint for searching service providers
-app.post('/api/providers/search', async (c) => {
-  try {
-    const { serviceType, location, task, budget, additionalServices } = await c.req.json()
-    
-    // Build query based on search parameters
-    let query = `
-      SELECT DISTINCT
-        u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-        p.bio, p.profile_image_url, p.company_name,
-        AVG(ws.hourly_rate) as avg_rate,
-        COUNT(ws.id) as service_count
-      FROM users u
-      LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN worker_services ws ON u.id = ws.user_id
-      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
-    `
-    
-    const params = []
-    
-    // Filter by service type if specified
-    if (serviceType && serviceType !== '') {
-      query += ` AND LOWER(ws.service_name) LIKE LOWER(?)`
-      params.push(`%${serviceType}%`)
-    }
-    
-    // Filter by location if specified
-    if (location && location !== '') {
-      const locationParts = location.split(',')
-      if (locationParts.length > 0) {
-        const city = locationParts[0].trim()
-        query += ` AND LOWER(u.city) LIKE LOWER(?)`
-        params.push(`%${city}%`)
-      }
-    }
-    
-    // Filter by budget if specified
-    if (budget && budget > 0) {
-      query += ` AND ws.hourly_rate <= ?`
-      params.push(budget)
-    }
-    
-    query += `
-      GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-               p.bio, p.profile_image_url, p.company_name
-      ORDER BY u.is_verified DESC, avg_rate ASC
-      LIMIT 20
-    `
-    
-    const stmt = c.env.DB.prepare(query)
-    const results = await stmt.bind(...params).all()
-    
-    // Get actual services for each provider
-    const providersWithServices = []
-    for (const provider of results.results || []) {
-      // Fetch services for this provider
-      const servicesQuery = `
-        SELECT service_name, hourly_rate 
-        FROM worker_services 
-        WHERE user_id = ? AND is_available = 1 
-        LIMIT 5
-      `
-      const servicesResult = await c.env.DB.prepare(servicesQuery).bind(provider.id).all()
-      const services = (servicesResult.results || []).map((s: any) => s.service_name)
-      
-      providersWithServices.push({
-        id: provider.id,
-        name: `${provider.first_name} ${provider.last_name}`,
-        company: provider.company_name || `${provider.first_name}'s Services`,
-        rating: 4.5 + Math.random() * 0.5, // Mock rating for demo
-        reviews: Math.floor(Math.random() * 200) + 50, // Mock review count
-        rate: Math.round(provider.avg_rate || 40),
-        distance: Math.round((Math.random() * 10 + 1) * 10) / 10, // Mock distance
-        services: services.length > 0 ? services : ['Professional Service'],
-        image: provider.profile_image_url,
-        initials: `${provider.first_name.charAt(0)}${provider.last_name.charAt(0)}`,
-        verified: provider.is_verified,
-        available: Math.random() > 0.5 ? 'Today' : 'Tomorrow',
-        bio: provider.bio || `Professional service provider in ${provider.city}, ${provider.province}. Licensed and insured.`,
-        location: `${provider.city}, ${provider.province}`
-      })
-    }
-    
-    const providers = providersWithServices
-    
-    return c.json({
-      success: true,
-      providers,
-      total: providers.length,
-      searchParams: { serviceType, location, task, budget, additionalServices }
-    })
-    
-  } catch (error) {
-    console.error('Provider search error:', error)
-    return c.json({
-      success: false,
-      error: 'Failed to search providers',
-      providers: []
-    }, 500)
-  }
-})
+// Duplicate search endpoint removed - using Excel-based search above
 
 // ORIGINAL USER HOMEPAGE - RESTORED
 // Add direct demo routes that bypass complex authentication
@@ -3950,6 +3931,17 @@ app.get('/demo-admin', async (c) => {
   return c.redirect('/dashboard/admin')
 })
 
+// Analytics Dashboard Route
+app.get('/analytics-dashboard', (c) => {
+  return c.redirect('/static/analytics-dashboard.html')
+})
+
+// Marketing Dashboard Route
+app.get('/marketing-dashboard', (c) => {
+  return c.redirect('/static/marketing-dashboard.html')
+})
+
+// Original homepage restored
 app.get('/', (c) => {
   return c.html(`
     <!DOCTYPE html>
@@ -3957,7 +3949,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Kwikr Directory - Connect with Canadian Service Providers</title>
+        <title>getKwikr - Connect with Canadian Service Providers</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3972,6 +3964,7 @@ app.get('/', (c) => {
             }
           }
         </script>
+
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <link href="/static/styles.css" rel="stylesheet">
     </head>
@@ -3982,16 +3975,23 @@ app.get('/', (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <h1 class="text-2xl font-bold text-kwikr-green">
-                                <i class="fas fa-bolt mr-2"></i>Kwikr Directory
-                            </h1>
+                            <a href="/" class="flex items-center">
+                                <img src="/getkwikr-logo.png" alt="getKwikr" class="h-12 w-12 mr-3">
+                                <h1 class="text-2xl font-bold text-kwikr-green">getKwikr</h1>
+                            </a>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
                         <button onclick="showHowItWorksModal()" class="text-gray-700 hover:text-kwikr-green transition-colors">How it Works</button>
                         <a href="#services" class="text-gray-700 hover:text-kwikr-green transition-colors">Find Services</a>
-                        <a href="/signup" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
-                            <i class="fas fa-tools mr-1"></i>Join Kwikr
+                        <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
+                            <i class="fas fa-sign-in-alt mr-1"></i>Login
+                        </a>
+                        <a href="/clear-cookies" class="text-gray-500 hover:text-red-600 transition-colors text-sm" title="Clear sessions if experiencing redirect loops">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Clear Session
+                        </a>
+                        <a href="/subscriptions/pricing" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
+                            <i class="fas fa-tools mr-1"></i>Join getKwikr
                         </a>
                         <a href="/signup/client" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors font-medium inline-flex items-center">
                             <i class="fas fa-briefcase mr-2"></i>Post a Job
@@ -4020,7 +4020,7 @@ app.get('/', (c) => {
                         
                         <form id="searchForm" class="space-y-6">
                             <!-- Search Inputs Row -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <!-- Service Type Dropdown -->
                                 <div class="space-y-2">
                                     <label class="flex items-center text-sm font-medium text-gray-700">
@@ -4043,26 +4043,31 @@ app.get('/', (c) => {
                                     </select>
                                 </div>
                                 
-                                <!-- Location Input -->
+                                <!-- Province Dropdown -->
+                                <div class="space-y-2">
+                                    <label class="flex items-center text-sm font-medium text-gray-700">
+                                        <i class="fas fa-flag text-kwikr-green mr-2"></i>
+                                        Province
+                                    </label>
+                                    <select id="provinceMain" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kwikr-green focus:ring-0 text-gray-800 bg-white" onchange="loadCitiesForProvince(this.value)">
+                                        <option value="">All Provinces</option>
+                                        <!-- Options will be populated dynamically -->
+                                    </select>
+                                </div>
+                                
+                                <!-- City Dropdown -->
                                 <div class="space-y-2">
                                     <label class="flex items-center text-sm font-medium text-gray-700">
                                         <i class="fas fa-map-marker-alt text-kwikr-green mr-2"></i>
-                                        Location in Canada
+                                        City
                                     </label>
-                                    <input type="text" id="location" placeholder="Toronto, ON" value="Toronto, ON"
-                                           class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kwikr-green focus:ring-0 text-gray-800">
+                                    <select id="cityMain" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kwikr-green focus:ring-0 text-gray-800 bg-white" disabled>
+                                        <option value="">Select Province First</option>
+                                    </select>
                                 </div>
                             </div>
                             
                             <!-- Task Description -->
-                            <div class="space-y-2">
-                                <label class="flex items-center text-sm font-medium text-gray-700">
-                                    <i class="fas fa-clipboard-list text-kwikr-green mr-2"></i>
-                                    Task
-                                </label>
-                                <input type="text" id="taskDescription" placeholder="e.g., clean my house"
-                                       class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-kwikr-green focus:ring-0 text-gray-800">
-                            </div>
                             
                             <!-- Additional Services (Optional) -->
                             <div class="space-y-3">
@@ -4227,9 +4232,9 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
-                        <button onclick="selectSubscriptionPlan('payasyougo')" class="w-full bg-kwikr-green text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition-colors">
+                        <a href="/signup/worker?plan=payasyougo" class="w-full bg-kwikr-green text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition-colors block text-center">
                             <i class="fas fa-arrow-right mr-2"></i>Start Free
-                        </button>
+                        </a>
                     </div>
                     
                     <!-- Growth Plan -->
@@ -4281,9 +4286,9 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
-                        <button onclick="selectSubscriptionPlan('growth')" class="w-full bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors">
+                        <a href="/signup/worker?plan=growth" class="w-full bg-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-600 transition-colors block text-center">
                             <i class="fas fa-crown mr-2"></i>Choose Growth
-                        </button>
+                        </a>
                     </div>
                     
                     <!-- Pro Plan -->
@@ -4332,9 +4337,9 @@ app.get('/', (c) => {
                             </div>
                         </div>
                         
-                        <button onclick="selectSubscriptionPlan('pro')" class="w-full bg-purple-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-600 transition-colors">
+                        <a href="/signup/worker?plan=pro" class="w-full bg-purple-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-600 transition-colors block text-center">
                             <i class="fas fa-rocket mr-2"></i>Go Pro
-                        </button>
+                        </a>
                     </div>
                 </div>
                 
@@ -4368,7 +4373,7 @@ app.get('/', (c) => {
         <div class="py-24 bg-kwikr-gray">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="text-center mb-16">
-                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Why Choose Kwikr Directory?</h2>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-4">Why Choose getKwikr?</h2>
                     <p class="text-lg text-gray-600">Connecting Canadians with trusted service providers</p>
                 </div>
                 
@@ -4482,7 +4487,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-star"></i>
                             </div>
                         </div>
-                        <p class="text-gray-700 mb-6 italic">"Found an amazing cleaner through Kwikr Directory in just minutes. The booking process was seamless and the service quality exceeded my expectations. Highly recommend!"</p>
+                        <p class="text-gray-700 mb-6 italic">"Found an amazing cleaner through getKwikr in just minutes. The booking process was seamless and the service quality exceeded my expectations. Highly recommend!"</p>
                         <div class="flex items-center">
                             <div class="bg-kwikr-green text-white w-12 h-12 rounded-full flex items-center justify-center font-semibold mr-4">
                                 SM
@@ -4505,7 +4510,7 @@ app.get('/', (c) => {
                                 <i class="fas fa-star"></i>
                             </div>
                         </div>
-                        <p class="text-gray-700 mb-6 italic">"As a contractor, Kwikr Directory has been a game-changer for my business. I get quality leads regularly and the payment system is secure and reliable."</p>
+                        <p class="text-gray-700 mb-6 italic">"As a contractor, getKwikr has been a game-changer for my business. I get quality leads regularly and the payment system is secure and reliable."</p>
                         <div class="flex items-center">
                             <div class="bg-blue-500 text-white w-12 h-12 rounded-full flex items-center justify-center font-semibold mr-4">
                                 MJ
@@ -4663,7 +4668,7 @@ app.get('/', (c) => {
                     <div>
                         <div class="flex items-center mb-6">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-3"></i>
-                            <h3 class="text-2xl font-bold">Kwikr Directory</h3>
+                            <h3 class="text-2xl font-bold">getKwikr</h3>
                         </div>
                         <p class="text-gray-300 mb-6">
                             Connecting Canadians with trusted, verified service providers across the country. Quality work, fair prices, guaranteed satisfaction.
@@ -4732,7 +4737,7 @@ app.get('/', (c) => {
                 <div class="border-t border-gray-700 mt-12 pt-8">
                     <div class="flex flex-col md:flex-row justify-between items-center">
                         <div class="text-gray-300 text-sm mb-4 md:mb-0">
-                            © 2024 Kwikr Directory. All rights reserved. | Connecting Canadians with trusted service providers.
+                            © 2024 getKwikr. All rights reserved. | Connecting Canadians with trusted service providers.
                         </div>
                         <div class="flex items-center text-sm text-gray-300">
                             <i class="fas fa-phone mr-2"></i>
@@ -4753,7 +4758,7 @@ app.get('/', (c) => {
             <div class="bg-white p-8 rounded-lg max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-2xl font-bold text-kwikr-green">
-                        <i class="fas fa-lightbulb mr-2"></i>How Kwikr Directory Works
+                        <i class="fas fa-lightbulb mr-2"></i>How getKwikr Works
                     </h3>
                     <button onclick="hideHowItWorksModal()" class="text-gray-400 hover:text-gray-600">
                         <i class="fas fa-times text-xl"></i>
@@ -4886,7 +4891,7 @@ app.get('/', (c) => {
                 
                 <p class="mt-4 text-center text-sm text-gray-600">
                     Don't have an account? 
-                    <button onclick="hideLoginModal(); showSignupModal()" class="text-kwikr-green hover:underline">Sign up</button>
+                    <a href="/subscriptions/pricing" class="text-kwikr-green hover:underline">Sign up</a>
                 </p>
             </div>
         </div>
@@ -4976,7 +4981,7 @@ app.get('/', (c) => {
                 
                 <p class="mt-4 text-center text-sm text-gray-600">
                     Already have an account? 
-                    <button onclick="hideSignupModal(); showLoginModal()" class="text-kwikr-green hover:underline">Sign in</button>
+                    <a href="/auth/login" class="text-kwikr-green hover:underline">Sign in</a>
                 </p>
             </div>
         </div>
@@ -5010,15 +5015,7 @@ app.get('/', (c) => {
               });
             }
             
-            // Popular task buttons
-            document.querySelectorAll('.popular-task').forEach(button => {
-              button.addEventListener('click', function() {
-                const taskField = document.getElementById('taskDescription');
-                if (taskField) {
-                  taskField.value = this.textContent.trim();
-                }
-              });
-            });
+
             
             // Service type change handler for main form
             const serviceTypeSelect = document.getElementById('serviceTypeMain');
@@ -5039,6 +5036,9 @@ app.get('/', (c) => {
               // Initialize with default value
               updateAdditionalServicesSearch(serviceTypeSearchSelect.value);
             }
+            
+            // Load provinces on page load
+            loadProvinces();
           });
           
           // Additional services definitions for each service type
@@ -5169,10 +5169,86 @@ app.get('/', (c) => {
             }
           }
           
+          // Load provinces on page load
+          async function loadProvinces() {
+            try {
+              const response = await fetch('/api/locations/provinces');
+              const data = await response.json();
+              
+              if (data.success && data.provinces) {
+                const provinceSelect = document.getElementById('provinceMain');
+                if (provinceSelect) {
+                  // Clear existing options except "All Provinces"
+                  provinceSelect.innerHTML = '<option value="">All Provinces</option>';
+                  
+                  // Add province options sorted by worker count (already sorted from API)
+                  data.provinces.forEach(province => {
+                    const option = document.createElement('option');
+                    option.value = province.province;
+                    option.textContent = province.province + ' (' + province.worker_count + ' workers)';
+                    provinceSelect.appendChild(option);
+                  });
+                  
+                  // Leave "All Provinces" selected by default
+                  // provinceSelect.value = 'ON';
+                  // Don't auto-load cities - let user select province first
+                }
+              }
+            } catch (error) {
+              console.error('Failed to load provinces:', error);
+            }
+          }
+          
+          // Load cities for selected province
+          async function loadCitiesForProvince(province) {
+            const citySelect = document.getElementById('cityMain');
+            if (!citySelect) return;
+            
+            if (!province) {
+              citySelect.innerHTML = '<option value="">Select Province First</option>';
+              citySelect.disabled = true;
+              return;
+            }
+            
+            try {
+              citySelect.innerHTML = '<option value="">Loading cities...</option>';
+              citySelect.disabled = true;
+              
+              const response = await fetch('/api/locations/cities/' + encodeURIComponent(province));
+              const data = await response.json();
+              
+              if (data.success && data.cities) {
+                citySelect.innerHTML = '<option value="">All Cities</option>';
+                
+                // Add city options sorted by worker count
+                data.cities.forEach(city => {
+                  const option = document.createElement('option');
+                  option.value = city.city;
+                  option.textContent = city.city + ' (' + city.worker_count + ' workers)';
+                  citySelect.appendChild(option);
+                });
+                
+                // Let user choose city - no automatic selection
+                // if (province === 'ON') {
+                //   citySelect.value = 'Toronto';
+                // }
+                
+                citySelect.disabled = false;
+              } else {
+                citySelect.innerHTML = '<option value="">No cities available</option>';
+                citySelect.disabled = false;
+              }
+            } catch (error) {
+              console.error('Failed to load cities:', error);
+              citySelect.innerHTML = '<option value="">Error loading cities</option>';
+              citySelect.disabled = false;
+            }
+          }
+          
           function performSearch() {
             const serviceType = document.getElementById('serviceTypeMain')?.value;
-            const location = document.getElementById('location')?.value;
-            const task = document.getElementById('taskDescription')?.value;
+            const province = document.getElementById('provinceMain')?.value;
+            const city = document.getElementById('cityMain')?.value;
             const budget = document.getElementById('budgetRange')?.value;
             const additionalServices = Array.from(document.querySelectorAll('input[name="additionalServices"]:checked')).map(cb => {
               if (cb.value === 'other') {
@@ -5182,21 +5258,25 @@ app.get('/', (c) => {
               return cb.value;
             });
             
-            // Build search URL with parameters
-            const searchParams = new URLSearchParams({
-              serviceType: serviceType || 'Cleaning Services',
-              location: location || 'Toronto, ON',
-              task: task || '',
-              budget: budget || '5000',
-              additionalServices: additionalServices.join(','),
-              page: '1',
-              limit: '10',
-              sortBy: 'rating'
-            });
+            // Build search URL with new province/city parameters (allow empty values)
+            const searchParams = new URLSearchParams();
+            
+            // Only add parameters if they have values
+            searchParams.set('serviceType', serviceType || 'Cleaning Services');
+            if (province) searchParams.set('province', province);
+            if (city) searchParams.set('city', city);
+            searchParams.set('budget', budget || '5000');
+            if (additionalServices.length > 0) searchParams.set('additionalServices', additionalServices.join(','));
+            searchParams.set('page', '1');
+            searchParams.set('limit', '10');
+            searchParams.set('sortBy', 'rating');
             
             // Redirect to search results page
             window.location.href = '/search?' + searchParams.toString();
           }
+          
+          // Make loadCitiesForProvince globally available for onchange event
+          window.loadCitiesForProvince = loadCitiesForProvince;
           
           // Newsletter subscription functionality
           document.addEventListener('DOMContentLoaded', function() {
@@ -5209,7 +5289,7 @@ app.get('/', (c) => {
                 if (email) {
                   // Here you would normally send the email to your backend
                   // For now, just show a success message
-                  alert('Thank you for subscribing! We will keep you updated with the latest from Kwikr Directory.');
+                  alert('Thank you for subscribing! We will keep you updated with the latest from getKwikr.');
                   document.getElementById('newsletterEmail').value = '';
                 }
               });
@@ -5229,7 +5309,7 @@ app.get('/', (c) => {
                 if (name && email && city && province && type) {
                   // Here you would normally send the data to your backend
                   // For now, just show a success message
-                  alert('Thank you ' + name + '! You have been added to our waitlist for ' + city + ', ' + province + '. We will notify you when Kwikr Directory launches in your area.');
+                  alert('Thank you ' + name + '! You have been added to our waitlist for ' + city + ', ' + province + '. We will notify you when getKwikr launches in your area.');
                   waitlistForm.reset();
                 }
               });
@@ -5319,24 +5399,27 @@ app.get('/', (c) => {
           
           // Login/Signup Functions - Using Direct Links Now
           
-          // Enhanced Modal Management Functions
+          // Redirect functions instead of modals
           function showLoginModal() {
-            document.getElementById('loginModal').classList.remove('hidden');
+            window.location.href = '/auth/login';
           }
           
           function hideLoginModal() {
-            document.getElementById('loginModal').classList.add('hidden');
+            // No longer needed - removing modals
           }
           
           function showSignupModal(role = '') {
-            document.getElementById('signupModal').classList.remove('hidden');
-            if (role) {
-              selectUserType(role);
+            if (role === 'client') {
+              window.location.href = '/signup/client';
+            } else if (role === 'worker') {
+              window.location.href = '/signup/worker';
+            } else {
+              window.location.href = '/subscriptions/pricing';
             }
           }
           
           function hideSignupModal() {
-            document.getElementById('signupModal').classList.add('hidden');
+            // No longer needed - removing modals
           }
           
           // User Type Selection for Signup
@@ -5383,7 +5466,7 @@ app.get('/', (c) => {
               const data = await response.json();
               
               if (response.ok && data.success) {
-                alert('Login successful! Redirecting to your dashboard...');
+
                 hideLoginModal();
                 
                 // Check for post-login action
@@ -5447,7 +5530,7 @@ app.get('/', (c) => {
               const data = await response.json();
               
               if (response.ok && data.success) {
-                alert('Account created successfully! Redirecting to your dashboard...');
+                // Redirect directly after successful account creation - no popup needed
                 hideSignupModal();
                 
                 // Check for post-signup action
@@ -5483,61 +5566,7 @@ app.get('/', (c) => {
           window.handleLogin = handleLogin;
           window.handleSignup = handleSignup;
 
-          // Subscription Plan Selection Routing
-          async function selectSubscriptionPlan(planType) {
-            try {
-              // Check if user is logged in by trying to get current user
-              const response = await fetch('/api/auth/me');
-              
-              if (response.ok) {
-                // User is logged in, get user info
-                const userData = await response.json();
-                const user = userData.user;
-                
-                if (user && user.role === 'worker') {
-                  // Logged-in worker - show plan selection info and redirect to dashboard
-                  if (planType === 'payasyougo') {
-                    // Already free plan, go to dashboard
-                    window.location.href = '/dashboard/worker';
-                  } else {
-                    // Paid plan - alert user about upgrade and go to dashboard
-                    const planNames = {
-                      'growth': 'Growth Plan ($99/month)',
-                      'pro': 'Pro Plan ($199/month)'
-                    };
-                    alert(\`You selected the \${planNames[planType] || 'paid plan'}. Please visit your dashboard to manage your subscription and upgrade your plan.\`);
-                    window.location.href = '/dashboard/worker';
-                  }
-                } else if (user && user.role === 'client') {
-                  // Client user - show message that subscriptions are for workers
-                  alert('Subscription plans are for service providers only. If you want to provide services, please sign up as a worker.');
-                  return;
-                } else {
-                  // Admin or other role - redirect to general pricing
-                  window.location.href = '/pricing';
-                }
-              } else {
-                // User not logged in - show signup modal for workers
-                if (planType === 'payasyougo') {
-                  // Free plan - show worker signup modal
-                  alert('To start with the free Pay-as-you-go plan, please sign up as a service provider.');
-                  showSignupModal('worker');
-                } else {
-                  // Paid plan - show worker signup modal with plan info
-                  const planNames = {
-                    'growth': 'Growth Plan ($99/month)',
-                    'pro': 'Pro Plan ($199/month)'
-                  };
-                  alert(\`To subscribe to the \${planNames[planType] || 'selected plan'}, please sign up as a service provider first.\`);
-                  showSignupModal('worker');
-                }
-              }
-            } catch (error) {
-              console.error('Error checking authentication:', error);
-              // On error, show signup modal for workers
-              showSignupModal('worker');
-            }
-          }
+          // Subscription plan selection now uses direct links - no JavaScript function needed
 
         </script>
     </body>
@@ -5700,7 +5729,7 @@ app.get('/debug/sessions', async (c) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Session Debug - Kwikr Directory</title>
+        <title>Session Debug - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <meta http-equiv="refresh" content="30">
       </head>
@@ -5768,644 +5797,80 @@ app.get('/debug/sessions', async (c) => {
   }
 })
 
-// COMMENTED OUT - INCORRECT HOMEPAGE THAT OVERWROTE USER'S DESIGN
-/* 
-app.get('/', async (c) => {
+// Debug route to clear cookies and redirect to clean homepage
+app.get('/clear-cookies', async (c) => {
+  // Clear all possible session cookies
+  c.header('Set-Cookie', 'session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;')
+  c.header('Set-Cookie', 'demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;')
+  
+  return c.html(`
+    <script>
+      // Clear localStorage as well
+      localStorage.clear();
+      // Clear sessionStorage as well
+      sessionStorage.clear();
+      // Redirect to homepage
+      window.location.href = '/';
+    </script>
+    <p>Clearing cookies and redirecting...</p>
+  `)
+})
+
+// Clear sessions API endpoint for users experiencing redirect loops
+app.post('/api/clear-user-sessions', async (c) => {
+  try {
+    // Get session token from header or cookie
+    const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '') || 
+      c.req.header('Cookie')?.split(';')
+        .find(cookie => cookie.trim().startsWith('session='))
+        ?.split('=')[1]?.trim()
+
+    if (sessionToken) {
+      // Delete the specific session
+      await c.env.DB.prepare('DELETE FROM user_sessions WHERE session_token = ?')
+        .bind(sessionToken).run()
+    }
+
+    // Clear all cookies in response  
+    c.header('Set-Cookie', 'session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;')
+    c.header('Set-Cookie', 'demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;')
+
+    return c.json({ 
+      success: true, 
+      message: 'Sessions cleared successfully',
+      redirect: '/'
+    })
+  } catch (error) {
+    console.error('Clear sessions error:', error)
+    return c.json({ 
+      success: true, // Still return success to clear frontend state
+      message: 'Frontend session cleared'
+    })
+  }
+})
+
+// Simple test homepage to verify if redirects still happen
+app.get('/test-homepage', async (c) => {
   return c.html(`
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Kwikr - Connect with Trusted Local Service Providers</title>
-        <meta name="description" content="Find verified local service providers for home repairs, cleaning, maintenance and more. Quick, reliable, and affordable services in your area.">
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-          tailwind.config = {
-            theme: {
-              extend: {
-                colors: {
-                  'kwikr-green': '#00C881',
-                  'kwikr-dark': '#1a1a1a',
-                  'kwikr-gray': '#f8f9fa'
-                }
-              }
-            }
-          }
-        </script>
-        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <title>Test Homepage - No Redirects</title>
     </head>
-    <body class="bg-white">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
-                        <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr
-                        </a>
-                    </div>
-                    <div class="hidden md:flex items-center space-x-8">
-                        <a href="#services" class="text-gray-700 hover:text-kwikr-green transition-colors">Services</a>
-                        <a href="#how-it-works" class="text-gray-700 hover:text-kwikr-green transition-colors">How it Works</a>
-                        <a href="#testimonials" class="text-gray-700 hover:text-kwikr-green transition-colors">Reviews</a>
-                        <a href="/demo" class="text-gray-700 hover:text-kwikr-green transition-colors">Demo</a>
-                        <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green transition-colors">
-                            Sign In
-                        </a>
-                        <button onclick="showSignupModal()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                            Get Started
-                        </button>
-                    </div>
-                    <div class="md:hidden">
-                        <button onclick="toggleMobileMenu()" class="text-gray-700 hover:text-kwikr-green">
-                            <i class="fas fa-bars text-xl"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Mobile Menu -->
-            <div id="mobileMenu" class="hidden md:hidden bg-white border-t border-gray-200">
-                <div class="px-4 py-2 space-y-2">
-                    <a href="#services" class="block text-gray-700 hover:text-kwikr-green py-2">Services</a>
-                    <a href="#how-it-works" class="block text-gray-700 hover:text-kwikr-green py-2">How it Works</a>
-                    <a href="#testimonials" class="block text-gray-700 hover:text-kwikr-green py-2">Reviews</a>
-                    <a href="/demo" class="block text-gray-700 hover:text-kwikr-green py-2">Demo</a>
-                    <a href="/auth/login" class="block w-full text-left text-gray-700 hover:text-kwikr-green py-2">Sign In</a>
-                    <button onclick="showSignupModal()" class="block w-full bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 mt-2">Get Started</button>
-                </div>
-            </div>
-        </nav>
-
-        <!-- Hero Section -->
-        <section class="bg-gradient-to-br from-kwikr-green to-green-600 text-white py-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                    <div>
-                        <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight">
-                            Find Trusted Local <span class="text-green-200">Service Providers</span>
-                        </h1>
-                        <p class="text-xl mb-8 text-green-100 leading-relaxed">
-                            Connect with verified professionals for home repairs, cleaning, maintenance, and more. 
-                            Get quotes instantly and book services in your area.
-                        </p>
-                        <div class="flex flex-col sm:flex-row gap-4">
-                            <button onclick="showSignupModal()" class="bg-white text-kwikr-green px-8 py-4 rounded-lg font-semibold hover:bg-gray-100 transition-colors text-lg">
-                                <i class="fas fa-search mr-2"></i>Find Services
-                            </button>
-                            <a href="/demo" class="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-kwikr-green transition-colors text-lg text-center">
-                                <i class="fas fa-play mr-2"></i>Watch Demo
-                            </a>
-                        </div>
-                        <div class="mt-8 flex items-center space-x-6 text-green-200">
-                            <div class="flex items-center">
-                                <i class="fas fa-shield-check mr-2"></i>
-                                <span>Verified Professionals</span>
-                            </div>
-                            <div class="flex items-center">
-                                <i class="fas fa-clock mr-2"></i>
-                                <span>Quick Response</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <div class="bg-white bg-opacity-10 rounded-2xl p-8 backdrop-blur-sm">
-                            <h3 class="text-2xl font-bold mb-6">What do you need help with?</h3>
-                            <form id="heroSearchForm" onsubmit="handleHeroSearch(event)" class="space-y-4">
-                                <div>
-                                    <select id="serviceTypeHero" class="w-full px-4 py-3 border border-green-300 rounded-lg focus:ring-2 focus:ring-white focus:border-transparent text-gray-800">
-                                        <option value="">Select a service...</option>
-                                        <option value="Cleaning Services">Cleaning Services</option>
-                                        <option value="Plumbers">Plumbers</option>
-                                        <option value="Carpenters">Carpenters</option>
-                                        <option value="Electricians">Electricians</option>
-                                        <option value="Flooring">Flooring</option>
-                                        <option value="Painters">Painters</option>
-                                        <option value="Handyman">Handyman</option>
-                                        <option value="HVAC Services">HVAC Services</option>
-                                        <option value="General Contractor">General Contractor</option>
-                                        <option value="Roofing">Roofing</option>
-                                        <option value="Landscaping">Landscaping</option>
-                                        <option value="Renovations">Renovations</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <input type="text" id="location" placeholder="Your city or postal code" 
-                                           class="w-full px-4 py-3 border border-green-300 rounded-lg focus:ring-2 focus:ring-white focus:border-transparent text-gray-800">
-                                </div>
-                                <div>
-                                    <input type="number" id="budget" placeholder="Estimated budget (CAD)" 
-                                           class="w-full px-4 py-3 border border-green-300 rounded-lg focus:ring-2 focus:ring-white focus:border-transparent text-gray-800">
-                                </div>
-                                <button type="submit" class="w-full bg-kwikr-dark text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
-                                    <i class="fas fa-search mr-2"></i>Find Providers
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Services Section -->
-        <section id="services" class="py-20 bg-kwikr-gray">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-4xl font-bold text-gray-900 mb-4">Popular Services</h2>
-                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-                        From routine maintenance to emergency repairs, find the right professional for any job
-                    </p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-lg transition-shadow cursor-pointer" onclick="searchService('Cleaning Services')">
-                        <div class="bg-blue-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4">
-                            <i class="fas fa-home text-blue-600 text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Home Cleaning</h3>
-                        <p class="text-gray-600 mb-4">Professional house cleaning services for busy homeowners</p>
-                        <div class="text-kwikr-green font-medium">Starting at $35/hour</div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-lg transition-shadow cursor-pointer" onclick="searchService('Handyman')">
-                        <div class="bg-green-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4">
-                            <i class="fas fa-tools text-green-600 text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Handyman Services</h3>
-                        <p class="text-gray-600 mb-4">Fix, install, and maintain anything around your home</p>
-                        <div class="text-kwikr-green font-medium">Starting at $45/hour</div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-lg transition-shadow cursor-pointer" onclick="searchService('Plumbers')">
-                        <div class="bg-purple-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4">
-                            <i class="fas fa-wrench text-purple-600 text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Plumbing</h3>
-                        <p class="text-gray-600 mb-4">Licensed plumbers for repairs, installations, and emergencies</p>
-                        <div class="text-kwikr-green font-medium">Starting at $65/hour</div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-sm p-6 hover:shadow-lg transition-shadow cursor-pointer" onclick="searchService('Electricians')">
-                        <div class="bg-yellow-100 w-16 h-16 rounded-lg flex items-center justify-center mb-4">
-                            <i class="fas fa-bolt text-yellow-600 text-2xl"></i>
-                        </div>
-                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Electrical Work</h3>
-                        <p class="text-gray-600 mb-4">Certified electricians for safe electrical installations</p>
-                        <div class="text-kwikr-green font-medium">Starting at $75/hour</div>
-                    </div>
-                </div>
-                
-                <div class="text-center mt-12">
-                    <button onclick="showAllServices()" class="bg-kwikr-green text-white px-8 py-3 rounded-lg font-semibold hover:bg-green-600 transition-colors">
-                        View All Services
-                    </button>
-                </div>
-            </div>
-        </section>
-
-        <!-- How It Works Section -->
-        <section id="how-it-works" class="py-20 bg-white">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-4xl font-bold text-gray-900 mb-4">How Kwikr Works</h2>
-                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-                        Get connected with trusted professionals in three simple steps
-                    </p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-                    <div class="text-center">
-                        <div class="bg-kwikr-green w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <span class="text-white text-2xl font-bold">1</span>
-                        </div>
-                        <h3 class="text-2xl font-semibold text-gray-900 mb-4">Describe Your Project</h3>
-                        <p class="text-gray-600 leading-relaxed">
-                            Tell us what you need done, when you need it, and your budget. 
-                            We'll match you with qualified professionals in your area.
-                        </p>
-                    </div>
-                    
-                    <div class="text-center">
-                        <div class="bg-kwikr-green w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <span class="text-white text-2xl font-bold">2</span>
-                        </div>
-                        <h3 class="text-2xl font-semibold text-gray-900 mb-4">Compare Quotes</h3>
-                        <p class="text-gray-600 leading-relaxed">
-                            Receive multiple quotes from verified professionals. 
-                            Compare prices, reviews, and availability to find the perfect match.
-                        </p>
-                    </div>
-                    
-                    <div class="text-center">
-                        <div class="bg-kwikr-green w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <span class="text-white text-2xl font-bold">3</span>
-                        </div>
-                        <h3 class="text-2xl font-semibold text-gray-900 mb-4">Book & Pay Securely</h3>
-                        <p class="text-gray-600 leading-relaxed">
-                            Choose your professional and book the service. 
-                            Payment is held securely until the job is completed to your satisfaction.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Testimonials Section -->
-        <section id="testimonials" class="py-20 bg-kwikr-gray">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center mb-16">
-                    <h2 class="text-4xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
-                    <p class="text-xl text-gray-600">Real reviews from satisfied customers across Canada</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="bg-white p-8 rounded-lg shadow-sm">
-                        <div class="flex items-center mb-4">
-                            <div class="flex text-yellow-400">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <span class="ml-2 text-gray-600 font-medium">5.0</span>
-                        </div>
-                        <p class="text-gray-700 mb-6 leading-relaxed">
-                            "Amazing service! Found a reliable cleaner within hours. 
-                            The booking process was so smooth and the cleaner did an excellent job."
-                        </p>
-                        <div class="flex items-center">
-                            <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
-                                SM
-                            </div>
-                            <div>
-                                <div class="font-semibold text-gray-900">Sarah Mitchell</div>
-                                <div class="text-gray-600 text-sm">Toronto, ON</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white p-8 rounded-lg shadow-sm">
-                        <div class="flex items-center mb-4">
-                            <div class="flex text-yellow-400">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <span class="ml-2 text-gray-600 font-medium">5.0</span>
-                        </div>
-                        <p class="text-gray-700 mb-6 leading-relaxed">
-                            "The plumber I hired through Kwikr was professional, punctual, and reasonably priced. 
-                            Fixed my kitchen sink perfectly!"
-                        </p>
-                        <div class="flex items-center">
-                            <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
-                                MJ
-                            </div>
-                            <div>
-                                <div class="font-semibold text-gray-900">Mike Johnson</div>
-                                <div class="text-gray-600 text-sm">Vancouver, BC</div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white p-8 rounded-lg shadow-sm">
-                        <div class="flex items-center mb-4">
-                            <div class="flex text-yellow-400">
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                                <i class="fas fa-star"></i>
-                            </div>
-                            <span class="ml-2 text-gray-600 font-medium">5.0</span>
-                        </div>
-                        <p class="text-gray-700 mb-6 leading-relaxed">
-                            "Love how easy it is to find trusted contractors. 
-                            The secure payment system gives me peace of mind when hiring."
-                        </p>
-                        <div class="flex items-center">
-                            <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
-                                ER
-                            </div>
-                            <div>
-                                <div class="font-semibold text-gray-900">Emily Rodriguez</div>
-                                <div class="text-gray-600 text-sm">Montreal, QC</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Newsletter Section -->
-        <section class="py-16 bg-kwikr-green">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center">
-                    <h2 class="text-3xl font-bold text-white mb-4">Stay Updated</h2>
-                    <p class="text-green-100 text-lg mb-8 max-w-2xl mx-auto">
-                        Get tips for home maintenance, exclusive deals, and updates on new services in your area
-                    </p>
-                    
-                    <form id="newsletterForm" onsubmit="handleNewsletter(event)" class="max-w-md mx-auto">
-                        <div class="flex">
-                            <input type="email" id="newsletterEmail" placeholder="Enter your email" required
-                                   class="flex-1 px-4 py-3 rounded-l-lg border-0 focus:ring-2 focus:ring-white focus:outline-none">
-                            <button type="submit" class="bg-kwikr-dark text-white px-6 py-3 rounded-r-lg hover:bg-gray-800 transition-colors">
-                                Subscribe
-                            </button>
-                        </div>
-                        <p class="text-green-200 text-sm mt-2">No spam. Unsubscribe anytime.</p>
-                    </form>
-                </div>
-            </div>
-        </section>
-
-        <!-- Footer -->
-        <footer class="bg-kwikr-dark text-white py-16">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-                    <div class="col-span-1 md:col-span-2">
-                        <div class="flex items-center mb-4">
-                            <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold">Kwikr</span>
-                        </div>
-                        <p class="text-gray-300 mb-6 leading-relaxed">
-                            Connecting homeowners with trusted local service providers across Canada. 
-                            Fast, reliable, and secure platform for all your home service needs.
-                        </p>
-                        <div class="flex space-x-4">
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">
-                                <i class="fab fa-facebook-f text-xl"></i>
-                            </a>
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">
-                                <i class="fab fa-twitter text-xl"></i>
-                            </a>
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">
-                                <i class="fab fa-instagram text-xl"></i>
-                            </a>
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">
-                                <i class="fab fa-linkedin text-xl"></i>
-                            </a>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <h3 class="text-lg font-semibold mb-4">Services</h3>
-                        <ul class="space-y-2">
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Home Cleaning</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Handyman</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Plumbing</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Electrical</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Painting</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Landscaping</a></li>
-                        </ul>
-                    </div>
-                    
-                    <div>
-                        <h3 class="text-lg font-semibold mb-4">Company</h3>
-                        <ul class="space-y-2">
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">About Us</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">How It Works</a></li>
-                            <li><a href="/admin" class="text-gray-300 hover:text-kwikr-green transition-colors">Admin Portal</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Careers</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Press</a></li>
-                            <li><a href="#" class="text-gray-300 hover:text-kwikr-green transition-colors">Contact</a></li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="border-t border-gray-700 mt-12 pt-8">
-                    <div class="flex flex-col md:flex-row justify-between items-center">
-                        <div class="text-gray-300 text-sm">
-                            © 2024 Kwikr Platform. All rights reserved.
-                        </div>
-                        <div class="flex space-x-6 mt-4 md:mt-0">
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green text-sm transition-colors">Privacy Policy</a>
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green text-sm transition-colors">Terms of Service</a>
-                            <a href="#" class="text-gray-300 hover:text-kwikr-green text-sm transition-colors">Cookie Policy</a>
-                            <a href="/admin" class="text-gray-300 hover:text-kwikr-green text-sm transition-colors">Admin</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </footer>
-
-        <!-- Login Modal -->
-        <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold text-gray-900">Sign In</h2>
-                        <button onclick="closeLoginModal()" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <form id="loginForm" onsubmit="handleLogin(event)">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                            <input type="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
-                        </div>
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                            <input type="password" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
-                        </div>
-                        <button type="submit" class="w-full bg-kwikr-green text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
-                            Sign In
-                        </button>
-                    </form>
-                    
-                    <div class="mt-4 text-center">
-                        <p class="text-gray-600">Don't have an account? 
-                            <button onclick="showSignupModal()" class="text-kwikr-green hover:text-green-600 font-medium">Sign up</button>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Signup Modal -->
-        <div id="signupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold text-gray-900">Get Started</h2>
-                        <button onclick="closeSignupModal()" class="text-gray-400 hover:text-gray-600">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
-                    </div>
-                    
-                    <div class="mb-6">
-                        <p class="text-gray-600">Join as a:</p>
-                        <div class="grid grid-cols-2 gap-4 mt-3">
-                            <button onclick="selectUserType('client')" class="user-type-btn border-2 border-gray-300 p-4 rounded-lg hover:border-kwikr-green transition-colors text-center">
-                                <i class="fas fa-user text-2xl mb-2 text-kwikr-green"></i>
-                                <div class="font-medium">Client</div>
-                                <div class="text-sm text-gray-500">Hire services</div>
-                            </button>
-                            <button onclick="selectUserType('worker')" class="user-type-btn border-2 border-gray-300 p-4 rounded-lg hover:border-kwikr-green transition-colors text-center">
-                                <i class="fas fa-tools text-2xl mb-2 text-kwikr-green"></i>
-                                <div class="font-medium">Service Provider</div>
-                                <div class="text-sm text-gray-500">Offer services</div>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <form id="signupForm" onsubmit="handleSignup(event)">
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                            <input type="text" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
-                        </div>
-                        <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                            <input type="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
-                        </div>
-                        <div class="mb-6">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                            <input type="password" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
-                        </div>
-                        <button type="submit" class="w-full bg-kwikr-green text-white py-2 px-4 rounded-lg hover:bg-green-600 transition-colors">
-                            Create Account
-                        </button>
-                    </form>
-                    
-                    <div class="mt-4 text-center">
-                        <p class="text-gray-600">Already have an account? 
-                            <a href="/auth/login" class="text-kwikr-green hover:text-green-600 font-medium">Sign in</a>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+    <body>
+        <h1>Simple Test Homepage</h1>
+        <p>If you can see this page without being redirected, the issue is in the main homepage JavaScript.</p>
+        <p>Current time: ${new Date().toISOString()}</p>
         <script>
-            // Mobile menu toggle
-            function toggleMobileMenu() {
-                const menu = document.getElementById('mobileMenu');
-                menu.classList.toggle('hidden');
-            }
-
-            // Modal functions
-            function showLoginModal() {
-                closeSignupModal();
-                document.getElementById('loginModal').classList.remove('hidden');
-            }
-
-            function closeLoginModal() {
-                document.getElementById('loginModal').classList.add('hidden');
-            }
-
-            function showSignupModal() {
-                closeLoginModal();
-                document.getElementById('signupModal').classList.remove('hidden');
-            }
-
-            function closeSignupModal() {
-                document.getElementById('signupModal').classList.add('hidden');
-            }
-
-            // User type selection
-            let selectedUserType = null;
-            function selectUserType(type) {
-                selectedUserType = type;
-                document.querySelectorAll('.user-type-btn').forEach(btn => {
-                    btn.classList.remove('border-kwikr-green', 'bg-green-50');
-                    btn.classList.add('border-gray-300');
-                });
-                event.target.closest('.user-type-btn').classList.remove('border-gray-300');
-                event.target.closest('.user-type-btn').classList.add('border-kwikr-green', 'bg-green-50');
-            }
-
-            // Form handlers
-            function handleLogin(event) {
-                event.preventDefault();
-                alert('Login functionality would be implemented here');
-                closeLoginModal();
-            }
-
-            function handleSignup(event) {
-                event.preventDefault();
-                if (!selectedUserType) {
-                    alert('Please select whether you want to hire services or offer services');
-                    return;
-                }
-                alert('Signup functionality would be implemented here for ' + selectedUserType);
-                closeSignupModal();
-            }
-
-            function handleHeroSearch(event) {
-                event.preventDefault();
-                const serviceType = document.getElementById('serviceTypeHero').value;
-                const location = document.getElementById('location').value;
-                const budget = document.getElementById('budget').value;
-                
-                if (!serviceType) {
-                    alert('Please select a service type');
-                    return;
-                }
-                
-                const searchParams = new URLSearchParams({
-                    serviceType: serviceType,
-                    location: location || 'Toronto, ON',
-                    budget: budget || '1000'
-                });
-                
-                window.location.href = '/search?' + searchParams.toString();
-            }
-
-            function searchService(serviceType) {
-                const searchParams = new URLSearchParams({
-                    serviceType: serviceType,
-                    location: 'Toronto, ON',
-                    budget: '1000'
-                });
-                window.location.href = '/search?' + searchParams.toString();
-            }
-
-            function showAllServices() {
-                window.location.href = '/search';
-            }
-
-            function handleNewsletter(event) {
-                event.preventDefault();
-                const email = document.getElementById('newsletterEmail').value;
-                alert('Thank you for subscribing! We will send updates to ' + email);
-                document.getElementById('newsletterForm').reset();
-            }
-
-            // Close modals when clicking outside
-            document.addEventListener('click', function(event) {
-                if (event.target.id === 'loginModal') {
-                    closeLoginModal();
-                }
-                if (event.target.id === 'signupModal') {
-                    closeSignupModal();
-                }
-            });
-
-            // Smooth scrolling for anchor links
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    const target = document.querySelector(this.getAttribute('href'));
-                    if (target) {
-                        target.scrollIntoView({
-                            behavior: 'smooth',
-                            block: 'start'
-                        });
-                    }
-                });
-            });
+          console.log('Test homepage loaded - no redirects should happen here');
         </script>
     </body>
     </html>
   `)
 })
-END COMMENTED OUT INCORRECT HOMEPAGE */
+
+// Conflicting second homepage removed to prevent redirect loop
+
 
 // Admin Dashboard Route
 app.get('/admin', async (c) => {
@@ -6447,10 +5912,10 @@ app.get('/admin/settings', async (c) => {
   return c.html(getSystemSettingsHTML());
 })
 
-// Worker Profile Management
-app.get('/dashboard/worker/profile', async (c) => {
-  return c.html(getWorkerProfileHTML());
-})
+// Main Worker Dashboard - handled by dashboard routes
+// Note: The actual worker dashboard is defined in routes/dashboard.ts
+
+// Worker Profile Management - handled by dashboard routes
 
 // Worker Payment Management
 app.get('/dashboard/worker/payments', async (c) => {
@@ -6460,6 +5925,11 @@ app.get('/dashboard/worker/payments', async (c) => {
 // Worker Earnings History
 app.get('/dashboard/worker/earnings', async (c) => {
   return c.html(getWorkerEarningsHTML());
+})
+
+// Subscription Pricing Page
+app.get('/subscriptions/pricing', async (c) => {
+  return c.html(getSubscriptionPricingHTML());
 })
 
 // Admin login page
@@ -6612,7 +6082,7 @@ app.get('/admin/login', async (c) => {
                         // Set session cookie for admin
                         document.cookie = 'session=' + data.sessionToken + '; path=/; max-age=604800; secure=' + (window.location.protocol === 'https:') + '; samesite=lax';
                         
-                        showNotification('Login successful! Redirecting to admin portal...', 'success');
+
                         setTimeout(() => {
                             window.location.href = '/admin/portal';
                         }, 1500);
@@ -7130,7 +6600,7 @@ app.get('/demo/payment-system', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Interactive Payment Demo - Kwikr Platform</title>
+        <title>Interactive Payment Demo - getKwikr Platform</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -7598,7 +7068,7 @@ app.get('/demo/lifecycle-test', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Full Lifecycle Test Suite - Kwikr Platform</title>
+        <title>Full Lifecycle Test Suite - getKwikr Platform</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -8101,7 +7571,7 @@ function getUserManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>User Management - Kwikr Admin</title>
+        <title>User Management - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -8443,7 +7913,7 @@ function getWorkerManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Management - Kwikr Admin</title>
+        <title>Worker Management - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -8768,7 +8238,7 @@ function getAnalyticsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Analytics Dashboard - Kwikr Admin</title>
+        <title>Analytics Dashboard - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9139,7 +8609,7 @@ function getComplianceHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Compliance Management - Kwikr Admin</title>
+        <title>Compliance Management - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9549,7 +9019,7 @@ function getPaymentSystemHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment System Management - Kwikr Admin</title>
+        <title>Payment System Management - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9812,7 +9282,7 @@ function getSystemSettingsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>System Settings - Kwikr Admin</title>
+        <title>System Settings - getKwikr Admin</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -9894,7 +9364,7 @@ function getSystemSettingsHTML() {
                         <div class="p-6 space-y-6">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Platform Name</label>
-                                <input type="text" value="Kwikr Directory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
+                                <input type="text" value="getKwikr" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Support Email</label>
@@ -10460,7 +9930,7 @@ function getWorkerProfileHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Profile - Kwikr Directory</title>
+        <title>My Profile - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -10485,7 +9955,7 @@ function getWorkerProfileHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">Kwikr Directory</span>
+                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > My Profile
@@ -11187,7 +10657,7 @@ function getWorkerPaymentManagementHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment Management - Kwikr Directory</title>
+        <title>Payment Management - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11212,7 +10682,7 @@ function getWorkerPaymentManagementHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">Kwikr Directory</span>
+                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > Payment Management
@@ -11570,7 +11040,7 @@ function getWorkerEarningsHTML() {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Earnings History - Kwikr Directory</title>
+        <title>Earnings History - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11595,7 +11065,7 @@ function getWorkerEarningsHTML() {
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="flex items-center">
                             <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
-                            <span class="text-2xl font-bold text-gray-900">Kwikr Directory</span>
+                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
                         </a>
                         <div class="ml-6 text-gray-600">
                             Dashboard > Earnings History
@@ -11826,7 +11296,7 @@ function createInfoPage(title: string, content: string) {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${title} - Kwikr Directory</title>
+        <title>${title} - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -11850,7 +11320,7 @@ function createInfoPage(title: string, content: string) {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -11942,7 +11412,7 @@ app.get('/contact', async (c) => {
 app.get('/about', async (c) => {
   return c.html(createInfoPage('About Us', `
     <h2 class="text-xl font-semibold mb-4">Our Mission</h2>
-    <p class="text-gray-600 mb-6">Kwikr Directory connects Canadian homeowners with trusted, verified service providers across the country. We make it easy to find reliable professionals for any home service need.</p>
+    <p class="text-gray-600 mb-6">getKwikr connects Canadian homeowners with trusted, verified service providers across the country. We make it easy to find reliable professionals for any home service need.</p>
     
     <h2 class="text-xl font-semibold mb-4">Why Choose Kwikr?</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -11959,7 +11429,7 @@ app.get('/about', async (c) => {
 app.get('/safety', async (c) => {
   return c.html(createInfoPage('Safety Guidelines', `
     <h2 class="text-xl font-semibold mb-4">Our Safety Commitment</h2>
-    <p class="text-gray-600 mb-6">Your safety is our top priority. All service providers on Kwikr Directory are thoroughly vetted.</p>
+    <p class="text-gray-600 mb-6">Your safety is our top priority. All service providers on getKwikr are thoroughly vetted.</p>
     
     <h2 class="text-xl font-semibold mb-4">Safety Tips</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -11993,7 +11463,7 @@ app.get('/trust-safety', async (c) => {
 app.get('/insurance', async (c) => {
   return c.html(createInfoPage('Insurance Claims', `
     <h2 class="text-xl font-semibold mb-4">Comprehensive Coverage</h2>
-    <p class="text-gray-600 mb-6">All jobs on Kwikr Directory are covered by comprehensive insurance for your peace of mind.</p>
+    <p class="text-gray-600 mb-6">All jobs on getKwikr are covered by comprehensive insurance for your peace of mind.</p>
     
     <h2 class="text-xl font-semibold mb-4">Filing a Claim</h2>
     <ol class="list-decimal pl-6 space-y-2 text-gray-600">
@@ -12031,7 +11501,7 @@ app.get('/privacy', async (c) => {
 app.get('/terms', async (c) => {
   return c.html(createInfoPage('Terms of Service', `
     <h2 class="text-xl font-semibold mb-4">Platform Usage</h2>
-    <p class="text-gray-600 mb-6">By using Kwikr Directory, you agree to these terms and conditions.</p>
+    <p class="text-gray-600 mb-6">By using getKwikr, you agree to these terms and conditions.</p>
     
     <h2 class="text-xl font-semibold mb-4">User Responsibilities</h2>
     <ul class="list-disc pl-6 space-y-2 text-gray-600">
@@ -12141,7 +11611,7 @@ app.get('/admin/login', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Portal Login - Kwikr Directory</title>
+        <title>Admin Portal Login - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -12163,7 +11633,7 @@ app.get('/admin/login', async (c) => {
             <!-- Logo -->
             <div class="text-center mb-8">
                 <a href="/" class="text-3xl font-bold text-kwikr-green">
-                    <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                    <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                 </a>
                 <p class="text-gray-300 mt-2">Platform Administration</p>
             </div>
@@ -12269,7 +11739,7 @@ app.get('/admin/portal', requireAdminAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Admin Portal - Kwikr Directory Platform Management</title>
+        <title>Admin Portal - getKwikr Platform Management</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -12310,7 +11780,7 @@ app.get('/admin/portal', requireAdminAuth, async (c) => {
             <!-- Header -->
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900">Platform Administration</h1>
-                <p class="text-gray-600 mt-2">Manage and monitor the Kwikr Directory platform</p>
+                <p class="text-gray-600 mt-2">Manage and monitor the getKwikr platform</p>
             </div>
 
             <!-- Quick Actions -->
@@ -12456,5 +11926,209 @@ app.get('/admin/portal', requireAdminAuth, async (c) => {
     </html>
   `)
 })
+
+// Subscription Pricing HTML Generation Function
+function getSubscriptionPricingHTML() {
+  return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Choose Your Growth Plan - getKwikr</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          .kwikr-green { color: #10b981; }
+          .bg-kwikr-green { background-color: #10b981; }
+          .border-kwikr-green { border-color: #10b981; }
+        </style>
+    </head>
+    <body class="bg-gray-50 min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/" class="text-gray-700 hover:text-kwikr-green">Home</a>
+                        <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green">Sign In</a>
+                        <a href="/subscriptions/pricing" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">Join Kwikr</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="bg-kwikr-green py-16">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h1 class="text-4xl font-bold text-white mb-4">Choose Your Growth Plan</h1>
+                <p class="text-xl text-green-100 mb-8">Get more leads, grow your business, and dominate your local market</p>
+                
+                <!-- Toggle -->
+                <div class="flex justify-center items-center mb-8">
+                    <span class="text-white mr-3">Monthly</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="billingToggle" class="sr-only peer">
+                        <div class="w-11 h-6 bg-green-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                    <span class="text-white ml-3">Annual <span class="bg-yellow-400 text-green-900 px-2 py-1 rounded-full text-xs font-bold">Save 10%</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing Plans -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+            <div class="grid md:grid-cols-3 gap-8">
+                
+                <!-- Pay-as-you-go Plan -->
+                <div class="bg-white rounded-lg shadow-lg p-8 relative">
+                    <div class="text-center">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Pay-as-you-go</h3>
+                        <div class="text-4xl font-bold text-gray-900 mb-2">FREE</div>
+                        <p class="text-gray-600 mb-6">Perfect for: New contractors, part-time workers, or anyone just testing the platform.</p>
+                        
+                        <!-- Features -->
+                        <ul class="text-left space-y-3 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Search Results Tier - Tier 3</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Listed Categories - 1 Categories</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Fee per Completed Booking - $2.00 per booking</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Setup Cost - 0.00</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Access to Booking Tools</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Lead Inbox Access</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Kwikr Dashboard Access</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Message Center Access</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Cancel Anytime</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Upgrade Anytime</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Keep Revenue Percentage - 80%</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Risk-free Entry</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Zero Upfront Cost</li>
+                        </ul>
+                        
+                        <a href="/signup/worker?plan=payasyougo" class="w-full bg-gray-100 text-gray-800 py-3 px-6 rounded-lg hover:bg-gray-200 transition-colors font-semibold block text-center">
+                            START FREE
+                        </a>
+                        <p class="text-xs text-gray-500 mt-2">Risk-free entry with zero upfront cost</p>
+                    </div>
+                </div>
+
+                <!-- Growth Plan -->
+                <div class="bg-white rounded-lg shadow-lg p-8 relative border-2 border-kwikr-green">
+                    <!-- Most Popular Badge -->
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-kwikr-green text-white px-4 py-2 rounded-full text-sm font-semibold">
+                            <i class="fas fa-star mr-1"></i>Most Popular
+                        </span>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Growth Plan</h3>
+                        <div class="text-4xl font-bold text-kwikr-green mb-2">
+                            $<span id="growth-price">99</span><span class="text-lg">/month</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">Perfect for: Contractors ready to grow and lower their cost per job.</p>
+                        
+                        <!-- Features -->
+                        <ul class="text-left space-y-3 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Search Results Tier - Tier 2</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Listed Categories - 5 Categories</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Unlimited Leads</li>
+                            <li class="flex items-center"><i class="fas fa-times text-red-500 mr-2"></i> Per-Job Fees - No</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Display Website Link</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Display Phone Number</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Verified Pro Badge</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Booking & Lead Management Tools</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Reminders & Client Follow-ups</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Priority Support</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Keep Job Revenue - 100%</li>
+                        </ul>
+                        
+                        <a href="/signup/worker?plan=growth" class="w-full bg-kwikr-green text-white py-3 px-6 rounded-lg hover:bg-green-600 transition-colors font-semibold block text-center">
+                            CHOOSE GROWTH
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Pro Plan -->
+                <div class="bg-white rounded-lg shadow-lg p-8 relative">
+                    <!-- Premium Badge -->
+                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <span class="bg-yellow-500 text-white px-4 py-2 rounded-full text-sm font-semibold">
+                            <i class="fas fa-crown mr-1"></i>Premium Plan
+                        </span>
+                    </div>
+                    
+                    <div class="text-center mt-4">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-4">Pro Plan</h3>
+                        <div class="text-4xl font-bold text-gray-900 mb-2">
+                            $<span id="pro-price">199</span><span class="text-lg">/month</span>
+                        </div>
+                        <p class="text-gray-600 mb-6">Perfect for: High-performing contractors who want to dominate local visibility and automate growth.</p>
+                        
+                        <!-- Features -->
+                        <ul class="text-left space-y-3 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Search Results Tier - Tier 1</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Featured Ribbon</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Listed Categories - 10 Categories</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Unlimited Leads</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Display Website Link</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Display Phone Number</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Verified Pro Badge</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Booking & Lead Management Tools</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Reminders & Client Follow-ups</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Priority Support</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Keep Job Revenue - 100%</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Monthly Social Media Video Reels</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Video Reels Count - 2</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Video Reels Frequency - monthly</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Early Access to New Tools & Features</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Premium Support</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> 1:1 Onboarding</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Top-tier Marketing Built In</li>
+                            <li class="flex items-center"><i class="fas fa-check text-kwikr-green mr-2"></i> Keep Job Revenue - 100%</li>
+                        </ul>
+                        
+                        <a href="/signup/worker?plan=pro" class="w-full bg-yellow-500 text-white py-3 px-6 rounded-lg hover:bg-yellow-600 transition-colors font-semibold block text-center">
+                            GO PRO
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Want to See Platform First Section -->
+        <div class="bg-green-100 py-12">
+            <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <div class="bg-yellow-400 text-green-900 px-4 py-2 rounded-full text-sm font-bold inline-block mb-4">
+                    <i class="fas fa-lightbulb mr-1"></i>Want to See the Platform First?
+                </div>
+                <p class="text-lg text-gray-700 mb-6">Not ready to commit? Explore getKwikr and see how it works.</p>
+                <a href="/" class="bg-kwikr-green text-white px-8 py-3 rounded-lg hover:bg-green-600 transition-colors font-semibold inline-block">
+                    <i class="fas fa-eye mr-2"></i>Browse Platform
+                </a>
+            </div>
+        </div>
+
+        <script>
+          // Billing Toggle
+          document.getElementById('billingToggle').addEventListener('change', function() {
+            const isAnnual = this.checked;
+            if (isAnnual) {
+              document.getElementById('growth-price').textContent = '89';
+              document.getElementById('pro-price').textContent = '179';
+            } else {
+              document.getElementById('growth-price').textContent = '99';
+              document.getElementById('pro-price').textContent = '199';
+            }
+          });
+        </script>
+    </body>
+    </html>
+  `;
+}
 
 export default app

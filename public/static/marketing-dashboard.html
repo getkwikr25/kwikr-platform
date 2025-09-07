@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing & Growth Dashboard - getKwikr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-button.active {
+            background: linear-gradient(135deg, #059669 0%, #34d399 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(5, 150, 105, 0.3);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+        }
+        .chart-container {
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 12px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #059669;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .status-active { background: #dcfce7; color: #16a34a; }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-draft { background: #f1f5f9; color: #64748b; }
+        .status-sent { background: #dbeafe; color: #2563eb; }
+        .status-approved { background: #dcfce7; color: #16a34a; }
+        .status-rejected { background: #fee2e2; color: #dc2626; }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-chart-line text-2xl"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">Marketing & Growth Dashboard</h1>
+                        <p class="text-green-100">Comprehensive marketing campaign management and analytics</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshAllData()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh Data
+                    </button>
+                    <button onclick="exportDashboardData()" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-download mr-2"></i>Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
+            <div class="flex flex-wrap gap-2">
+                <button onclick="switchTab('overview')" id="tab-overview" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300 active">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Overview
+                </button>
+                <button onclick="switchTab('referrals')" id="tab-referrals" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300">
+                    <i class="fas fa-user-friends mr-2"></i>Referrals
+                </button>
+                <button onclick="switchTab('promo-codes')" id="tab-promo-codes" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300">
+                    <i class="fas fa-tag mr-2"></i>Promo Codes
+                </button>
+                <button onclick="switchTab('email-marketing')" id="tab-email-marketing" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300">
+                    <i class="fas fa-envelope mr-2"></i>Email Marketing
+                </button>
+                <button onclick="switchTab('social-media')" id="tab-social-media" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300">
+                    <i class="fas fa-share-alt mr-2"></i>Social Media
+                </button>
+                <button onclick="switchTab('affiliate')" id="tab-affiliate" class="tab-button flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-300">
+                    <i class="fas fa-handshake mr-2"></i>Affiliate Program
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="overview" class="tab-content active max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Key Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="metric-card rounded-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Total Email Subscribers</p>
+                        <p class="text-3xl font-bold text-gray-900" id="total-email-subscribers">-</p>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-lg">
+                        <i class="fas fa-envelope text-blue-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm">
+                    <span class="text-green-600" id="email-growth">+0%</span>
+                    <span class="text-gray-500 ml-1">vs last month</span>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Active Affiliates</p>
+                        <p class="text-3xl font-bold text-gray-900" id="active-affiliates">-</p>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-lg">
+                        <i class="fas fa-handshake text-green-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm">
+                    <span class="text-green-600" id="affiliate-growth">+0%</span>
+                    <span class="text-gray-500 ml-1">vs last month</span>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Social Shares</p>
+                        <p class="text-3xl font-bold text-gray-900" id="total-social-shares">-</p>
+                    </div>
+                    <div class="bg-purple-100 p-3 rounded-lg">
+                        <i class="fas fa-share-alt text-purple-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm">
+                    <span class="text-green-600" id="social-growth">+0%</span>
+                    <span class="text-gray-500 ml-1">vs last month</span>
+                </div>
+            </div>
+
+            <div class="metric-card rounded-lg p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-600 text-sm">Total Commissions</p>
+                        <p class="text-3xl font-bold text-gray-900" id="total-commissions">-</p>
+                    </div>
+                    <div class="bg-yellow-100 p-3 rounded-lg">
+                        <i class="fas fa-dollar-sign text-yellow-600 text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-sm">
+                    <span class="text-green-600" id="commission-growth">+0%</span>
+                    <span class="text-gray-500 ml-1">vs last month</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="chart-container">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Marketing Channel Performance</h3>
+                <div style="height: 300px;">
+                    <canvas id="channelPerformanceChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Growth Trends</h3>
+                <div style="height: 300px;">
+                    <canvas id="growthTrendsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="chart-container">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Marketing Activity</h3>
+            <div id="recent-activity" class="space-y-4">
+                <!-- Activity items will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Referrals Tab -->
+    <div id="referrals" class="tab-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Referral Controls -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Referral System Management</h2>
+                <button onclick="createReferralProgram()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Create Program
+                </button>
+            </div>
+
+            <!-- Referral Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600" id="referral-total-referrals">-</div>
+                    <div class="text-gray-600">Total Referrals</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="referral-conversion-rate">-</div>
+                    <div class="text-gray-600">Conversion Rate</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="referral-rewards-paid">-</div>
+                    <div class="text-gray-600">Rewards Paid</div>
+                </div>
+            </div>
+
+            <!-- Referral Code Generator -->
+            <div class="border-t border-gray-200 pt-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Referral Code</h3>
+                <div class="flex items-end space-x-4">
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
+                        <input type="number" id="referral-user-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="Enter user ID">
+                    </div>
+                    <button onclick="generateReferralCode()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-code mr-2"></i>Generate Code
+                    </button>
+                </div>
+                <div id="generated-referral-code" class="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg hidden">
+                    <div class="text-sm text-green-800">Generated Referral Code:</div>
+                    <div class="text-lg font-mono font-bold text-green-900" id="referral-code-display"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Referrers -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Referrers</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4">User</th>
+                            <th class="text-left py-3 px-4">Referrals</th>
+                            <th class="text-left py-3 px-4">Rewards Earned</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-referrers-table">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Promo Codes Tab -->
+    <div id="promo-codes" class="tab-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Campaign Creation -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Promotional Campaigns</h2>
+                <button onclick="showCreateCampaignModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Create Campaign
+                </button>
+            </div>
+
+            <!-- Active Campaigns -->
+            <div id="active-campaigns" class="space-y-4">
+                <!-- Campaign cards will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Code Generation -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Promotional Codes</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Campaign</label>
+                    <select id="promo-campaign-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                        <option value="">Select Campaign</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Number of Codes</label>
+                    <input type="number" id="promo-code-count" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="10" min="1" max="1000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Prefix (Optional)</label>
+                    <input type="text" id="promo-code-prefix" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="SAVE">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="generatePromoCodes()" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-magic mr-2"></i>Generate
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Marketing Tab -->
+    <div id="email-marketing" class="tab-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Campaign Management -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Email Campaigns</h2>
+                <div class="flex space-x-3">
+                    <button onclick="showCreateEmailCampaignModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Create Campaign
+                    </button>
+                    <button onclick="manageSubscribers()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-users mr-2"></i>Manage Subscribers
+                    </button>
+                </div>
+            </div>
+
+            <!-- Email Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="email-campaigns-count">-</div>
+                    <div class="text-gray-600">Total Campaigns</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600" id="email-open-rate">-</div>
+                    <div class="text-gray-600">Avg Open Rate</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="email-click-rate">-</div>
+                    <div class="text-gray-600">Avg Click Rate</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="email-sent-count">-</div>
+                    <div class="text-gray-600">Emails Sent</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Campaigns -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Campaigns</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4">Campaign Name</th>
+                            <th class="text-left py-3 px-4">Type</th>
+                            <th class="text-left py-3 px-4">Recipients</th>
+                            <th class="text-left py-3 px-4">Open Rate</th>
+                            <th class="text-left py-3 px-4">Status</th>
+                            <th class="text-left py-3 px-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="email-campaigns-table">
+                        <!-- Data will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Social Media Tab -->
+    <div id="social-media" class="tab-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Social Platforms -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Social Media Integration</h2>
+                <button onclick="configureSocialPlatforms()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-cog mr-2"></i>Configure Platforms
+                </button>
+            </div>
+
+            <!-- Social Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="social-total-shares">-</div>
+                    <div class="text-gray-600">Total Shares</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600" id="social-total-clicks">-</div>
+                    <div class="text-gray-600">Total Clicks</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="social-engagement-rate">-</div>
+                    <div class="text-gray-600">Engagement Rate</div>
+                </div>
+            </div>
+
+            <!-- Platform Breakdown -->
+            <div class="chart-container">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Platform Performance</h3>
+                <div style="height: 300px;">
+                    <canvas id="socialPlatformChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Share Content Generator -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Generate Shareable Content</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+                    <select id="share-content-type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500">
+                        <option value="general">General Platform</option>
+                        <option value="job_listing">Job Listing</option>
+                        <option value="worker_profile">Worker Profile</option>
+                        <option value="service">Service</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Content ID</label>
+                    <input type="number" id="share-content-id" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500" placeholder="Enter content ID">
+                </div>
+            </div>
+            <div class="mt-4">
+                <button onclick="generateShareContent()" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-share mr-2"></i>Generate Share Content
+                </button>
+            </div>
+            <div id="generated-share-content" class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                <!-- Generated content will be shown here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Affiliate Tab -->
+    <div id="affiliate" class="tab-content max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <!-- Affiliate Overview -->
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Affiliate Program</h2>
+                <div class="flex space-x-3">
+                    <button onclick="reviewAffiliateApplications()" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-clipboard-list mr-2"></i>Review Applications
+                    </button>
+                    <button onclick="manageAffiliatePayments()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        <i class="fas fa-dollar-sign mr-2"></i>Manage Payments
+                    </button>
+                </div>
+            </div>
+
+            <!-- Affiliate Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600" id="affiliate-total-affiliates">-</div>
+                    <div class="text-gray-600">Total Affiliates</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600" id="affiliate-total-referrals">-</div>
+                    <div class="text-gray-600">Total Referrals</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600" id="affiliate-conversion-rate">-</div>
+                    <div class="text-gray-600">Conversion Rate</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-orange-600" id="affiliate-total-commissions">-</div>
+                    <div class="text-gray-600">Total Commissions</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Performers -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Performing Affiliates</h3>
+                <div class="space-y-4" id="top-affiliates-list">
+                    <!-- Top affiliates will be loaded here -->
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Applications</h3>
+                <div class="space-y-4" id="recent-affiliate-applications">
+                    <!-- Recent applications will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals and JavaScript -->
+    <script>
+        let currentTab = 'overview';
+        let dashboardData = {};
+        let charts = {};
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboardData();
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+
+            currentTab = tabName;
+
+            // Load tab-specific data
+            switch(tabName) {
+                case 'overview':
+                    loadOverviewData();
+                    break;
+                case 'referrals':
+                    loadReferralData();
+                    break;
+                case 'promo-codes':
+                    loadPromoCodeData();
+                    break;
+                case 'email-marketing':
+                    loadEmailMarketingData();
+                    break;
+                case 'social-media':
+                    loadSocialMediaData();
+                    break;
+                case 'affiliate':
+                    loadAffiliateData();
+                    break;
+            }
+        }
+
+        // Load main dashboard data
+        async function loadDashboardData() {
+            try {
+                showLoading(true);
+                const response = await axios.get('/api/marketing/analytics/dashboard');
+                
+                if (response.data.success) {
+                    dashboardData = response.data.dashboard;
+                    updateOverviewMetrics();
+                    createCharts();
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                showNotification('Error loading dashboard data', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Update overview metrics
+        function updateOverviewMetrics() {
+            const emailStats = dashboardData.email_marketing || {};
+            const socialStats = dashboardData.social_media || {};
+            const affiliateStats = dashboardData.affiliate_program || {};
+
+            document.getElementById('total-email-subscribers').textContent = 
+                emailStats.total_subscribers?.toLocaleString() || '0';
+            document.getElementById('active-affiliates').textContent = 
+                affiliateStats.active_affiliates?.toLocaleString() || '0';
+            document.getElementById('total-social-shares').textContent = 
+                socialStats.total_shares?.toLocaleString() || '0';
+            document.getElementById('total-commissions').textContent = 
+                '$' + (affiliateStats.total_commissions_earned?.toLocaleString() || '0');
+
+            // Update growth indicators (mock data for demo)
+            document.getElementById('email-growth').textContent = '+12.5%';
+            document.getElementById('affiliate-growth').textContent = '+8.3%';
+            document.getElementById('social-growth').textContent = '+15.2%';
+            document.getElementById('commission-growth').textContent = '+22.1%';
+        }
+
+        // Create charts
+        function createCharts() {
+            createChannelPerformanceChart();
+            createGrowthTrendsChart();
+        }
+
+        function createChannelPerformanceChart() {
+            const ctx = document.getElementById('channelPerformanceChart').getContext('2d');
+            
+            charts.channelPerformance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Email Marketing', 'Social Media', 'Affiliate Program', 'Referrals', 'Promo Codes'],
+                    datasets: [{
+                        data: [35, 25, 20, 15, 5],
+                        backgroundColor: [
+                            '#3b82f6',
+                            '#8b5cf6',
+                            '#10b981',
+                            '#f59e0b',
+                            '#ef4444'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createGrowthTrendsChart() {
+            const ctx = document.getElementById('growthTrendsChart').getContext('2d');
+            
+            // Generate mock data for the last 30 days
+            const labels = [];
+            const emailData = [];
+            const socialData = [];
+            const affiliateData = [];
+
+            for (let i = 29; i >= 0; i--) {
+                const date = dayjs().subtract(i, 'day');
+                labels.push(date.format('MMM D'));
+                emailData.push(Math.floor(Math.random() * 100) + 50);
+                socialData.push(Math.floor(Math.random() * 80) + 30);
+                affiliateData.push(Math.floor(Math.random() * 60) + 20);
+            }
+
+            charts.growthTrends = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Email Marketing',
+                            data: emailData,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Social Media',
+                            data: socialData,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Affiliate Program',
+                            data: affiliateData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Tab-specific data loading functions
+        function loadOverviewData() {
+            // Load recent activity
+            loadRecentActivity();
+        }
+
+        function loadRecentActivity() {
+            const activities = [
+                {
+                    type: 'email',
+                    title: 'Weekly Newsletter Sent',
+                    description: 'Sent to 1,234 subscribers',
+                    time: '2 hours ago',
+                    icon: 'fas fa-envelope',
+                    color: 'text-blue-600'
+                },
+                {
+                    type: 'affiliate',
+                    title: 'New Affiliate Application',
+                    description: 'TechServices Co. applied for partnership',
+                    time: '5 hours ago',
+                    icon: 'fas fa-handshake',
+                    color: 'text-green-600'
+                },
+                {
+                    type: 'social',
+                    title: 'High Social Engagement',
+                    description: 'Job listing shared 50+ times',
+                    time: '1 day ago',
+                    icon: 'fas fa-share-alt',
+                    color: 'text-purple-600'
+                }
+            ];
+
+            const container = document.getElementById('recent-activity');
+            container.innerHTML = activities.map(activity => `
+                <div class="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                    <div class="flex-shrink-0">
+                        <i class="${activity.icon} ${activity.color} text-xl"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900">${activity.title}</h4>
+                        <p class="text-gray-600 text-sm">${activity.description}</p>
+                    </div>
+                    <div class="text-sm text-gray-500">${activity.time}</div>
+                </div>
+            `).join('');
+        }
+
+        function loadReferralData() {
+            // Mock referral stats
+            document.getElementById('referral-total-referrals').textContent = '1,234';
+            document.getElementById('referral-conversion-rate').textContent = '12.5%';
+            document.getElementById('referral-rewards-paid').textContent = '$15,678';
+
+            // Load top referrers
+            loadTopReferrers();
+        }
+
+        function loadTopReferrers() {
+            const referrers = [
+                { user: 'john@example.com', referrals: 45, rewards: '$1,125', status: 'Active' },
+                { user: 'sarah@example.com', referrals: 32, rewards: '$800', status: 'Active' },
+                { user: 'mike@example.com', referrals: 28, rewards: '$700', status: 'Active' }
+            ];
+
+            const tbody = document.getElementById('top-referrers-table');
+            tbody.innerHTML = referrers.map(referrer => `
+                <tr class="border-b border-gray-100">
+                    <td class="py-3 px-4">${referrer.user}</td>
+                    <td class="py-3 px-4">${referrer.referrals}</td>
+                    <td class="py-3 px-4">${referrer.rewards}</td>
+                    <td class="py-3 px-4"><span class="status-badge status-active">${referrer.status}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function loadPromoCodeData() {
+            loadActiveCampaigns();
+            loadCampaignOptions();
+        }
+
+        function loadActiveCampaigns() {
+            const campaigns = [
+                {
+                    id: 1,
+                    name: 'Summer Special 2024',
+                    type: 'Percentage Discount',
+                    discount: '20%',
+                    usage: '145/500',
+                    status: 'Active',
+                    expires: '2024-08-31'
+                }
+            ];
+
+            const container = document.getElementById('active-campaigns');
+            container.innerHTML = campaigns.map(campaign => `
+                <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="font-semibold text-gray-900">${campaign.name}</h4>
+                            <p class="text-gray-600 text-sm">${campaign.type} - ${campaign.discount}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="status-badge status-active">${campaign.status}</span>
+                            <p class="text-sm text-gray-500 mt-1">Usage: ${campaign.usage}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadCampaignOptions() {
+            // Mock campaign options
+            const select = document.getElementById('promo-campaign-select');
+            select.innerHTML = `
+                <option value="">Select Campaign</option>
+                <option value="1">Summer Special 2024</option>
+                <option value="2">New User Discount</option>
+            `;
+        }
+
+        function loadEmailMarketingData() {
+            // Update email stats
+            document.getElementById('email-campaigns-count').textContent = '12';
+            document.getElementById('email-open-rate').textContent = '24.5%';
+            document.getElementById('email-click-rate').textContent = '3.2%';
+            document.getElementById('email-sent-count').textContent = '45,678';
+
+            loadRecentEmailCampaigns();
+        }
+
+        function loadRecentEmailCampaigns() {
+            const campaigns = [
+                {
+                    name: 'Weekly Newsletter #24',
+                    type: 'Newsletter',
+                    recipients: '1,234',
+                    openRate: '24.5%',
+                    status: 'Sent'
+                }
+            ];
+
+            const tbody = document.getElementById('email-campaigns-table');
+            tbody.innerHTML = campaigns.map(campaign => `
+                <tr class="border-b border-gray-100">
+                    <td class="py-3 px-4">${campaign.name}</td>
+                    <td class="py-3 px-4">${campaign.type}</td>
+                    <td class="py-3 px-4">${campaign.recipients}</td>
+                    <td class="py-3 px-4">${campaign.openRate}</td>
+                    <td class="py-3 px-4"><span class="status-badge status-sent">${campaign.status}</span></td>
+                    <td class="py-3 px-4">
+                        <button class="text-blue-600 hover:text-blue-800 text-sm">View Stats</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function loadSocialMediaData() {
+            // Update social stats
+            document.getElementById('social-total-shares').textContent = '2,456';
+            document.getElementById('social-total-clicks').textContent = '892';
+            document.getElementById('social-engagement-rate').textContent = '36.3%';
+
+            createSocialPlatformChart();
+        }
+
+        function createSocialPlatformChart() {
+            const ctx = document.getElementById('socialPlatformChart').getContext('2d');
+            
+            if (charts.socialPlatform) {
+                charts.socialPlatform.destroy();
+            }
+
+            charts.socialPlatform = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Facebook', 'Twitter', 'LinkedIn', 'Instagram'],
+                    datasets: [
+                        {
+                            label: 'Shares',
+                            data: [1200, 800, 300, 156],
+                            backgroundColor: '#3b82f6'
+                        },
+                        {
+                            label: 'Clicks',
+                            data: [420, 280, 120, 72],
+                            backgroundColor: '#10b981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function loadAffiliateData() {
+            // Update affiliate stats
+            document.getElementById('affiliate-total-affiliates').textContent = '23';
+            document.getElementById('affiliate-total-referrals').textContent = '456';
+            document.getElementById('affiliate-conversion-rate').textContent = '8.9%';
+            document.getElementById('affiliate-total-commissions').textContent = '$12,345';
+
+            loadTopAffiliates();
+            loadRecentAffiliateApplications();
+        }
+
+        function loadTopAffiliates() {
+            const affiliates = [
+                { name: 'TechServices Co.', referrals: 89, rate: '12.3%', earnings: '$2,230' },
+                { name: 'HomeHelp Solutions', referrals: 67, rate: '9.8%', earnings: '$1,675' }
+            ];
+
+            const container = document.getElementById('top-affiliates-list');
+            container.innerHTML = affiliates.map(affiliate => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <h4 class="font-semibold text-gray-900">${affiliate.name}</h4>
+                        <p class="text-gray-600 text-sm">${affiliate.referrals} referrals • ${affiliate.rate} conversion</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-green-600">${affiliate.earnings}</div>
+                        <div class="text-sm text-gray-500">Total earnings</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadRecentAffiliateApplications() {
+            const applications = [
+                { company: 'QuickFix Partners', status: 'Pending', date: '2024-01-15' },
+                { company: 'ServicePro Network', status: 'Under Review', date: '2024-01-12' }
+            ];
+
+            const container = document.getElementById('recent-affiliate-applications');
+            container.innerHTML = applications.map(app => `
+                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div>
+                        <h4 class="font-semibold text-gray-900">${app.company}</h4>
+                        <p class="text-gray-600 text-sm">Applied on ${app.date}</p>
+                    </div>
+                    <span class="status-badge status-pending">${app.status}</span>
+                </div>
+            `).join('');
+        }
+
+        // Action functions
+        async function generateReferralCode() {
+            const userId = document.getElementById('referral-user-id').value;
+            
+            if (!userId) {
+                showNotification('Please enter a user ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/api/marketing/referrals/generate-code', {
+                    user_id: parseInt(userId)
+                });
+
+                if (response.data.success) {
+                    document.getElementById('referral-code-display').textContent = response.data.referralCode;
+                    document.getElementById('generated-referral-code').classList.remove('hidden');
+                    showNotification('Referral code generated successfully!', 'success');
+                } else {
+                    showNotification(response.data.error || 'Failed to generate referral code', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating referral code:', error);
+                showNotification('Error generating referral code', 'error');
+            }
+        }
+
+        async function generatePromoCodes() {
+            const campaignId = document.getElementById('promo-campaign-select').value;
+            const count = document.getElementById('promo-code-count').value;
+            const prefix = document.getElementById('promo-code-prefix').value;
+
+            if (!campaignId || !count) {
+                showNotification('Please select a campaign and enter number of codes', 'error');
+                return;
+            }
+
+            try {
+                const response = await axios.post('/api/marketing/promo-codes/generate', {
+                    campaign_id: parseInt(campaignId),
+                    count: parseInt(count),
+                    prefix: prefix || undefined
+                });
+
+                if (response.data.success) {
+                    showNotification(`Generated ${response.data.codes.length} promotional codes successfully!`, 'success');
+                    loadPromoCodeData(); // Refresh the data
+                } else {
+                    showNotification(response.data.error || 'Failed to generate promotional codes', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating promotional codes:', error);
+                showNotification('Error generating promotional codes', 'error');
+            }
+        }
+
+        function generateShareContent() {
+            const contentType = document.getElementById('share-content-type').value;
+            const contentId = document.getElementById('share-content-id').value;
+
+            // Mock shareable content generation
+            const content = {
+                title: `Check out this ${contentType.replace('_', ' ')} on getKwikr!`,
+                description: 'Find quality service providers in your area.',
+                url: `https://kwikr.directory/${contentType}/${contentId || 'example'}`,
+                hashtags: ['#KwikrDirectory', '#Services', '#LocalBusiness']
+            };
+
+            const container = document.getElementById('generated-share-content');
+            container.innerHTML = `
+                <h4 class="font-semibold text-blue-900 mb-2">Generated Share Content:</h4>
+                <div class="space-y-2">
+                    <div><strong>Title:</strong> ${content.title}</div>
+                    <div><strong>Description:</strong> ${content.description}</div>
+                    <div><strong>URL:</strong> ${content.url}</div>
+                    <div><strong>Hashtags:</strong> ${content.hashtags.join(' ')}</div>
+                </div>
+                <div class="mt-4 flex space-x-2">
+                    <button onclick="copyToClipboard('${content.title}\\n${content.description}\\n${content.url}\\n${content.hashtags.join(' ')}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">
+                        <i class="fas fa-copy mr-1"></i>Copy All
+                    </button>
+                </div>
+            `;
+            container.classList.remove('hidden');
+        }
+
+        // Utility functions
+        function showLoading(show) {
+            // Implementation for loading state
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create and show notification
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copied to clipboard!', 'success');
+            });
+        }
+
+        function refreshAllData() {
+            loadDashboardData();
+            if (currentTab !== 'overview') {
+                switchTab(currentTab);
+            }
+        }
+
+        function exportDashboardData() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                dashboard_data: dashboardData
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `marketing-dashboard-${dayjs().format('YYYY-MM-DD')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Modal functions (to be implemented as needed)
+        function createReferralProgram() {
+            showNotification('Referral program creation modal would open here', 'info');
+        }
+
+        function showCreateCampaignModal() {
+            showNotification('Campaign creation modal would open here', 'info');
+        }
+
+        function showCreateEmailCampaignModal() {
+            showNotification('Email campaign creation modal would open here', 'info');
+        }
+
+        function manageSubscribers() {
+            showNotification('Subscriber management would open here', 'info');
+        }
+
+        function configureSocialPlatforms() {
+            showNotification('Social platform configuration would open here', 'info');
+        }
+
+        function reviewAffiliateApplications() {
+            showNotification('Affiliate application review would open here', 'info');
+        }
+
+        function manageAffiliatePayments() {
+            showNotification('Affiliate payment management would open here', 'info');
+        }
+    </script>
+</body>
+</html>

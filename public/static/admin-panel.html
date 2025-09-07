@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Platform Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .metric-card { transition: transform 0.2s; }
+        .metric-card:hover { transform: translateY(-2px); }
+        .loading { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .sidebar.collapsed { transform: translateX(-80%); }
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation Header -->
+    <nav class="bg-white shadow-lg border-b border-gray-200">
+        <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <button id="sidebarToggle" class="text-gray-500 hover:text-gray-700 md:hidden">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <div class="flex items-center ml-4 md:ml-0">
+                        <i class="fas fa-shield-alt text-blue-600 text-2xl mr-3"></i>
+                        <h1 class="text-xl font-bold text-gray-900">Admin Panel</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-600" id="adminInfo">
+                        <span id="adminName">Loading...</span>
+                        <span class="text-gray-400">•</span>
+                        <span id="adminRole" class="text-blue-600">Role</span>
+                    </div>
+                    <button id="refreshData" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex">
+        <!-- Sidebar -->
+        <aside class="sidebar fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static md:inset-0">
+            <div class="flex flex-col h-full pt-16">
+                <nav class="flex-1 px-4 pb-4 overflow-y-auto">
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="#" class="tab-link active flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="dashboard">
+                                <i class="fas fa-tachometer-alt mr-3 text-blue-600"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="tab-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="users">
+                                <i class="fas fa-users-cog mr-3 text-green-600"></i>
+                                <span>User Management</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="tab-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="moderation">
+                                <i class="fas fa-gavel mr-3 text-yellow-600"></i>
+                                <span>Content Moderation</span>
+                                <span id="moderationBadge" class="ml-auto bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded-full">0</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="tab-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="financial">
+                                <i class="fas fa-chart-line mr-3 text-purple-600"></i>
+                                <span>Financial Reports</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="tab-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="monitoring">
+                                <i class="fas fa-heartbeat mr-3 text-red-600"></i>
+                                <span>System Monitoring</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="tab-link flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100" data-tab="features">
+                                <i class="fas fa-toggle-on mr-3 text-indigo-600"></i>
+                                <span>Feature Flags</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 md:ml-0 p-6">
+            <!-- Dashboard Tab -->
+            <div id="dashboard" class="tab-content active">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h2>
+                    <p class="text-gray-600">Platform metrics and administrative insights</p>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="metric-card bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Users</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalUsers">-</p>
+                            </div>
+                            <div class="bg-blue-50 p-3 rounded-full">
+                                <i class="fas fa-users text-blue-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-sm text-green-600" id="totalUsersChange">-</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Revenue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalRevenue">-</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-full">
+                                <i class="fas fa-dollar-sign text-green-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-sm text-green-600" id="totalRevenueChange">-</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Moderation Queue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="moderationQueue">-</p>
+                            </div>
+                            <div class="bg-yellow-50 p-3 rounded-full">
+                                <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-sm text-gray-600" id="moderationQueueChange">-</span>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">System Alerts</p>
+                                <p class="text-2xl font-bold text-gray-900" id="systemAlerts">-</p>
+                            </div>
+                            <div class="bg-red-50 p-3 rounded-full">
+                                <i class="fas fa-bell text-red-600"></i>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <span class="text-sm text-red-600" id="systemAlertsChange">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <!-- User Activity Chart -->
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">User Activity</h3>
+                        <canvas id="userActivityChart" width="400" height="200"></canvas>
+                    </div>
+
+                    <!-- Revenue Chart -->
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Revenue Trends</h3>
+                        <canvas id="revenueChart" width="400" height="200"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Admin Activities</h3>
+                    </div>
+                    <div class="p-6">
+                        <div id="recentActivities" class="space-y-4">
+                            <div class="flex justify-center items-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Management Tab -->
+            <div id="users" class="tab-content">
+                <div class="mb-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">User Management</h2>
+                            <p class="text-gray-600">Manage admin users and roles</p>
+                        </div>
+                        <button id="addAdminUserBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-plus mr-2"></i>Add Admin User
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Admin Users Table -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Admin Users</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTable" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                                        <p class="mt-2">Loading admin users...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Moderation Tab -->
+            <div id="moderation" class="tab-content">
+                <div class="mb-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Content Moderation</h2>
+                            <p class="text-gray-600">Review and moderate platform content</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <select id="moderationFilter" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="escalated">Escalated</option>
+                            </select>
+                            <select id="priorityFilter" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                <option value="">All Priority</option>
+                                <option value="urgent">Urgent</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Moderation Queue -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Moderation Queue</h3>
+                    </div>
+                    <div id="moderationQueue" class="divide-y divide-gray-200">
+                        <div class="p-8 text-center text-gray-500">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p class="mt-2">Loading moderation queue...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Reports Tab -->
+            <div id="financial" class="tab-content">
+                <div class="mb-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Financial Reports</h2>
+                            <p class="text-gray-600">Revenue analytics and financial insights</p>
+                        </div>
+                        <button id="generateReportBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-chart-bar mr-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Financial Summary Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                                <p class="text-2xl font-bold text-gray-900" id="monthlyRevenue">$0.00</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-full">
+                                <i class="fas fa-arrow-up text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Total Transactions</p>
+                                <p class="text-2xl font-bold text-gray-900" id="totalTransactions">0</p>
+                            </div>
+                            <div class="bg-blue-50 p-3 rounded-full">
+                                <i class="fas fa-exchange-alt text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Net Profit</p>
+                                <p class="text-2xl font-bold text-gray-900" id="netProfit">$0.00</p>
+                            </div>
+                            <div class="bg-purple-50 p-3 rounded-full">
+                                <i class="fas fa-piggy-bank text-purple-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Reports Table -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-900">Recent Reports</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Transactions</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financialReportsTable" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">
+                                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                                        <p class="mt-2">Loading financial reports...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Monitoring Tab -->
+            <div id="monitoring" class="tab-content">
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">System Monitoring</h2>
+                    <p class="text-gray-600">Performance metrics and error tracking</p>
+                </div>
+
+                <!-- System Health Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Response Time</p>
+                                <p class="text-2xl font-bold text-gray-900" id="responseTime">- ms</p>
+                            </div>
+                            <div class="bg-green-50 p-3 rounded-full">
+                                <i class="fas fa-tachometer-alt text-green-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Error Rate</p>
+                                <p class="text-2xl font-bold text-gray-900" id="errorRate">-%</p>
+                            </div>
+                            <div class="bg-red-50 p-3 rounded-full">
+                                <i class="fas fa-exclamation-circle text-red-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Active Sessions</p>
+                                <p class="text-2xl font-bold text-gray-900" id="activeSessions">-</p>
+                            </div>
+                            <div class="bg-blue-50 p-3 rounded-full">
+                                <i class="fas fa-user-clock text-blue-600"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-600">Storage Used</p>
+                                <p class="text-2xl font-bold text-gray-900" id="storageUsed">- GB</p>
+                            </div>
+                            <div class="bg-purple-50 p-3 rounded-full">
+                                <i class="fas fa-database text-purple-600"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Logs -->
+                <div class="bg-white rounded-lg shadow-md border border-gray-200">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-lg font-semibold text-gray-900">Recent Error Logs</h3>
+                            <select id="errorSeverityFilter" class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                                <option value="">All Severity</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="errorLogs" class="divide-y divide-gray-200">
+                        <div class="p-8 text-center text-gray-500">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                            <p class="mt-2">Loading error logs...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Flags Tab -->
+            <div id="features" class="tab-content">
+                <div class="mb-8">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">Feature Flags</h2>
+                            <p class="text-gray-600">Manage platform features and rollouts</p>
+                        </div>
+                        <button id="addFeatureFlagBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            <i class="fas fa-plus mr-2"></i>Add Feature Flag
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Feature Flags Grid -->
+                <div id="featureFlagsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="col-span-full flex justify-center items-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p class="ml-3 text-gray-500">Loading feature flags...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Admin User Modal -->
+    <div id="addAdminUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Add Admin User</h3>
+            </div>
+            <form id="addAdminUserForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">User ID</label>
+                    <input type="number" name="user_id" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Admin Role</label>
+                    <select name="admin_role_id" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="">Select Role</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <textarea name="notes" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" class="cancelModal px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Feature Flag Modal -->
+    <div id="addFeatureFlagModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Add Feature Flag</h3>
+            </div>
+            <form id="addFeatureFlagForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Flag Key</label>
+                    <input type="text" name="flag_key" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                    <input type="text" name="name" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <textarea name="description" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                    <select name="flag_type" class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                        <option value="boolean">Boolean</option>
+                        <option value="string">String</option>
+                        <option value="number">Number</option>
+                        <option value="json">JSON</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Default Value</label>
+                    <input type="text" name="default_value" required class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm">
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" class="cancelModal px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700">Create Flag</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let adminInfo = null;
+        let charts = {};
+        const currentUserId = 1; // This should come from authentication
+
+        // Initialize admin panel
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAdminPanel();
+            setupEventListeners();
+            loadAdminInfo();
+            loadDashboardData();
+        });
+
+        // Tab switching
+        function setupEventListeners() {
+            // Tab navigation
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tabName = this.dataset.tab;
+                    switchTab(tabName);
+                });
+            });
+
+            // Sidebar toggle
+            document.getElementById('sidebarToggle').addEventListener('click', function() {
+                const sidebar = document.querySelector('.sidebar');
+                sidebar.classList.toggle('open');
+            });
+
+            // Refresh button
+            document.getElementById('refreshData').addEventListener('click', function() {
+                refreshCurrentTab();
+            });
+
+            // Modal handlers
+            document.querySelectorAll('.cancelModal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    closeModals();
+                });
+            });
+
+            // Form handlers
+            document.getElementById('addAdminUserForm').addEventListener('submit', handleAddAdminUser);
+            document.getElementById('addFeatureFlagForm').addEventListener('submit', handleAddFeatureFlag);
+
+            // Button handlers
+            document.getElementById('addAdminUserBtn').addEventListener('click', () => openModal('addAdminUserModal'));
+            document.getElementById('addFeatureFlagBtn').addEventListener('click', () => openModal('addFeatureFlagModal'));
+
+            // Filter handlers
+            document.getElementById('moderationFilter')?.addEventListener('change', loadModerationQueue);
+            document.getElementById('priorityFilter')?.addEventListener('change', loadModerationQueue);
+            document.getElementById('errorSeverityFilter')?.addEventListener('change', loadErrorLogs);
+        }
+
+        function switchTab(tabName) {
+            // Update active tab link
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('active', 'bg-blue-50', 'text-blue-700');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active', 'bg-blue-50', 'text-blue-700');
+
+            // Show/hide tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+
+            // Load tab-specific data
+            loadTabData(tabName);
+        }
+
+        function loadTabData(tabName) {
+            switch(tabName) {
+                case 'dashboard':
+                    loadDashboardData();
+                    break;
+                case 'users':
+                    loadAdminUsers();
+                    break;
+                case 'moderation':
+                    loadModerationQueue();
+                    break;
+                case 'financial':
+                    loadFinancialReports();
+                    break;
+                case 'monitoring':
+                    loadSystemMonitoring();
+                    break;
+                case 'features':
+                    loadFeatureFlags();
+                    break;
+            }
+        }
+
+        function refreshCurrentTab() {
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) {
+                loadTabData(activeTab.id);
+            }
+        }
+
+        // API Functions
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await axios({
+                    url: `/api/admin${endpoint}`,
+                    headers: {
+                        'x-user-id': currentUserId,
+                        'Content-Type': 'application/json'
+                    },
+                    ...options
+                });
+                return response.data;
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Load Admin Info
+        async function loadAdminInfo() {
+            try {
+                const response = await apiCall('/permissions');
+                adminInfo = response.data.user;
+                document.getElementById('adminName').textContent = `User #${adminInfo.user_id}`;
+                document.getElementById('adminRole').textContent = adminInfo.role_name || 'Admin';
+            } catch (error) {
+                console.error('Failed to load admin info:', error);
+            }
+        }
+
+        // Dashboard Functions
+        async function loadDashboardData() {
+            try {
+                const response = await apiCall('/dashboard');
+                const { metrics, recent_activities } = response.data;
+
+                updateMetricsCards(metrics);
+                updateRecentActivities(recent_activities);
+                updateCharts(metrics);
+            } catch (error) {
+                console.error('Failed to load dashboard data:', error);
+            }
+        }
+
+        function updateMetricsCards(metrics) {
+            document.getElementById('totalUsers').textContent = metrics.total_users.value.toLocaleString();
+            document.getElementById('totalRevenue').textContent = `$${metrics.total_revenue.value.toLocaleString()}`;
+            document.getElementById('moderationQueue').textContent = metrics.moderation_queue.value.toString();
+            document.getElementById('systemAlerts').textContent = metrics.system_alerts.value.toString();
+
+            // Update badge
+            document.getElementById('moderationBadge').textContent = metrics.moderation_queue.value.toString();
+        }
+
+        function updateRecentActivities(activities) {
+            const container = document.getElementById('recentActivities');
+            
+            if (activities.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">No recent activities</p>';
+                return;
+            }
+
+            container.innerHTML = activities.map(activity => `
+                <div class="flex items-start space-x-3 p-4 hover:bg-gray-50 rounded-lg">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user-shield text-blue-600 text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900">
+                            ${activity.admin_name || `User #${activity.user_id}`}
+                        </p>
+                        <p class="text-sm text-gray-600">${activity.action}</p>
+                        <p class="text-xs text-gray-400">${new Date(activity.created_at).toLocaleString()}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateCharts(metrics) {
+            // User Activity Chart
+            if (charts.userActivity) {
+                charts.userActivity.destroy();
+            }
+
+            const userCtx = document.getElementById('userActivityChart').getContext('2d');
+            charts.userActivity = new Chart(userCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Active Users',
+                        data: [65, 59, 80, 81, 56, 55],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Revenue Chart
+            if (charts.revenue) {
+                charts.revenue.destroy();
+            }
+
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            charts.revenue = new Chart(revenueCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [12000, 19000, 15000, 25000, 22000, 30000],
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        borderColor: 'rgb(34, 197, 94)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // User Management Functions
+        async function loadAdminUsers() {
+            try {
+                const response = await apiCall('/users');
+                const users = response.data;
+                updateAdminUsersTable(users);
+            } catch (error) {
+                console.error('Failed to load admin users:', error);
+            }
+        }
+
+        function updateAdminUsersTable(users) {
+            const tbody = document.getElementById('adminUsersTable');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No admin users found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 h-10 w-10">
+                                <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <i class="fas fa-user text-gray-600"></i>
+                                </div>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-sm font-medium text-gray-900">${user.user_name || `User #${user.user_id}`}</div>
+                                <div class="text-sm text-gray-500">${user.user_email || 'N/A'}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            ${user.role_name}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${user.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        ${user.last_login ? new Date(user.last_login).toLocaleString() : 'Never'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-blue-600 hover:text-blue-900 mr-2" onclick="editAdminUser(${user.id})">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="text-red-600 hover:text-red-900" onclick="toggleAdminUser(${user.id}, '${user.status}')">
+                            <i class="fas fa-${user.status === 'active' ? 'ban' : 'check'}"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Moderation Functions
+        async function loadModerationQueue() {
+            try {
+                const status = document.getElementById('moderationFilter')?.value || '';
+                const priority = document.getElementById('priorityFilter')?.value || '';
+                
+                const params = new URLSearchParams();
+                if (status) params.append('status', status);
+                if (priority) params.append('priority', priority);
+                
+                const response = await apiCall(`/moderation?${params.toString()}`);
+                const items = response.data;
+                updateModerationQueue(items);
+            } catch (error) {
+                console.error('Failed to load moderation queue:', error);
+            }
+        }
+
+        function updateModerationQueue(items) {
+            const container = document.getElementById('moderationQueue');
+            
+            if (items.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-500">No items in moderation queue</div>';
+                return;
+            }
+
+            container.innerHTML = items.map(item => `
+                <div class="p-6 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-3 mb-2">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    ${item.content_type}
+                                </span>
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(item.priority)}">
+                                    ${item.priority}
+                                </span>
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(item.status)}">
+                                    ${item.status}
+                                </span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">
+                                Content ID: ${item.content_id} • 
+                                Flags: ${item.flag_reasons.join(', ')} • 
+                                ${new Date(item.created_at).toLocaleString()}
+                            </p>
+                            ${item.review_notes ? `<p class="text-sm text-gray-700 italic">"${item.review_notes}"</p>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="moderateContent(${item.id}, 'approved')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs">
+                                Approve
+                            </button>
+                            <button onclick="moderateContent(${item.id}, 'rejected')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-xs">
+                                Reject
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Financial Functions
+        async function loadFinancialReports() {
+            try {
+                const response = await apiCall('/financial/reports?limit=10');
+                const reports = response.data;
+                updateFinancialReports(reports);
+                updateFinancialSummary(reports);
+            } catch (error) {
+                console.error('Failed to load financial reports:', error);
+            }
+        }
+
+        function updateFinancialSummary(reports) {
+            if (reports.length > 0) {
+                const latest = reports[0];
+                document.getElementById('monthlyRevenue').textContent = `$${latest.total_revenue.toLocaleString()}`;
+                document.getElementById('totalTransactions').textContent = latest.transaction_count.toLocaleString();
+                document.getElementById('netProfit').textContent = `$${latest.net_profit.toLocaleString()}`;
+            }
+        }
+
+        function updateFinancialReports(reports) {
+            const tbody = document.getElementById('financialReportsTable');
+            
+            if (reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No financial reports found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = reports.map(report => `
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                            ${report.report_type}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${new Date(report.report_date).toLocaleDateString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        $${report.total_revenue.toLocaleString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ${report.transaction_count.toLocaleString()}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-blue-600 hover:text-blue-900" onclick="viewReport(${report.id})">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // System Monitoring Functions
+        async function loadSystemMonitoring() {
+            try {
+                const [metricsResponse, errorsResponse] = await Promise.all([
+                    apiCall('/monitoring/metrics?limit=100'),
+                    apiCall('/monitoring/errors?limit=20')
+                ]);
+
+                updateSystemMetrics(metricsResponse.data);
+                updateErrorLogs(errorsResponse.data);
+            } catch (error) {
+                console.error('Failed to load system monitoring data:', error);
+            }
+        }
+
+        function updateSystemMetrics(metrics) {
+            // Update metric cards with sample data for now
+            document.getElementById('responseTime').textContent = '150 ms';
+            document.getElementById('errorRate').textContent = '0.5%';
+            document.getElementById('activeSessions').textContent = '1,247';
+            document.getElementById('storageUsed').textContent = '2.3 GB';
+        }
+
+        async function loadErrorLogs() {
+            try {
+                const severity = document.getElementById('errorSeverityFilter')?.value || '';
+                const params = new URLSearchParams();
+                if (severity) params.append('severity', severity);
+                
+                const response = await apiCall(`/monitoring/errors?${params.toString()}&limit=20`);
+                updateErrorLogs(response.data);
+            } catch (error) {
+                console.error('Failed to load error logs:', error);
+            }
+        }
+
+        function updateErrorLogs(errors) {
+            const container = document.getElementById('errorLogs');
+            
+            if (errors.length === 0) {
+                container.innerHTML = '<div class="p-8 text-center text-gray-500">No error logs found</div>';
+                return;
+            }
+
+            container.innerHTML = errors.map(error => `
+                <div class="p-4 hover:bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getSeverityColor(error.severity)}">
+                                    ${error.severity}
+                                </span>
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    ${error.error_type}
+                                </span>
+                                <span class="text-xs text-gray-500">${new Date(error.created_at).toLocaleString()}</span>
+                            </div>
+                            <p class="text-sm font-medium text-gray-900 mb-1">${error.error_message}</p>
+                            ${error.url ? `<p class="text-xs text-gray-600">URL: ${error.url}</p>` : ''}
+                            ${error.occurrence_count > 1 ? `<p class="text-xs text-orange-600">Occurred ${error.occurrence_count} times</p>` : ''}
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-blue-600 hover:text-blue-900 text-xs">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="text-green-600 hover:text-green-900 text-xs">
+                                <i class="fas fa-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Feature Flags Functions
+        async function loadFeatureFlags() {
+            try {
+                const response = await apiCall('/feature-flags');
+                const flags = response.data;
+                updateFeatureFlags(flags);
+            } catch (error) {
+                console.error('Failed to load feature flags:', error);
+            }
+        }
+
+        function updateFeatureFlags(flags) {
+            const container = document.getElementById('featureFlagsGrid');
+            
+            if (flags.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center text-gray-500 py-8">No feature flags found</div>';
+                return;
+            }
+
+            container.innerHTML = flags.map(flag => `
+                <div class="bg-white p-6 rounded-lg shadow-md border border-gray-200">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">${flag.name}</h3>
+                            <p class="text-sm text-gray-600 mt-1">${flag.description || 'No description'}</p>
+                            <p class="text-xs text-gray-500 mt-2">Key: <code class="bg-gray-100 px-1 rounded">${flag.flag_key}</code></p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" ${flag.status === 'active' ? 'checked' : ''} 
+                                   onchange="toggleFeatureFlag(${flag.id}, this.checked)"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Type:</span>
+                            <span class="font-medium">${flag.flag_type}</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Default:</span>
+                            <code class="bg-gray-100 px-1 rounded text-xs">${flag.default_value}</code>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Rollout:</span>
+                            <span class="font-medium">${flag.rollout_percentage}%</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Environment:</span>
+                            <span class="px-2 py-1 text-xs rounded-full ${flag.environment === 'production' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">${flag.environment}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <button onclick="editFeatureFlag(${flag.id})" class="text-blue-600 hover:text-blue-900 text-sm">
+                                <i class="fas fa-edit mr-1"></i>Edit
+                            </button>
+                            <button onclick="testFeatureFlag('${flag.flag_key}')" class="text-green-600 hover:text-green-900 text-sm">
+                                <i class="fas fa-vial mr-1"></i>Test
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Utility Functions
+        function getPriorityColor(priority) {
+            const colors = {
+                urgent: 'bg-red-100 text-red-800',
+                high: 'bg-orange-100 text-orange-800',
+                medium: 'bg-yellow-100 text-yellow-800',
+                low: 'bg-green-100 text-green-800'
+            };
+            return colors[priority] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                pending: 'bg-yellow-100 text-yellow-800',
+                approved: 'bg-green-100 text-green-800',
+                rejected: 'bg-red-100 text-red-800',
+                escalated: 'bg-purple-100 text-purple-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getSeverityColor(severity) {
+            const colors = {
+                critical: 'bg-red-100 text-red-800',
+                high: 'bg-orange-100 text-orange-800',
+                medium: 'bg-yellow-100 text-yellow-800',
+                low: 'bg-green-100 text-green-800'
+            };
+            return colors[severity] || 'bg-gray-100 text-gray-800';
+        }
+
+        // Modal Functions
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function closeModals() {
+            document.querySelectorAll('.fixed.inset-0').forEach(modal => {
+                modal.classList.add('hidden');
+            });
+        }
+
+        // Action Functions
+        async function moderateContent(itemId, status) {
+            try {
+                await apiCall(`/moderation/${itemId}`, {
+                    method: 'PUT',
+                    data: { status }
+                });
+                await loadModerationQueue();
+                showNotification('Content moderated successfully', 'success');
+            } catch (error) {
+                console.error('Failed to moderate content:', error);
+                showNotification('Failed to moderate content', 'error');
+            }
+        }
+
+        async function toggleFeatureFlag(flagId, enabled) {
+            try {
+                await apiCall(`/feature-flags/${flagId}`, {
+                    method: 'PUT',
+                    data: { status: enabled ? 'active' : 'inactive' }
+                });
+                showNotification('Feature flag updated successfully', 'success');
+            } catch (error) {
+                console.error('Failed to toggle feature flag:', error);
+                showNotification('Failed to update feature flag', 'error');
+            }
+        }
+
+        // Form Handlers
+        async function handleAddAdminUser(e) {
+            e.preventDefault();
+            try {
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData);
+                
+                await apiCall('/users', {
+                    method: 'POST',
+                    data: data
+                });
+                
+                closeModals();
+                await loadAdminUsers();
+                showNotification('Admin user added successfully', 'success');
+                e.target.reset();
+            } catch (error) {
+                console.error('Failed to add admin user:', error);
+                showNotification('Failed to add admin user', 'error');
+            }
+        }
+
+        async function handleAddFeatureFlag(e) {
+            e.preventDefault();
+            try {
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData);
+                
+                await apiCall('/feature-flags', {
+                    method: 'POST',
+                    data: data
+                });
+                
+                closeModals();
+                await loadFeatureFlags();
+                showNotification('Feature flag created successfully', 'success');
+                e.target.reset();
+            } catch (error) {
+                console.error('Failed to create feature flag:', error);
+                showNotification('Failed to create feature flag', 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification - could be enhanced with a toast library
+            const color = type === 'success' ? 'green' : type === 'error' ? 'red' : 'blue';
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 bg-${color}-100 border border-${color}-400 text-${color}-700 px-4 py-3 rounded z-50`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        function initializeAdminPanel() {
+            console.log('Admin Panel initialized');
+        }
+    </script>
+</body>
+</html>

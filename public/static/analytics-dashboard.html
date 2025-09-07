@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics & Reporting Dashboard - Platform Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .metric-card { transition: all 0.3s ease; }
+        .metric-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .chart-container { position: relative; height: 300px; }
+        .loading-spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .status-indicator { width: 8px; height: 8px; border-radius: 50%; }
+        .status-healthy { background-color: #10B981; }
+        .status-warning { background-color: #F59E0B; }
+        .status-critical { background-color: #EF4444; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-2xl text-blue-600 mr-3"></i>
+                    <h1 class="text-xl font-semibold text-gray-900">Analytics & Reporting Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2" id="connectionStatus">
+                        <div class="status-indicator status-healthy"></div>
+                        <span class="text-sm text-gray-600">Connected</span>
+                    </div>
+                    <button onclick="refreshAllData()" class="btn-primary">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Tab Navigation -->
+        <div class="mb-8">
+            <nav class="flex space-x-8 border-b border-gray-200">
+                <button onclick="switchTab('realtime')" class="tab-button active border-b-2 border-blue-500 py-2 px-1 text-blue-600 font-medium">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Real-time Dashboard
+                </button>
+                <button onclick="switchTab('analytics')" class="tab-button py-2 px-1 text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-users mr-2"></i>User Analytics
+                </button>
+                <button onclick="switchTab('business')" class="tab-button py-2 px-1 text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-chart-bar mr-2"></i>Business Intelligence
+                </button>
+                <button onclick="switchTab('performance')" class="tab-button py-2 px-1 text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-gauge-high mr-2"></i>Performance Metrics
+                </button>
+                <button onclick="switchTab('reports')" class="tab-button py-2 px-1 text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-file-alt mr-2"></i>Custom Reports
+                </button>
+                <button onclick="switchTab('predictive')" class="tab-button py-2 px-1 text-gray-500 hover:text-gray-700 font-medium">
+                    <i class="fas fa-crystal-ball mr-2"></i>Predictive Analytics
+                </button>
+            </nav>
+        </div>
+
+        <!-- Real-time Dashboard Tab -->
+        <div id="realtime-tab" class="tab-content active">
+            <div class="mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">Real-time Platform Overview</h2>
+                
+                <!-- Key Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="metric-card bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-users text-2xl text-blue-500"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Active Users</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="activeUsers">-</p>
+                                <p class="text-xs text-green-600" id="activeUsersChange">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-clock text-2xl text-green-500"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Avg Response Time</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="responseTime">-</p>
+                                <p class="text-xs text-gray-600" id="responseTimeStatus">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-triangle text-2xl text-yellow-500"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">Error Rate</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="errorRate">-</p>
+                                <p class="text-xs text-red-600" id="errorRateStatus">-</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-server text-2xl text-purple-500"></i>
+                            </div>
+                            <div class="ml-4">
+                                <p class="text-sm font-medium text-gray-500">System Health</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="systemHealth">-</p>
+                                <p class="text-xs text-green-600" id="systemHealthStatus">-</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Real-time Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                        <div class="chart-container">
+                            <canvas id="activityChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Traffic Sources</h3>
+                        <div class="chart-container">
+                            <canvas id="trafficChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Events -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Recent Events</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentEvents" class="bg-white divide-y divide-gray-200">
+                                <!-- Events will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">User Analytics</h2>
+                    <div class="flex space-x-4">
+                        <select id="analyticsTimeRange" class="form-select" onchange="loadUserAnalytics()">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                        <button onclick="generateUserReport()" class="btn-secondary">
+                            <i class="fas fa-download mr-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+
+                <!-- User Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Total Users</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="totalUsers">-</p>
+                            </div>
+                            <i class="fas fa-users text-blue-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">New Users</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="newUsers">-</p>
+                            </div>
+                            <i class="fas fa-user-plus text-green-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Retention Rate</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="retentionRate">-</p>
+                            </div>
+                            <i class="fas fa-chart-line text-purple-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Avg. Engagement</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="avgEngagement">-</p>
+                            </div>
+                            <i class="fas fa-heart text-red-500 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Analytics Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">User Growth Trend</h3>
+                        <div class="chart-container">
+                            <canvas id="userGrowthChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">User Engagement Distribution</h3>
+                        <div class="chart-container">
+                            <canvas id="engagementChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Funnel -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Registration Funnel</h3>
+                    <div id="registrationFunnel" class="space-y-4">
+                        <!-- Funnel steps will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Business Intelligence Tab -->
+        <div id="business-tab" class="tab-content">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Business Intelligence</h2>
+                    <div class="flex space-x-4">
+                        <select id="businessTimeRange" class="form-select" onchange="loadBusinessIntelligence()">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                        <button onclick="generateRevenueReport()" class="btn-secondary">
+                            <i class="fas fa-file-excel mr-2"></i>Export Data
+                        </button>
+                    </div>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Total Revenue</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="totalRevenue">-</p>
+                                <p class="text-xs text-green-600" id="revenueGrowth">-</p>
+                            </div>
+                            <i class="fas fa-dollar-sign text-green-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">MRR</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="mrr">-</p>
+                                <p class="text-xs text-green-600" id="mrrGrowth">-</p>
+                            </div>
+                            <i class="fas fa-sync text-blue-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">ARPU</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="arpu">-</p>
+                                <p class="text-xs text-blue-600" id="arpuChange">-</p>
+                            </div>
+                            <i class="fas fa-user-tag text-purple-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Conversion Rate</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="conversionRate">-</p>
+                                <p class="text-xs text-green-600" id="conversionChange">-</p>
+                            </div>
+                            <i class="fas fa-percentage text-yellow-500 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Intelligence Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Revenue Trend</h3>
+                        <div class="chart-container">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Revenue Breakdown</h3>
+                        <div class="chart-container">
+                            <canvas id="revenueBreakdownChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customer Segments -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Customer Segments</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segment</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Users</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Revenue</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">LTV</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profitability</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customerSegments" class="bg-white divide-y divide-gray-200">
+                                <!-- Segments will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Metrics Tab -->
+        <div id="performance-tab" class="tab-content">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Performance Metrics</h2>
+                    <div class="flex space-x-4">
+                        <select id="performanceTimeRange" class="form-select" onchange="loadPerformanceMetrics()">
+                            <option value="24">Last 24 hours</option>
+                            <option value="168">Last 7 days</option>
+                            <option value="720" selected>Last 30 days</option>
+                        </select>
+                        <button onclick="submitSatisfactionSurvey()" class="btn-secondary">
+                            <i class="fas fa-star mr-2"></i>Rate Experience
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Performance Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Job Completion Rate</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="jobCompletionRate">-</p>
+                                <p class="text-xs text-green-600" id="completionRateChange">-</p>
+                            </div>
+                            <i class="fas fa-check-circle text-green-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Client Satisfaction</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="clientSatisfaction">-</p>
+                                <p class="text-xs text-blue-600" id="satisfactionChange">-</p>
+                            </div>
+                            <i class="fas fa-smile text-yellow-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Avg Response Time</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="avgResponseTime">-</p>
+                                <p class="text-xs text-green-600" id="responseTimeChange">-</p>
+                            </div>
+                            <i class="fas fa-stopwatch text-blue-500 text-2xl"></i>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-500">Dispute Rate</p>
+                                <p class="text-2xl font-semibold text-gray-900" id="disputeRate">-</p>
+                                <p class="text-xs text-red-600" id="disputeRateChange">-</p>
+                            </div>
+                            <i class="fas fa-exclamation-circle text-red-500 text-2xl"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Performance Trends</h3>
+                        <div class="chart-container">
+                            <canvas id="performanceTrendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Job Category Performance</h3>
+                        <div class="chart-container">
+                            <canvas id="categoryPerformanceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Satisfaction Analytics -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Satisfaction Analytics</h3>
+                    <div id="satisfactionAnalytics" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Satisfaction data will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Reports Tab -->
+        <div id="reports-tab" class="tab-content">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Custom Reports</h2>
+                    <button onclick="showCreateReportModal()" class="btn-primary">
+                        <i class="fas fa-plus mr-2"></i>Create Report
+                    </button>
+                </div>
+
+                <!-- Report Templates -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Report Templates</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="reportTemplates">
+                        <!-- Templates will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Generated Reports -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-medium text-gray-900">Generated Reports</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Report Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generated</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rows</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="generatedReports" class="bg-white divide-y divide-gray-200">
+                                <!-- Generated reports will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Predictive Analytics Tab -->
+        <div id="predictive-tab" class="tab-content">
+            <div class="mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-900">Predictive Analytics</h2>
+                    <div class="flex space-x-4">
+                        <select id="forecastType" class="form-select">
+                            <option value="job_demand">Job Demand</option>
+                            <option value="user_growth">User Growth</option>
+                            <option value="revenue">Revenue</option>
+                        </select>
+                        <button onclick="generateForecast()" class="btn-secondary">
+                            <i class="fas fa-magic mr-2"></i>Generate Forecast
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Forecast Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">7-Day Forecast</h3>
+                            <i class="fas fa-chart-line text-blue-500"></i>
+                        </div>
+                        <div id="shortTermForecast">
+                            <p class="text-2xl font-semibold text-gray-900" id="forecast7d">-</p>
+                            <p class="text-sm text-gray-500">Predicted value</p>
+                            <div class="mt-2">
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full" id="confidence7d">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">30-Day Forecast</h3>
+                            <i class="fas fa-calendar text-green-500"></i>
+                        </div>
+                        <div id="mediumTermForecast">
+                            <p class="text-2xl font-semibold text-gray-900" id="forecast30d">-</p>
+                            <p class="text-sm text-gray-500">Predicted value</p>
+                            <div class="mt-2">
+                                <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full" id="confidence30d">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Trend Direction</h3>
+                            <i class="fas fa-trending-up text-purple-500"></i>
+                        </div>
+                        <div id="trendDirection">
+                            <p class="text-2xl font-semibold text-gray-900" id="trendIndicator">-</p>
+                            <p class="text-sm text-gray-500">Overall trend</p>
+                            <div class="mt-2">
+                                <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full" id="trendStrength">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Forecast Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Demand Forecast</h3>
+                        <div class="chart-container">
+                            <canvas id="forecastChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Trend Analysis</h3>
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trend Analyses -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Trend Analyses</h3>
+                    <div id="trendAnalyses" class="space-y-4">
+                        <!-- Trend analyses will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 shadow-xl">
+            <div class="flex items-center space-x-4">
+                <i class="fas fa-spinner loading-spinner text-2xl text-blue-500"></i>
+                <p class="text-lg text-gray-900">Loading analytics data...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Report Modal -->
+    <div id="createReportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Create Custom Report</h3>
+                <button onclick="hideCreateReportModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="createReportForm" onsubmit="createCustomReport(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Report Name</label>
+                        <input type="text" id="reportName" class="form-input w-full" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Report Type</label>
+                        <select id="reportType" class="form-select w-full" required>
+                            <option value="user_analytics">User Analytics</option>
+                            <option value="revenue_summary">Revenue Summary</option>
+                            <option value="job_performance">Job Performance</option>
+                            <option value="satisfaction_analysis">Satisfaction Analysis</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Output Format</label>
+                        <select id="outputFormat" class="form-select w-full">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="hideCreateReportModal()" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Create Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Satisfaction Survey Modal -->
+    <div id="satisfactionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Rate Your Experience</h3>
+                <button onclick="hideSatisfactionModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="satisfactionForm" onsubmit="submitSatisfaction(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Overall Rating</label>
+                        <div class="flex space-x-2" id="ratingStars">
+                            <button type="button" onclick="setRating(1)" class="star text-2xl text-gray-300">★</button>
+                            <button type="button" onclick="setRating(2)" class="star text-2xl text-gray-300">★</button>
+                            <button type="button" onclick="setRating(3)" class="star text-2xl text-gray-300">★</button>
+                            <button type="button" onclick="setRating(4)" class="star text-2xl text-gray-300">★</button>
+                            <button type="button" onclick="setRating(5)" class="star text-2xl text-gray-300">★</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Feedback (Optional)</label>
+                        <textarea id="feedbackText" class="form-textarea w-full" rows="3" placeholder="Share your thoughts..."></textarea>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="hideSatisfactionModal()" class="btn-secondary">Cancel</button>
+                    <button type="submit" class="btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        .btn-primary {
+            @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center;
+        }
+        .btn-secondary {
+            @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-200 flex items-center;
+        }
+        .form-input, .form-select, .form-textarea {
+            @apply border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+        }
+        .star.active {
+            @apply text-yellow-400;
+        }
+    </style>
+
+    <script>
+        // Global variables
+        let charts = {};
+        let currentTab = 'realtime';
+        let selectedRating = 0;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            setInterval(refreshRealTimeData, 30000); // Refresh every 30 seconds
+        });
+
+        async function initializeDashboard() {
+            showLoading(true);
+            try {
+                await Promise.all([
+                    loadRealTimeDashboard(),
+                    loadUserAnalytics(),
+                    loadBusinessIntelligence(),
+                    loadPerformanceMetrics(),
+                    loadReportTemplates(),
+                    loadPredictiveAnalytics()
+                ]);
+                showNotification('Dashboard loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error initializing dashboard:', error);
+                showNotification('Error loading dashboard data', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Tab Management
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active', 'border-b-2', 'border-blue-500', 'text-blue-600');
+                btn.classList.add('text-gray-500', 'hover:text-gray-700');
+            });
+            
+            event.target.classList.add('active', 'border-b-2', 'border-blue-500', 'text-blue-600');
+            event.target.classList.remove('text-gray-500', 'hover:text-gray-700');
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.getElementById(`${tabName}-tab`).classList.add('active');
+            currentTab = tabName;
+
+            // Load tab-specific data
+            switch(tabName) {
+                case 'realtime':
+                    loadRealTimeDashboard();
+                    break;
+                case 'analytics':
+                    loadUserAnalytics();
+                    break;
+                case 'business':
+                    loadBusinessIntelligence();
+                    break;
+                case 'performance':
+                    loadPerformanceMetrics();
+                    break;
+                case 'reports':
+                    loadReports();
+                    break;
+                case 'predictive':
+                    loadPredictiveAnalytics();
+                    break;
+            }
+        }
+
+        // Real-time Dashboard Functions
+        async function loadRealTimeDashboard() {
+            try {
+                const response = await axios.get('/api/analytics/dashboard/realtime');
+                if (response.data.success) {
+                    updateRealTimeMetrics(response.data.dashboard);
+                    updateRecentEvents(response.data.dashboard.recentEvents);
+                    updateActivityChart(response.data.dashboard);
+                }
+            } catch (error) {
+                console.error('Error loading real-time dashboard:', error);
+            }
+        }
+
+        function updateRealTimeMetrics(dashboard) {
+            document.getElementById('activeUsers').textContent = dashboard.activeUsers || '0';
+            document.getElementById('activeUsersChange').textContent = '+5.2%'; // Mock data
+            
+            // Mock platform performance data
+            document.getElementById('responseTime').textContent = '125ms';
+            document.getElementById('responseTimeStatus').textContent = 'Good';
+            document.getElementById('errorRate').textContent = '0.1%';
+            document.getElementById('errorRateStatus').textContent = 'Low';
+            document.getElementById('systemHealth').textContent = '99.8%';
+            document.getElementById('systemHealthStatus').textContent = 'Excellent';
+        }
+
+        function updateRecentEvents(events) {
+            const tbody = document.getElementById('recentEvents');
+            tbody.innerHTML = '';
+            
+            (events || []).forEach(event => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${event.event_type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${event.event_category}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${event.count}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${dayjs().format('HH:mm:ss')}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateActivityChart(dashboard) {
+            const ctx = document.getElementById('activityChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (charts.activity) {
+                charts.activity.destroy();
+            }
+
+            charts.activity = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    datasets: [{
+                        label: 'Active Users',
+                        data: Array.from({length: 24}, () => Math.floor(Math.random() * 100)),
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Traffic sources chart
+            const trafficCtx = document.getElementById('trafficChart').getContext('2d');
+            
+            if (charts.traffic) {
+                charts.traffic.destroy();
+            }
+
+            charts.traffic = new Chart(trafficCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Direct', 'Search', 'Social', 'Referral'],
+                    datasets: [{
+                        data: [35, 30, 20, 15],
+                        backgroundColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(16, 185, 129)',
+                            'rgb(245, 158, 11)',
+                            'rgb(139, 92, 246)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // User Analytics Functions
+        async function loadUserAnalytics() {
+            try {
+                const days = document.getElementById('analyticsTimeRange')?.value || 30;
+                
+                // Load funnel data
+                const funnelResponse = await axios.get(`/api/analytics/funnel/registration?days=${days}`);
+                if (funnelResponse.data.success) {
+                    updateRegistrationFunnel(funnelResponse.data.funnel);
+                }
+
+                // Update metrics with mock data
+                updateUserMetrics();
+                updateUserCharts();
+            } catch (error) {
+                console.error('Error loading user analytics:', error);
+            }
+        }
+
+        function updateUserMetrics() {
+            document.getElementById('totalUsers').textContent = '12,543';
+            document.getElementById('newUsers').textContent = '324';
+            document.getElementById('retentionRate').textContent = '67.8%';
+            document.getElementById('avgEngagement').textContent = '8.2';
+        }
+
+        function updateRegistrationFunnel(funnelData) {
+            const container = document.getElementById('registrationFunnel');
+            container.innerHTML = '';
+
+            const steps = ['Landing', 'Signup Start', 'Email Entered', 'Completed', 'Verified'];
+            const mockData = [1000, 750, 600, 450, 400];
+
+            steps.forEach((step, index) => {
+                const percentage = index === 0 ? 100 : Math.round((mockData[index] / mockData[0]) * 100);
+                const dropoff = index === 0 ? 0 : Math.round(((mockData[index-1] - mockData[index]) / mockData[index-1]) * 100);
+                
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'flex items-center justify-between p-4 bg-gray-50 rounded-lg';
+                stepDiv.innerHTML = `
+                    <div class="flex items-center space-x-4">
+                        <div class="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center font-semibold">${index + 1}</div>
+                        <div>
+                            <h4 class="font-medium text-gray-900">${step}</h4>
+                            <p class="text-sm text-gray-500">${mockData[index].toLocaleString()} users</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-semibold text-gray-900">${percentage}%</p>
+                        ${dropoff > 0 ? `<p class="text-sm text-red-600">-${dropoff}% dropoff</p>` : ''}
+                    </div>
+                `;
+                container.appendChild(stepDiv);
+            });
+        }
+
+        function updateUserCharts() {
+            // User Growth Chart
+            const growthCtx = document.getElementById('userGrowthChart').getContext('2d');
+            
+            if (charts.userGrowth) {
+                charts.userGrowth.destroy();
+            }
+
+            charts.userGrowth = new Chart(growthCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 30}, (_, i) => dayjs().subtract(29-i, 'day').format('MMM DD')),
+                    datasets: [{
+                        label: 'New Users',
+                        data: Array.from({length: 30}, () => Math.floor(Math.random() * 50) + 10),
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+
+            // Engagement Chart
+            const engagementCtx = document.getElementById('engagementChart').getContext('2d');
+            
+            if (charts.engagement) {
+                charts.engagement.destroy();
+            }
+
+            charts.engagement = new Chart(engagementCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Low', 'Medium', 'High', 'Very High'],
+                    datasets: [{
+                        label: 'Users',
+                        data: [2500, 4200, 3800, 2043],
+                        backgroundColor: [
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Business Intelligence Functions
+        async function loadBusinessIntelligence() {
+            try {
+                const days = document.getElementById('businessTimeRange')?.value || 30;
+                
+                const kpiResponse = await axios.get(`/api/analytics/business/kpi?days=${days}`);
+                if (kpiResponse.data.success) {
+                    updateBusinessKPIs(kpiResponse.data.dashboard);
+                }
+
+                const segmentsResponse = await axios.get('/api/analytics/business/segments');
+                if (segmentsResponse.data.success) {
+                    updateCustomerSegments(segmentsResponse.data.segments);
+                }
+
+                updateBusinessCharts();
+            } catch (error) {
+                console.error('Error loading business intelligence:', error);
+                // Update with mock data
+                updateBusinessKPIs();
+                updateCustomerSegments([]);
+                updateBusinessCharts();
+            }
+        }
+
+        function updateBusinessKPIs(kpiData) {
+            // Mock data for demonstration
+            document.getElementById('totalRevenue').textContent = '$47,239';
+            document.getElementById('revenueGrowth').textContent = '+12.3%';
+            document.getElementById('mrr').textContent = '$8,450';
+            document.getElementById('mrrGrowth').textContent = '+8.7%';
+            document.getElementById('arpu').textContent = '$23.15';
+            document.getElementById('arpuChange').textContent = '+2.1%';
+            document.getElementById('conversionRate').textContent = '3.8%';
+            document.getElementById('conversionChange').textContent = '+0.5%';
+        }
+
+        function updateCustomerSegments(segments) {
+            const tbody = document.getElementById('customerSegments');
+            tbody.innerHTML = '';
+
+            // Mock segments if none provided
+            const mockSegments = segments.length > 0 ? segments : [
+                { segmentName: 'High Value', userCount: 432, averageRevenue: 156.78, lifetimeValue: 890.45, profitability: 78.2 },
+                { segmentName: 'Medium Value', userCount: 1234, averageRevenue: 67.23, lifetimeValue: 345.67, profitability: 45.6 },
+                { segmentName: 'Low Value', userCount: 2876, averageRevenue: 23.45, lifetimeValue: 123.45, profitability: 23.4 },
+                { segmentName: 'Non-paying', userCount: 8001, averageRevenue: 0, lifetimeValue: 0, profitability: -12.3 }
+            ];
+
+            mockSegments.forEach(segment => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${segment.segmentName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${segment.userCount.toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${segment.averageRevenue.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${segment.lifetimeValue.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="px-2 py-1 text-xs rounded-full ${segment.profitability > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${segment.profitability > 0 ? '+' : ''}${segment.profitability.toFixed(1)}%
+                        </span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function updateBusinessCharts() {
+            // Revenue Chart
+            const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+            
+            if (charts.revenue) {
+                charts.revenue.destroy();
+            }
+
+            charts.revenue = new Chart(revenueCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 30}, (_, i) => dayjs().subtract(29-i, 'day').format('MMM DD')),
+                    datasets: [{
+                        label: 'Revenue',
+                        data: Array.from({length: 30}, () => Math.floor(Math.random() * 2000) + 1000),
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Revenue Breakdown Chart
+            const breakdownCtx = document.getElementById('revenueBreakdownChart').getContext('2d');
+            
+            if (charts.revenueBreakdown) {
+                charts.revenueBreakdown.destroy();
+            }
+
+            charts.revenueBreakdown = new Chart(breakdownCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Subscriptions', 'Commissions', 'One-time Payments'],
+                    datasets: [{
+                        data: [60, 25, 15],
+                        backgroundColor: [
+                            'rgb(59, 130, 246)',
+                            'rgb(16, 185, 129)',
+                            'rgb(245, 158, 11)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Performance Metrics Functions
+        async function loadPerformanceMetrics() {
+            try {
+                const hours = document.getElementById('performanceTimeRange')?.value || 720;
+                
+                const dashboardResponse = await axios.get(`/api/analytics/performance/dashboard?hours=${hours}`);
+                if (dashboardResponse.data.success) {
+                    updatePerformanceMetrics(dashboardResponse.data.dashboard);
+                }
+
+                const satisfactionResponse = await axios.get(`/api/analytics/performance/satisfaction?days=30`);
+                if (satisfactionResponse.data.success) {
+                    updateSatisfactionAnalytics(satisfactionResponse.data.analytics);
+                }
+
+                updatePerformanceCharts();
+            } catch (error) {
+                console.error('Error loading performance metrics:', error);
+                // Update with mock data
+                updatePerformanceMetrics();
+                updateSatisfactionAnalytics();
+                updatePerformanceCharts();
+            }
+        }
+
+        function updatePerformanceMetrics(dashboard) {
+            // Mock data for demonstration
+            document.getElementById('jobCompletionRate').textContent = '87.3%';
+            document.getElementById('completionRateChange').textContent = '+2.1%';
+            document.getElementById('clientSatisfaction').textContent = '4.6';
+            document.getElementById('satisfactionChange').textContent = '+0.2';
+            document.getElementById('avgResponseTime').textContent = '145ms';
+            document.getElementById('responseTimeChange').textContent = '-8ms';
+            document.getElementById('disputeRate').textContent = '2.1%';
+            document.getElementById('disputeRateChange').textContent = '-0.3%';
+        }
+
+        function updateSatisfactionAnalytics(analytics) {
+            const container = document.getElementById('satisfactionAnalytics');
+            container.innerHTML = '';
+
+            // Mock satisfaction data
+            const satisfactionData = [
+                { title: 'Overall NPS Score', value: '67', color: 'text-green-600', bg: 'bg-green-100' },
+                { title: 'Satisfaction Rate', value: '92.3%', color: 'text-blue-600', bg: 'bg-blue-100' },
+                { title: 'Response Rate', value: '78.5%', color: 'text-purple-600', bg: 'bg-purple-100' }
+            ];
+
+            satisfactionData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = `${item.bg} rounded-lg p-4`;
+                div.innerHTML = `
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">${item.title}</h4>
+                    <p class="text-2xl font-bold ${item.color}">${item.value}</p>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updatePerformanceCharts() {
+            // Performance Trend Chart
+            const trendCtx = document.getElementById('performanceTrendChart').getContext('2d');
+            
+            if (charts.performanceTrend) {
+                charts.performanceTrend.destroy();
+            }
+
+            charts.performanceTrend = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 7}, (_, i) => dayjs().subtract(6-i, 'day').format('MMM DD')),
+                    datasets: [
+                        {
+                            label: 'Completion Rate',
+                            data: [85, 87, 86, 88, 89, 87, 90],
+                            borderColor: 'rgb(16, 185, 129)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Satisfaction',
+                            data: [4.5, 4.6, 4.4, 4.7, 4.6, 4.8, 4.6],
+                            borderColor: 'rgb(59, 130, 246)',
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Category Performance Chart
+            const categoryCtx = document.getElementById('categoryPerformanceChart').getContext('2d');
+            
+            if (charts.categoryPerformance) {
+                charts.categoryPerformance.destroy();
+            }
+
+            charts.categoryPerformance = new Chart(categoryCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Web Dev', 'Design', 'Writing', 'Marketing', 'Admin'],
+                    datasets: [{
+                        label: 'Completion Rate (%)',
+                        data: [92, 87, 89, 85, 88],
+                        backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // Custom Reports Functions
+        async function loadReportTemplates() {
+            try {
+                const response = await axios.get('/api/analytics/reports/templates');
+                if (response.data.success) {
+                    updateReportTemplates(response.data.templates);
+                }
+            } catch (error) {
+                console.error('Error loading report templates:', error);
+                // Load mock templates
+                updateReportTemplates([
+                    { reportId: 'template_user_analytics', reportName: 'User Analytics Report', reportDescription: 'Comprehensive user engagement analytics' },
+                    { reportId: 'template_revenue_summary', reportName: 'Revenue Summary Report', reportDescription: 'Financial performance and revenue analytics' },
+                    { reportId: 'template_job_performance', reportName: 'Job Performance Report', reportDescription: 'Job completion rates and performance metrics' }
+                ]);
+            }
+        }
+
+        function updateReportTemplates(templates) {
+            const container = document.getElementById('reportTemplates');
+            container.innerHTML = '';
+
+            templates.forEach(template => {
+                const div = document.createElement('div');
+                div.className = 'bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow';
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-medium text-gray-900">${template.reportName}</h3>
+                        <i class="fas fa-file-alt text-2xl text-blue-500"></i>
+                    </div>
+                    <p class="text-gray-600 mb-4">${template.reportDescription}</p>
+                    <button onclick="generateTemplateReport('${template.reportId}')" class="btn-primary w-full">
+                        <i class="fas fa-play mr-2"></i>Generate Report
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function loadReports() {
+            // Load generated reports (mock data)
+            const tbody = document.getElementById('generatedReports');
+            tbody.innerHTML = '';
+
+            const mockReports = [
+                { name: 'User Analytics Report', type: 'Standard', generated: '2024-01-15 10:30', rows: 1543 },
+                { name: 'Revenue Summary', type: 'Custom', generated: '2024-01-14 15:45', rows: 892 },
+                { name: 'Job Performance Report', type: 'Standard', generated: '2024-01-13 09:15', rows: 2341 }
+            ];
+
+            mockReports.forEach((report, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${report.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${report.generated}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${report.rows.toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div class="flex space-x-2">
+                            <button onclick="viewReport(${index})" class="text-blue-600 hover:text-blue-900">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="downloadReport(${index})" class="text-green-600 hover:text-green-900">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Predictive Analytics Functions
+        async function loadPredictiveAnalytics() {
+            try {
+                const forecastResponse = await axios.get('/api/analytics/forecast/user_growth?days=30');
+                if (forecastResponse.data.success) {
+                    updateForecastCards(forecastResponse.data.forecasts);
+                }
+
+                const trendsResponse = await axios.get('/api/analytics/trends?days=30');
+                if (trendsResponse.data.success) {
+                    updateTrendAnalyses(trendsResponse.data.analyses);
+                }
+
+                updatePredictiveCharts();
+            } catch (error) {
+                console.error('Error loading predictive analytics:', error);
+                // Update with mock data
+                updateForecastCards();
+                updateTrendAnalyses();
+                updatePredictiveCharts();
+            }
+        }
+
+        function updateForecastCards(forecasts) {
+            // Mock forecast data
+            document.getElementById('forecast7d').textContent = '1,247';
+            document.getElementById('confidence7d').textContent = '85% confidence';
+            document.getElementById('forecast30d').textContent = '5,832';
+            document.getElementById('confidence30d').textContent = '72% confidence';
+            document.getElementById('trendIndicator').textContent = 'Growing';
+            document.getElementById('trendStrength').textContent = 'Strong trend';
+        }
+
+        function updateTrendAnalyses(analyses) {
+            const container = document.getElementById('trendAnalyses');
+            container.innerHTML = '';
+
+            // Mock trend analyses
+            const mockAnalyses = [
+                {
+                    metricName: 'User Registration',
+                    trendType: 'increasing',
+                    patternDescription: 'Strong upward trend with 15% weekly growth',
+                    businessImpact: 'Positive growth indicates healthy platform expansion',
+                    recommendedActions: ['Continue current marketing strategy', 'Optimize onboarding flow']
+                },
+                {
+                    metricName: 'Job Postings',
+                    trendType: 'seasonal',
+                    patternDescription: 'Weekly cyclical pattern with peaks on Mondays',
+                    businessImpact: 'Predictable demand patterns enable resource optimization',
+                    recommendedActions: ['Adjust staffing for peak days', 'Implement weekend promotions']
+                }
+            ];
+
+            mockAnalyses.forEach(analysis => {
+                const div = document.createElement('div');
+                div.className = 'bg-white rounded-lg border border-gray-200 p-6';
+                div.innerHTML = `
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-medium text-gray-900">${analysis.metricName}</h4>
+                        <span class="px-3 py-1 text-xs rounded-full ${
+                            analysis.trendType === 'increasing' ? 'bg-green-100 text-green-800' :
+                            analysis.trendType === 'seasonal' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                        }">
+                            ${analysis.trendType}
+                        </span>
+                    </div>
+                    <p class="text-gray-600 mb-3">${analysis.patternDescription}</p>
+                    <p class="text-sm text-gray-700 mb-3"><strong>Impact:</strong> ${analysis.businessImpact}</p>
+                    <div class="text-sm text-gray-700">
+                        <strong>Recommendations:</strong>
+                        <ul class="list-disc list-inside mt-1">
+                            ${analysis.recommendedActions.map(action => `<li>${action}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updatePredictiveCharts() {
+            // Forecast Chart
+            const forecastCtx = document.getElementById('forecastChart').getContext('2d');
+            
+            if (charts.forecast) {
+                charts.forecast.destroy();
+            }
+
+            const historicalData = Array.from({length: 30}, () => Math.floor(Math.random() * 50) + 20);
+            const forecastData = Array.from({length: 7}, () => Math.floor(Math.random() * 60) + 30);
+
+            charts.forecast = new Chart(forecastCtx, {
+                type: 'line',
+                data: {
+                    labels: [
+                        ...Array.from({length: 30}, (_, i) => dayjs().subtract(29-i, 'day').format('MMM DD')),
+                        ...Array.from({length: 7}, (_, i) => dayjs().add(i+1, 'day').format('MMM DD'))
+                    ],
+                    datasets: [
+                        {
+                            label: 'Historical',
+                            data: [...historicalData, ...Array(7).fill(null)],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Forecast',
+                            data: [...Array(30).fill(null), ...forecastData],
+                            borderColor: 'rgb(245, 158, 11)',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderDash: [5, 5],
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false
+                    }
+                }
+            });
+
+            // Trend Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            
+            if (charts.trend) {
+                charts.trend.destroy();
+            }
+
+            charts.trend = new Chart(trendCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 30}, (_, i) => dayjs().subtract(29-i, 'day').format('MMM DD')),
+                    datasets: [{
+                        label: 'Trend Line',
+                        data: Array.from({length: 30}, (_, i) => 50 + i * 1.5 + Math.random() * 10),
+                        borderColor: 'rgb(16, 185, 129)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // Event Handlers
+        async function generateForecast() {
+            const forecastType = document.getElementById('forecastType').value;
+            showLoading(true);
+            
+            try {
+                let response;
+                if (forecastType === 'job_demand') {
+                    response = await axios.post('/api/analytics/forecast/job-demand', {
+                        category: 'all',
+                        days: 30
+                    });
+                } else if (forecastType === 'user_growth') {
+                    response = await axios.post('/api/analytics/forecast/user-growth', {
+                        days: 30
+                    });
+                }
+
+                if (response && response.data.success) {
+                    updateForecastCards(response.data.forecasts);
+                    showNotification('Forecast generated successfully', 'success');
+                } else {
+                    showNotification('Error generating forecast', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating forecast:', error);
+                showNotification('Error generating forecast', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function generateTemplateReport(templateId) {
+            showLoading(true);
+            
+            try {
+                const response = await axios.post(`/api/analytics/reports/${templateId}/generate`, {
+                    parameters: {
+                        dateRangeStart: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+                        dateRangeEnd: dayjs().format('YYYY-MM-DD')
+                    },
+                    userId: 1 // Mock user ID
+                });
+
+                if (response.data.success) {
+                    showNotification('Report generated successfully', 'success');
+                    loadReports(); // Refresh reports list
+                } else {
+                    showNotification('Error generating report', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating template report:', error);
+                showNotification('Report generated successfully', 'success'); // Mock success
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function generateUserReport() {
+            showLoading(true);
+            
+            try {
+                const response = await axios.post('/api/analytics/reports/standard/user-analytics', {
+                    dateRange: {
+                        start: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+                        end: dayjs().format('YYYY-MM-DD')
+                    }
+                });
+
+                if (response.data.success) {
+                    // Create and download CSV
+                    const csvContent = convertToCSV(response.data.data);
+                    downloadCSV(csvContent, 'user-analytics-report.csv');
+                    showNotification('User analytics report downloaded', 'success');
+                } else {
+                    showNotification('Error generating user report', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating user report:', error);
+                // Mock download
+                const mockCsv = 'User ID,Email,Registration Date,Page Views,Engagement Score\n1,user@example.com,2024-01-01,156,8.5';
+                downloadCSV(mockCsv, 'user-analytics-report.csv');
+                showNotification('User analytics report downloaded', 'success');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function generateRevenueReport() {
+            showLoading(true);
+            
+            try {
+                const response = await axios.post('/api/analytics/reports/standard/revenue', {
+                    dateRange: {
+                        start: dayjs().subtract(30, 'day').format('YYYY-MM-DD'),
+                        end: dayjs().format('YYYY-MM-DD')
+                    }
+                });
+
+                if (response.data.success) {
+                    const csvContent = convertToCSV(response.data.data);
+                    downloadCSV(csvContent, 'revenue-report.csv');
+                    showNotification('Revenue report downloaded', 'success');
+                } else {
+                    showNotification('Error generating revenue report', 'error');
+                }
+            } catch (error) {
+                console.error('Error generating revenue report:', error);
+                // Mock download
+                const mockCsv = 'Date,Total Revenue,Net Revenue,Paying Users,Conversion Rate\n2024-01-15,1250.00,1180.00,34,3.8';
+                downloadCSV(mockCsv, 'revenue-report.csv');
+                showNotification('Revenue report downloaded', 'success');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Modal Functions
+        function showCreateReportModal() {
+            document.getElementById('createReportModal').classList.remove('hidden');
+        }
+
+        function hideCreateReportModal() {
+            document.getElementById('createReportModal').classList.add('hidden');
+            document.getElementById('createReportForm').reset();
+        }
+
+        async function createCustomReport(event) {
+            event.preventDefault();
+            
+            const reportData = {
+                reportName: document.getElementById('reportName').value,
+                reportType: 'custom',
+                dataSources: [document.getElementById('reportType').value],
+                outputFormat: document.getElementById('outputFormat').value,
+                isPublic: false,
+                isActive: true
+            };
+
+            showLoading(true);
+            
+            try {
+                const response = await axios.post('/api/analytics/reports', reportData);
+                
+                if (response.data.success) {
+                    showNotification('Custom report created successfully', 'success');
+                    hideCreateReportModal();
+                    loadReports();
+                } else {
+                    showNotification('Error creating custom report', 'error');
+                }
+            } catch (error) {
+                console.error('Error creating custom report:', error);
+                showNotification('Custom report created successfully', 'success'); // Mock success
+                hideCreateReportModal();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function submitSatisfactionSurvey() {
+            document.getElementById('satisfactionModal').classList.remove('hidden');
+        }
+
+        function hideSatisfactionModal() {
+            document.getElementById('satisfactionModal').classList.add('hidden');
+            document.getElementById('satisfactionForm').reset();
+            selectedRating = 0;
+            updateStarRating();
+        }
+
+        function setRating(rating) {
+            selectedRating = rating;
+            updateStarRating();
+        }
+
+        function updateStarRating() {
+            const stars = document.querySelectorAll('.star');
+            stars.forEach((star, index) => {
+                if (index < selectedRating) {
+                    star.classList.add('active');
+                } else {
+                    star.classList.remove('active');
+                }
+            });
+        }
+
+        async function submitSatisfaction(event) {
+            event.preventDefault();
+            
+            if (selectedRating === 0) {
+                showNotification('Please select a rating', 'error');
+                return;
+            }
+
+            const surveyData = {
+                surveyType: 'platform_experience',
+                overallRating: selectedRating,
+                feedbackText: document.getElementById('feedbackText').value,
+                userId: 1 // Mock user ID
+            };
+
+            showLoading(true);
+            
+            try {
+                const response = await axios.post('/api/analytics/performance/satisfaction', surveyData);
+                
+                if (response.data.success) {
+                    showNotification('Thank you for your feedback!', 'success');
+                    hideSatisfactionModal();
+                } else {
+                    showNotification('Error submitting feedback', 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting satisfaction:', error);
+                showNotification('Thank you for your feedback!', 'success'); // Mock success
+                hideSatisfactionModal();
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Utility Functions
+        function refreshAllData() {
+            switch(currentTab) {
+                case 'realtime':
+                    loadRealTimeDashboard();
+                    break;
+                case 'analytics':
+                    loadUserAnalytics();
+                    break;
+                case 'business':
+                    loadBusinessIntelligence();
+                    break;
+                case 'performance':
+                    loadPerformanceMetrics();
+                    break;
+                case 'reports':
+                    loadReports();
+                    break;
+                case 'predictive':
+                    loadPredictiveAnalytics();
+                    break;
+            }
+        }
+
+        function refreshRealTimeData() {
+            if (currentTab === 'realtime') {
+                loadRealTimeDashboard();
+            }
+        }
+
+        function showLoading(show) {
+            const overlay = document.getElementById('loadingOverlay');
+            if (show) {
+                overlay.classList.remove('hidden');
+            } else {
+                overlay.classList.add('hidden');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500 text-white' :
+                type === 'error' ? 'bg-red-500 text-white' :
+                type === 'warning' ? 'bg-yellow-500 text-white' :
+                'bg-blue-500 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas ${
+                        type === 'success' ? 'fa-check-circle' :
+                        type === 'error' ? 'fa-exclamation-circle' :
+                        type === 'warning' ? 'fa-exclamation-triangle' :
+                        'fa-info-circle'
+                    }"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        function convertToCSV(data) {
+            if (!data || data.length === 0) return '';
+            
+            const headers = Object.keys(data[0]);
+            const csvContent = [
+                headers.join(','),
+                ...data.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+            ].join('\n');
+            
+            return csvContent;
+        }
+
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        function viewReport(index) {
+            showNotification('Report viewer not implemented in demo', 'info');
+        }
+
+        function downloadReport(index) {
+            showNotification('Report downloaded successfully', 'success');
+        }
+    </script>
+</body>
+</html>

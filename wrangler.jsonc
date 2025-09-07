@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kwikr-directory",
+  "name": "getkwikr",
   "main": "src/index.tsx",
   "compatibility_date": "2025-08-23",
   "pages_build_output_dir": "./dist",
@@ -8,8 +8,14 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "kwikr-directory-production",
+      "database_name": "getkwikr-production", 
       "database_id": "your-production-database-id-from-cloudflare"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "getkwikr-files"
     }
   ]
 }

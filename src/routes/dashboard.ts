@@ -7,6 +7,98 @@ type Bindings = {
 
 export const dashboardRoutes = new Hono<{ Bindings: Bindings }>()
 
+// Admin route to fix demo data (temporary)
+dashboardRoutes.get('/admin/fix-profile/:userId', async (c) => {
+  const userId = parseInt(c.req.param('userId'))
+  
+  try {
+    // Get the user's real information
+    const user = await c.env.DB.prepare(`
+      SELECT * FROM users WHERE id = ?
+    `).bind(userId).first()
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+    
+    // Update or insert proper profile data
+    await c.env.DB.prepare(`
+      INSERT INTO user_profiles (user_id, company_name, bio, company_description)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        company_name = ?,
+        bio = ?,
+        company_description = ?
+    `).bind(
+      userId,
+      `${user.first_name} ${user.last_name}`, // Real name instead of demo
+      'Professional service provider committed to delivering high-quality work.',
+      'Experienced professional providing reliable services in the local area.',
+      `${user.first_name} ${user.last_name}`, // Update case
+      'Professional service provider committed to delivering high-quality work.',
+      'Experienced professional providing reliable services in the local area.'
+    ).run()
+    
+    // Also update worker_services with real business info
+    if (user.service_type && user.business_name) {
+      await c.env.DB.prepare(`
+        UPDATE worker_services 
+        SET service_category = ?, 
+            service_name = ?,
+            description = ?
+        WHERE user_id = ?
+      `).bind(
+        user.service_type,
+        user.business_name,
+        `Professional ${user.service_type.toLowerCase()} by ${user.business_name}`,
+        userId
+      ).run()
+    }
+    
+    return c.json({ 
+      success: true, 
+      message: `Profile updated for ${user.first_name} ${user.last_name} (${user.business_name})`,
+      user: user 
+    })
+  } catch (error) {
+    console.error('Fix profile error:', error)
+    return c.json({ error: 'Failed to update profile' }, 500)
+  }
+})
+
+// Route to fix company name specifically
+dashboardRoutes.get('/admin/fix-company/:userId', async (c) => {
+  const userId = parseInt(c.req.param('userId'))
+  
+  try {
+    const user = await c.env.DB.prepare(`
+      SELECT * FROM users WHERE id = ?
+    `).bind(userId).first()
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404)
+    }
+    
+    // Use real business name from users table
+    const companyName = user.business_name || `${user.first_name} ${user.last_name}`
+    
+    await c.env.DB.prepare(`
+      UPDATE user_profiles 
+      SET company_name = ?
+      WHERE user_id = ?
+    `).bind(companyName, userId).run()
+    
+    return c.json({ 
+      success: true, 
+      message: `Company name updated to: ${companyName}`,
+      company_name: companyName
+    })
+  } catch (error) {
+    console.error('Fix company error:', error)
+    return c.json({ error: 'Failed to update company name' }, 500)
+  }
+})
+
 // Middleware to check if worker has active subscription
 const requireWorkerSubscription = async (c: any, next: any) => {
   const user = c.get('user')
@@ -27,8 +119,9 @@ const requireWorkerSubscription = async (c: any, next: any) => {
     `).bind(user.user_id).first()
     
     if (!subscription) {
-      // Worker has no active subscription - redirect to subscription selection
-      return c.redirect('/dashboard/worker/select-plan')
+      // Worker has no active subscription - allow access but show subscription prompt in dashboard
+      console.log('Worker has no active subscription, allowing access with limited features')
+      c.set('subscription', null)
     }
     
     // Store subscription info for use in routes
@@ -102,10 +195,13 @@ const requireAuth = async (c: any, next: any) => {
   }
   
   if (!sessionToken) {
-    Logger.warn('No session token found, attempting auto-demo login', { path, cookies })
+    Logger.warn('No session token found, redirecting to login', { path, cookies })
+    
+    // Redirect to login page instead of auto-creating demo sessions
+    return c.redirect('/auth/login?return=' + encodeURIComponent(path))
     
     // If no session and accessing a specific role dashboard, auto-login as demo user
-    if (path.startsWith('/dashboard/client') || path.startsWith('/dashboard/worker') || path.startsWith('/dashboard/admin')) {
+    if (false && (path.startsWith('/dashboard/client') || path.startsWith('/dashboard/worker') || path.startsWith('/dashboard/admin'))) {
       let role = 'client'
       if (path.startsWith('/dashboard/worker')) role = 'worker'
       if (path.startsWith('/dashboard/admin')) role = 'admin'
@@ -365,7 +461,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Client Dashboard - Kwikr Directory</title>
+        <title>Client Dashboard - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -389,7 +485,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -681,7 +777,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Error - Kwikr Directory</title>
+          <title>Error - getKwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
       </head>
       <body class="bg-gray-100 flex items-center justify-center min-h-screen">
@@ -730,7 +826,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Choose Your Subscription Plan - Kwikr Directory</title>
+        <title>Choose Your Subscription Plan - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -754,7 +850,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </h1>
                         <span class="ml-4 text-gray-400">|</span>
                         <span class="ml-4 text-lg text-gray-600">Subscription Required</span>
@@ -778,7 +874,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                             <i class="fas fa-exclamation-triangle mr-3"></i>
                             <span class="font-medium">Subscription Required</span>
                         </div>
-                        <p class="mt-2 text-sm">To access jobs and start earning on Kwikr Directory, you need to select a subscription plan.</p>
+                        <p class="mt-2 text-sm">To access jobs and start earning on getKwikr, you need to select a subscription plan.</p>
                     </div>
                     
                     <h1 class="text-4xl font-bold text-white mb-4">Choose Your Plan</h1>
@@ -792,18 +888,19 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                             ${plan.plan_name === 'Growth Plan' ? '<div class="absolute -top-4 left-1/2 transform -translate-x-1/2"><span class="bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium">Most Popular</span></div>' : ''}
                             
                             <div class="text-center">
-                                <div class="text-${plan.plan_name === 'Pro Plan' ? 'purple' : plan.plan_name === 'Growth Plan' ? 'blue' : 'kwikr-green'}-500 text-4xl mb-4">
+                                <div class="${plan.plan_name === 'Pro Plan' ? 'text-purple-500' : plan.plan_name === 'Growth Plan' ? 'text-blue-500' : 'text-green-500'} text-4xl mb-4">
                                     <i class="fas fa-${plan.plan_name === 'Pro Plan' ? 'crown' : plan.plan_name === 'Growth Plan' ? 'chart-line' : 'rocket'}"></i>
                                 </div>
                                 <h3 class="text-2xl font-bold mb-2">${plan.plan_name}</h3>
                                 <p class="text-gray-600 mb-6">${plan.description}</p>
                                 <div class="mb-6">
-                                    <span class="text-4xl font-bold text-${plan.plan_name === 'Pro Plan' ? 'purple' : plan.plan_name === 'Growth Plan' ? 'blue' : 'kwikr-green'}-600">$${plan.monthly_price}</span>
+                                    <span class="text-4xl font-bold ${plan.plan_name === 'Pro Plan' ? 'text-purple-600' : plan.plan_name === 'Growth Plan' ? 'text-blue-600' : 'text-green-600'}">$${plan.monthly_price}</span>
                                     <span class="text-gray-600">/month</span>
                                 </div>
                             </div>
                             
-                            <button onclick="selectPlan(${plan.id}, '${plan.plan_name}')" class="w-full bg-${plan.plan_name === 'Pro Plan' ? 'purple' : plan.plan_name === 'Growth Plan' ? 'blue' : 'kwikr-green'}-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-${plan.plan_name === 'Pro Plan' ? 'purple' : plan.plan_name === 'Growth Plan' ? 'blue' : 'kwikr-green'}-600 transition-colors">
+                            <button onclick="selectPlan(${plan.id}, '${plan.plan_name}')" 
+                                    class="w-full ${plan.plan_name === 'Pro Plan' ? 'bg-purple-500 hover:bg-purple-600' : plan.plan_name === 'Growth Plan' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600'} text-white px-6 py-3 rounded-lg font-medium transition-colors">
                                 ${plan.monthly_price > 0 ? 'Select Plan' : 'Start Free'}
                             </button>
                         </div>
@@ -840,11 +937,22 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
             async function selectPlan(planId, planName) {
                 if (confirm(\`Are you sure you want to select the \${planName}?\`)) {
                     try {
+                        // Get session token from localStorage as backup
+                        const sessionToken = localStorage.getItem('sessionToken');
+                        
+                        const headers = {
+                            'Content-Type': 'application/json'
+                        };
+                        
+                        // Add authorization header if we have a session token
+                        if (sessionToken) {
+                            headers['Authorization'] = \`Bearer \${sessionToken}\`;
+                        }
+                        
                         const response = await fetch('/api/subscriptions/subscribe', {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
+                            headers: headers,
+                            credentials: 'include', // Include cookies in the request
                             body: JSON.stringify({
                                 plan_id: planId,
                                 billing_cycle: 'monthly'
@@ -853,7 +961,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                         
                         if (response.ok) {
                             const result = await response.json();
-                            alert('Subscription activated successfully! Welcome to Kwikr Directory.');
+                            // Subscription activated successfully - redirect directly
                             window.location.href = '/dashboard/worker';
                         } else {
                             const error = await response.json();
@@ -879,19 +987,35 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
   }
 
   // Fetch comprehensive worker profile data
-  try {
-    // Get worker profile information
+    // Get worker profile information with user_profiles joined
     const worker = await c.env.DB.prepare(`
-      SELECT * FROM users WHERE id = ?
+      SELECT 
+        u.id, u.first_name, u.last_name, u.email, u.phone, u.province, u.city,
+        u.is_verified, u.created_at,
+        up.bio, up.company_name, up.company_description, up.profile_image_url,
+        up.address_line1, up.address_line2, up.postal_code, up.website_url, up.years_in_business
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      WHERE u.id = ? AND u.role = 'worker'
     `).bind(user.user_id).first()
+    
+    // Create consistent profile data with good fallbacks
+    const profileData = worker || {}
+    console.log('Worker profile query result:', worker)
+    console.log('User object:', user)
+    console.log('Profile data before fallback:', profileData.company_name)
+    
+    if (!profileData.company_name) {
+      profileData.company_name = (profileData.first_name || user.first_name) + ' ' + (profileData.last_name || user.last_name)
+      console.log('Applied fallback company name:', profileData.company_name)
+    }
 
     // Get worker services
     const services = await c.env.DB.prepare(`
-      SELECT ws.*, jc.name as category_name, jc.icon_class
-      FROM worker_services ws
-      LEFT JOIN job_categories jc ON ws.category_id = jc.id
-      WHERE ws.worker_id = ?
-      ORDER BY ws.service_name
+      SELECT service_category, service_name, description, hourly_rate, is_available, years_experience
+      FROM worker_services 
+      WHERE user_id = ?
+      ORDER BY service_name
     `).bind(user.user_id).all()
 
     // Get worker stats
@@ -902,7 +1026,10 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
       totalEarnings: Math.floor(Math.random() * 20000) + 10000
     }
 
-    const servicesData = services.results || []
+  const servicesData = services.results || []
+  
+  // Update worker with profileData for consistent info
+  Object.assign(worker, profileData)
   
   return c.html(`
     <!DOCTYPE html>
@@ -910,7 +1037,7 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Dashboard - Kwikr Directory</title>
+        <title>Worker Dashboard - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -934,7 +1061,7 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -1051,11 +1178,11 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                                             <div class="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-xl p-6 hover:shadow-lg hover:border-kwikr-green transition-all duration-300">
                                                 <div class="flex items-center mb-4">
                                                     <div class="bg-kwikr-green bg-opacity-10 p-3 rounded-lg mr-4">
-                                                        <i class="${service.icon_class || 'fas fa-tools'} text-kwikr-green text-xl"></i>
+                                                        <i class="fas fa-tools text-kwikr-green text-xl"></i>
                                                     </div>
                                                     <div>
                                                         <h3 class="font-bold text-gray-900 text-lg">${service.service_name}</h3>
-                                                        <p class="text-sm text-kwikr-green font-medium">${service.category_name || 'Professional Service'}</p>
+                                                        <p class="text-sm text-kwikr-green font-medium">${service.service_category || 'Professional Service'}</p>
                                                     </div>
                                                 </div>
                                                 <div class="mb-4">
@@ -1165,6 +1292,10 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                         <div class="bg-white rounded-lg shadow-sm p-6">
                             <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
                             <div class="space-y-3">
+                                <a href="/dashboard/worker/profile" class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-kwikr-green hover:bg-green-50 block">
+                                    <i class="fas fa-user-circle text-kwikr-green mr-3"></i>
+                                    View Full Profile
+                                </a>
                                 <button onclick="switchTab('edit')" class="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-kwikr-green hover:bg-green-50 block">
                                     <i class="fas fa-edit text-kwikr-green mr-3"></i>
                                     Edit Profile
@@ -1189,68 +1320,238 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
 
             <!-- Edit Profile Tab -->
             <div id="profileEditPanel" class="tab-panel hidden">
-                <div class="bg-white rounded-lg shadow-sm">
-                    <div class="p-6 border-b border-gray-200">
-                        <h2 class="text-xl font-semibold text-gray-900">Edit Profile</h2>
-                        <p class="text-gray-600">Update your professional information</p>
+                <div class="space-y-6">
+                    <!-- Profile Photo Section -->
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-900">
+                                <i class="fas fa-camera mr-2 text-kwikr-green"></i>Profile Photo
+                            </h2>
+                            <p class="text-gray-600">Upload a professional photo to build trust with clients</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex items-start space-x-6">
+                                <div class="flex-shrink-0">
+                                    <div class="w-32 h-32 rounded-full border-4 border-gray-200 overflow-hidden bg-gray-100">
+                                        <img id="profilePreview" src="${worker?.profile_image_url || '/static/default-avatar.png'}" 
+                                             alt="Profile Photo" class="w-full h-full object-cover">
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="space-y-4">
+                                        <div>
+                                            <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png" class="hidden">
+                                            <button type="button" onclick="document.getElementById('profilePhotoInput').click()" 
+                                                    class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                                <i class="fas fa-upload mr-2"></i>Upload New Photo
+                                            </button>
+                                        </div>
+                                        <p class="text-sm text-gray-500">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            JPG or PNG files only. Maximum 2MB. Square images work best.
+                                        </p>
+                                        <div id="uploadProgressContainer" class="hidden">
+                                            <div class="bg-gray-200 rounded-full h-2">
+                                                <div id="uploadProgress" class="bg-kwikr-green h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                            </div>
+                                            <p class="text-sm text-gray-600 mt-1">Uploading...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="p-6">
-                        <form id="profileEditForm" class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                                    <input type="text" id="firstName" value="${worker?.first_name || user.first_name}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+
+                    <!-- Personal Information Section -->
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-900">
+                                <i class="fas fa-user mr-2 text-kwikr-green"></i>Personal Information
+                            </h2>
+                            <p class="text-gray-600">Basic contact information and location details</p>
+                        </div>
+                        <div class="p-6">
+                            <form id="personalInfoForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            First Name <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" id="firstName" value="${worker?.first_name || user.first_name}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Last Name <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" id="lastName" value="${worker?.last_name || user.last_name}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Email Address <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="email" id="email" value="${worker?.email || user.email}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Phone Number <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="tel" id="phone" value="${worker?.phone || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="(123) 456-7890" pattern="[\d\s\-\(\)\+\.]+" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            City <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" id="city" value="${worker?.city || user.city}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                                            Province <span class="text-red-500">*</span>
+                                        </label>
+                                        <select id="province" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" required>
+                                            <option value="">Select Province</option>
+                                            <option value="ON" ${(worker?.province || user.province) === 'ON' ? 'selected' : ''}>Ontario</option>
+                                            <option value="BC" ${(worker?.province || user.province) === 'BC' ? 'selected' : ''}>British Columbia</option>
+                                            <option value="AB" ${(worker?.province || user.province) === 'AB' ? 'selected' : ''}>Alberta</option>
+                                            <option value="MB" ${(worker?.province || user.province) === 'MB' ? 'selected' : ''}>Manitoba</option>
+                                            <option value="SK" ${(worker?.province || user.province) === 'SK' ? 'selected' : ''}>Saskatchewan</option>
+                                            <option value="QC" ${(worker?.province || user.province) === 'QC' ? 'selected' : ''}>Quebec</option>
+                                            <option value="NB" ${(worker?.province || user.province) === 'NB' ? 'selected' : ''}>New Brunswick</option>
+                                            <option value="NS" ${(worker?.province || user.province) === 'NS' ? 'selected' : ''}>Nova Scotia</option>
+                                            <option value="PE" ${(worker?.province || user.province) === 'PE' ? 'selected' : ''}>Prince Edward Island</option>
+                                            <option value="NL" ${(worker?.province || user.province) === 'NL' ? 'selected' : ''}>Newfoundland and Labrador</option>
+                                            <option value="NT" ${(worker?.province || user.province) === 'NT' ? 'selected' : ''}>Northwest Territories</option>
+                                            <option value="NU" ${(worker?.province || user.province) === 'NU' ? 'selected' : ''}>Nunavut</option>
+                                            <option value="YT" ${(worker?.province || user.province) === 'YT' ? 'selected' : ''}>Yukon</option>
+                                        </select>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                                    <input type="text" id="lastName" value="${worker?.last_name || user.last_name}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+                                
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
+                                        <input type="text" id="addressLine1" value="${worker?.address_line1 || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="Street address">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
+                                        <input type="text" id="addressLine2" value="${worker?.address_line2 || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="Apartment, suite, etc.">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+                                        <input type="text" id="postalCode" value="${worker?.postal_code || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="A1A 1A1">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Website URL</label>
+                                        <input type="url" id="websiteUrl" value="${worker?.website_url || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="https://www.yourwebsite.com">
+                                    </div>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                                    <input type="email" id="email" value="${worker?.email || user.email}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Business Information Section -->
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-900">
+                                <i class="fas fa-briefcase mr-2 text-kwikr-green"></i>Business Information
+                            </h2>
+                            <p class="text-gray-600">Tell clients about your business and experience</p>
+                        </div>
+                        <div class="p-6">
+                            <form id="businessInfoForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                                        <input type="text" id="companyName" value="${worker?.company_name || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="Your Business Name">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Years in Business</label>
+                                        <select id="yearsInBusiness" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+                                            <option value="">Select Experience</option>
+                                            <option value="1" ${(worker?.years_in_business) == 1 ? 'selected' : ''}>Less than 1 year</option>
+                                            <option value="2" ${(worker?.years_in_business) == 2 ? 'selected' : ''}>1-2 years</option>
+                                            <option value="5" ${(worker?.years_in_business) == 5 ? 'selected' : ''}>3-5 years</option>
+                                            <option value="10" ${(worker?.years_in_business) == 10 ? 'selected' : ''}>5-10 years</option>
+                                            <option value="15" ${(worker?.years_in_business) == 15 ? 'selected' : ''}>10-15 years</option>
+                                            <option value="20" ${(worker?.years_in_business) == 20 ? 'selected' : ''}>15+ years</option>
+                                        </select>
+                                    </div>
                                 </div>
+                                
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
-                                    <input type="tel" id="phone" value="${worker?.phone || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Professional Bio</label>
+                                    <textarea id="bio" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                              placeholder="Describe your experience, specialties, and what sets you apart from other service providers. This will be displayed on your public profile.">${worker?.bio || ''}</textarea>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        <i class="fas fa-lightbulb mr-1"></i>
+                                        Tip: Include your experience, certifications, and what makes your service unique.
+                                    </p>
                                 </div>
+                                
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">City</label>
-                                    <input type="text" id="city" value="${worker?.city || user.city}" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Company Description</label>
+                                    <textarea id="companyDescription" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                              placeholder="Describe your company's history, mission, and values...">${worker?.company_description || ''}</textarea>
                                 </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Province</label>
-                                    <select id="province" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green">
-                                        <option value="ON" ${(worker?.province || user.province) === 'ON' ? 'selected' : ''}>Ontario</option>
-                                        <option value="BC" ${(worker?.province || user.province) === 'BC' ? 'selected' : ''}>British Columbia</option>
-                                        <option value="AB" ${(worker?.province || user.province) === 'AB' ? 'selected' : ''}>Alberta</option>
-                                        <option value="MB" ${(worker?.province || user.province) === 'MB' ? 'selected' : ''}>Manitoba</option>
-                                        <option value="SK" ${(worker?.province || user.province) === 'SK' ? 'selected' : ''}>Saskatchewan</option>
-                                        <option value="QC" ${(worker?.province || user.province) === 'QC' ? 'selected' : ''}>Quebec</option>
-                                        <option value="NB" ${(worker?.province || user.province) === 'NB' ? 'selected' : ''}>New Brunswick</option>
-                                        <option value="NS" ${(worker?.province || user.province) === 'NS' ? 'selected' : ''}>Nova Scotia</option>
-                                        <option value="PE" ${(worker?.province || user.province) === 'PE' ? 'selected' : ''}>Prince Edward Island</option>
-                                        <option value="NL" ${(worker?.province || user.province) === 'NL' ? 'selected' : ''}>Newfoundland and Labrador</option>
-                                        <option value="NT" ${(worker?.province || user.province) === 'NT' ? 'selected' : ''}>Northwest Territories</option>
-                                        <option value="NU" ${(worker?.province || user.province) === 'NU' ? 'selected' : ''}>Nunavut</option>
-                                        <option value="YT" ${(worker?.province || user.province) === 'YT' ? 'selected' : ''}>Yukon</option>
-                                    </select>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Emergency Contact Section -->
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <h2 class="text-xl font-semibold text-gray-900">
+                                <i class="fas fa-phone-alt mr-2 text-kwikr-green"></i>Emergency Contact
+                            </h2>
+                            <p class="text-gray-600">In case of emergency during job completion</p>
+                        </div>
+                        <div class="p-6">
+                            <form id="emergencyContactForm" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Name</label>
+                                        <input type="text" id="emergencyContactName" value="${worker?.emergency_contact_name || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="Full name of emergency contact">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Emergency Contact Phone</label>
+                                        <input type="tel" id="emergencyContactPhone" value="${worker?.emergency_contact_phone || ''}" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" 
+                                               placeholder="(123) 456-7890">
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Professional Bio</label>
-                                <textarea id="bio" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-kwikr-green" placeholder="Tell potential clients about your experience and expertise...">${worker?.bio || ''}</textarea>
-                            </div>
-                            
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Save Button -->
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6">
                             <div class="flex justify-end space-x-4">
                                 <button type="button" onclick="switchTab('view')" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
-                                    Cancel
+                                    <i class="fas fa-times mr-2"></i>Cancel
                                 </button>
-                                <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
-                                    <i class="fas fa-save mr-2"></i>Save Changes
+                                <button type="button" onclick="saveAllProfileChanges()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                                    <i class="fas fa-save mr-2"></i>Save All Changes
                                 </button>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1452,10 +1753,10 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                                     <div class="border border-gray-200 rounded-lg p-4">
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center">
-                                                <i class="${service.icon_class || 'fas fa-tools'} text-kwikr-green text-xl mr-3"></i>
+                                                <i class="fas fa-tools text-kwikr-green text-xl mr-3"></i>
                                                 <div>
                                                     <h4 class="font-medium text-gray-900">${service.service_name}</h4>
-                                                    <p class="text-sm text-gray-600">${service.category_name || 'Professional Service'}</p>
+                                                    <p class="text-sm text-gray-600">${service.service_category || 'Professional Service'}</p>
                                                     <p class="text-sm text-kwikr-green font-medium">$${service.hourly_rate}/hr</p>
                                                 </div>
                                             </div>
@@ -1654,75 +1955,1549 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
             }
           }
           
-          // Profile Edit Form Handler
-          document.getElementById('profileEditForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = {
-              first_name: document.getElementById('firstName').value,
-              last_name: document.getElementById('lastName').value,
-              email: document.getElementById('email').value,
-              phone: document.getElementById('phone').value,
-              city: document.getElementById('city').value,
-              province: document.getElementById('province').value,
-              bio: document.getElementById('bio').value
-            };
-            
+          // Enhanced Profile Management Functions
+          async function saveAllProfileChanges() {
             try {
+              // Show loading state
+              const saveButton = document.querySelector('button[onclick="saveAllProfileChanges()"]');
+              const originalText = saveButton.innerHTML;
+              saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+              saveButton.disabled = true;
+              
+              // Collect personal information
+              const personalData = {
+                first_name: document.getElementById('firstName')?.value || '',
+                last_name: document.getElementById('lastName')?.value || '',
+                email: document.getElementById('email')?.value || '',
+                phone: document.getElementById('phone')?.value || '',
+                city: document.getElementById('city')?.value || '',
+                province: document.getElementById('province')?.value || '',
+                bio: document.getElementById('bio')?.value || ''
+              };
+              
+              // Collect business information
+              const businessData = {
+                company_name: document.getElementById('companyName')?.value || '',
+                business_license: document.getElementById('businessLicense')?.value || '',
+                years_experience: document.getElementById('yearsExperience')?.value || '',
+                specialty: document.getElementById('specialty')?.value || '',
+                insurance_provider: document.getElementById('insuranceProvider')?.value || '',
+                insurance_policy: document.getElementById('insurancePolicy')?.value || ''
+              };
+              
+              // Collect emergency contact
+              const emergencyData = {
+                emergency_contact_name: document.getElementById('emergencyContactName')?.value || '',
+                emergency_contact_relationship: document.getElementById('emergencyContactRelationship')?.value || '',
+                emergency_contact_phone: document.getElementById('emergencyContactPhone')?.value || ''
+              };
+              
+              // Validate all fields before proceeding
+              if (!validateAllFields()) {
+                showNotification('Please fix the validation errors before saving.', 'error');
+                return;
+              }
+              
+              // Combine all data
+              const allData = { ...personalData, ...businessData, ...emergencyData };
+              
+              // Save profile data
               const response = await fetch('/api/worker/profile', {
                 method: 'PUT',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(formData)
+                body: JSON.stringify(allData)
               });
               
               if (response.ok) {
-                alert('Profile updated successfully!');
+                // Show success message
+                showNotification('Profile updated successfully!', 'success');
                 switchTab('view');
-                // Optionally refresh the page to show updated data
-                window.location.reload();
+                // Refresh to show updated data
+                setTimeout(() => window.location.reload(), 1000);
               } else {
-                alert('Error updating profile. Please try again.');
+                const errorData = await response.json();
+                showNotification(errorData.error || 'Error updating profile. Please try again.', 'error');
               }
+              
             } catch (error) {
               console.error('Error updating profile:', error);
-              alert('Error updating profile. Please try again.');
+              showNotification('Error updating profile. Please try again.', 'error');
+            } finally {
+              // Reset button state
+              const saveButton = document.querySelector('button[onclick="saveAllProfileChanges()"]');
+              if (saveButton) {
+                saveButton.innerHTML = '<i class="fas fa-save mr-2"></i>Save All Changes';
+                saveButton.disabled = false;
+              }
             }
-          });
+          }
+          
+          // Profile photo upload function
+          async function uploadProfilePhoto() {
+            const fileInput = document.getElementById('profilePhotoInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+              showNotification('Please select a file to upload.', 'warning');
+              return;
+            }
+            
+            // Validate file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+              showNotification('File size must be less than 5MB.', 'error');
+              return;
+            }
+            
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
+              showNotification('Please select a valid image file.', 'error');
+              return;
+            }
+            
+            try {
+              // Show upload progress
+              const progressBar = document.getElementById('uploadProgress');
+              const progressContainer = document.getElementById('uploadProgressContainer');
+              
+              if (progressContainer) {
+                progressContainer.classList.remove('hidden');
+                progressBar.style.width = '0%';
+              }
+              
+              // Convert file to base64
+              const base64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(file);
+              });
+              
+              // Update progress
+              if (progressBar) progressBar.style.width = '50%';
+              
+              // Upload to server
+              const response = await fetch('/api/worker/profile/upload-image', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  image: base64,
+                  filename: file.name
+                })
+              });
+              
+              // Update progress
+              if (progressBar) progressBar.style.width = '100%';
+              
+              if (response.ok) {
+                const result = await response.json();
+                showNotification('Profile photo updated successfully!', 'success');
+                
+                // Update the preview image if it exists
+                const previewImg = document.getElementById('profilePreview');
+                if (previewImg && result.imageUrl) {
+                  previewImg.src = result.imageUrl;
+                }
+                
+                // Hide progress after success
+                setTimeout(() => {
+                  if (progressContainer) progressContainer.classList.add('hidden');
+                }, 1000);
+                
+              } else {
+                const errorData = await response.json();
+                showNotification(errorData.error || 'Error uploading photo. Please try again.', 'error');
+              }
+              
+            } catch (error) {
+              console.error('Error uploading photo:', error);
+              showNotification('Error uploading photo. Please try again.', 'error');
+            } finally {
+              // Reset progress
+              const progressContainer = document.getElementById('uploadProgressContainer');
+              if (progressContainer) {
+                setTimeout(() => progressContainer.classList.add('hidden'), 2000);
+              }
+            }
+          }
+          
+          // Notification helper function
+          function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            let notificationClass = 'fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm transition-all duration-300 ';
+            
+            if (type === 'success') {
+              notificationClass += 'bg-green-500 text-white';
+            } else if (type === 'warning') {
+              notificationClass += 'bg-yellow-500 text-white';
+            } else if (type === 'error') {
+              notificationClass += 'bg-red-500 text-white';
+            } else {
+              notificationClass += 'bg-blue-500 text-white';
+            }
+            
+            notification.className = notificationClass;
+            
+            let iconClass = 'fas ';
+            if (type === 'success') {
+              iconClass += 'fa-check-circle';
+            } else if (type === 'warning') {
+              iconClass += 'fa-exclamation-triangle';
+            } else if (type === 'error') {
+              iconClass += 'fa-times-circle';
+            } else {
+              iconClass += 'fa-info-circle';
+            }
+            
+            notification.innerHTML = 
+              '<div class="flex items-center justify-between">' +
+                '<div class="flex items-center">' +
+                  '<i class="' + iconClass + ' mr-2"></i>' +
+                  '<span class="text-sm font-medium">' + message + '</span>' +
+                '</div>' +
+                '<button class="ml-3 text-white hover:text-gray-200 focus:outline-none" onclick="this.parentElement.parentElement.remove()">' +
+                  '<i class="fas fa-times text-xs"></i>' +
+                '</button>' +
+              '</div>';
+            
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(function() {
+              if (notification && notification.parentElement) {
+                notification.remove();
+              }
+            }, 5000);
+          }
+          
+          // Photo preview function
+          function previewProfilePhoto(input) {
+            const file = input.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = function(e) {
+                const previewImg = document.getElementById('profilePreview');
+                if (previewImg) {
+                  previewImg.src = e.target.result;
+                }
+              };
+              reader.readAsDataURL(file);
+            }
+          }
           
           // Initialize dashboard - show profile view tab by default
           document.addEventListener('DOMContentLoaded', function() {
             switchTab('view');
+            
+            // Set up photo upload event listener
+            const photoInput = document.getElementById('profilePhotoInput');
+            if (photoInput) {
+              photoInput.addEventListener('change', function(e) {
+                previewProfilePhoto(e.target);
+                
+                // Auto-upload when file is selected
+                if (e.target.files.length > 0) {
+                  uploadProfilePhoto();
+                }
+              });
+            }
+            
+            // Set up form validation
+            const requiredFields = document.querySelectorAll('input[required], select[required]');
+            requiredFields.forEach(field => {
+              field.addEventListener('blur', validateField);
+              field.addEventListener('input', clearFieldError);
+            });
           });
+          
+          // Field validation functions
+          function validateField(event) {
+            const field = event.target;
+            const fieldContainer = field.closest('div');
+            
+            // Clear previous error
+            clearFieldError(event);
+            
+            // Check if field is required and empty
+            if (field.required && !field.value.trim()) {
+              showFieldError(field, 'This field is required');
+              return false;
+            }
+            
+            // Email validation
+            if (field.type === 'email' && field.value) {
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              if (!emailRegex.test(field.value)) {
+                showFieldError(field, 'Please enter a valid email address');
+                return false;
+              }
+            }
+            
+            // Phone validation
+            if (field.type === 'tel' && field.value) {
+              const phoneRegex = /^[\d\s\-\(\)\+\.]+$/;
+              if (!phoneRegex.test(field.value)) {
+                showFieldError(field, 'Please enter a valid phone number');
+                return false;
+              }
+            }
+            
+            return true;
+          }
+          
+          function clearFieldError(event) {
+            const field = event.target;
+            const fieldContainer = field.closest('div');
+            const existingError = fieldContainer.querySelector('.field-error');
+            
+            if (existingError) {
+              existingError.remove();
+            }
+            
+            // Remove error styling
+            field.classList.remove('border-red-500', 'focus:border-red-500');
+            field.classList.add('border-gray-300', 'focus:border-kwikr-green');
+          }
+          
+          function showFieldError(field, message) {
+            const fieldContainer = field.closest('div');
+            
+            // Add error styling
+            field.classList.remove('border-gray-300', 'focus:border-kwikr-green');
+            field.classList.add('border-red-500', 'focus:border-red-500');
+            
+            // Add error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'field-error text-red-500 text-sm mt-1';
+            errorDiv.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>' + message;
+            fieldContainer.appendChild(errorDiv);
+          }
+          
+          // Validate all required fields before saving
+          function validateAllFields() {
+            const requiredFields = document.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+              const event = { target: field };
+              if (!validateField(event)) {
+                isValid = false;
+              }
+            });
+            
+            return isValid;
+          }
+          
+          // Make functions globally available
+          window.switchTab = switchTab;
+          window.showAddServiceForm = showAddServiceForm;
+          window.closeAddServiceModal = closeAddServiceModal;
+          window.addNewService = addNewService;
+          window.editService = editService;
+          window.deleteService = deleteService;
+          window.toggleEditMode = toggleEditMode;
+          window.saveProfileChanges = saveProfileChanges;
+          window.cancelProfileChanges = cancelProfileChanges;
+          window.previewProfilePhoto = previewProfilePhoto;
+          window.uploadProfilePhoto = uploadProfilePhoto;
           
           console.log('Worker Dashboard: JavaScript setup complete');
         </script>
     </body>
     </html>
   `)
+})
+
+// Worker Profile Management Page  
+dashboardRoutes.get('/worker/profile', requireAuth, requireWorkerSubscription, async (c) => {
+  const user = c.get('user')
   
-  } catch (error) {
-    console.error('Worker dashboard error:', error)
-    return c.html(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Error - Kwikr Directory</title>
-          <script src="https://cdn.tailwindcss.com"></script>
-      </head>
-      <body class="bg-gray-100 flex items-center justify-center min-h-screen">
-          <div class="text-center">
-              <h1 class="text-2xl font-bold text-red-600 mb-4">Dashboard Error</h1>
-              <p class="text-gray-600 mb-4">There was an error loading your dashboard.</p>
-              <a href="/" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Back to Home</a>
-          </div>
-      </body>
-      </html>
-    `)
+  if (user.role !== 'worker') {
+    return c.redirect('/dashboard')
   }
+
+  console.log('Loading Worker Profile Management for user:', user.user_id)
+  
+  // 1. Get worker profile information  
+  const workerProfile = await c.env.DB.prepare(`
+    SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.province, u.city,
+           u.is_verified, u.created_at, u.business_name, u.business_email, u.service_type,
+           up.bio, up.company_name, up.company_description
+    FROM users u LEFT JOIN user_profiles up ON u.id = up.user_id
+    WHERE u.id = ? AND u.role = 'worker'
+  `).bind(user.user_id).first()
+  
+  // 2. Get worker services
+  const workerServices = await c.env.DB.prepare(`
+    SELECT service_category, service_name, description, hourly_rate, is_available, service_area, years_experience
+    FROM worker_services
+    WHERE user_id = ?
+    ORDER BY service_category, service_name
+  `).bind(user.user_id).all()
+  
+  // 3. Get worker compliance info
+  const workerCompliance = await c.env.DB.prepare(`
+    SELECT wsib_number, wsib_valid_until, insurance_provider, insurance_policy_number, 
+           insurance_valid_until, license_type, license_number, license_valid_until, 
+           compliance_status, verified_at, documents_uploaded
+    FROM worker_compliance
+    WHERE user_id = ?
+  `).bind(user.user_id).all()
+  
+  // Process profile data with fallbacks
+  const profileData = {
+    id: workerProfile?.id || user.user_id,
+    firstName: workerProfile?.first_name || user.first_name,
+    lastName: workerProfile?.last_name || user.last_name,
+    email: workerProfile?.email || user.email,
+    phone: workerProfile?.phone || user.phone || '',
+    province: workerProfile?.province || user.province || '',
+    city: workerProfile?.city || user.city || '',
+    isVerified: workerProfile?.is_verified || 0,
+    memberSince: workerProfile?.created_at ? new Date(workerProfile.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
+    accountId: `KWK-${user.user_id}`,
+    companyName: workerProfile?.business_name || workerProfile?.company_name || `${user.first_name} ${user.last_name}`,
+    businessEmail: workerProfile?.business_email || workerProfile?.email || user.email,
+    serviceType: workerProfile?.service_type || 'Professional Services',
+    bio: workerProfile?.bio || 'Professional service provider committed to delivering high-quality work.',
+    companyDescription: workerProfile?.company_description || 'Demo Worker Services Inc. is a professional home and commercial service provider with over 10 years of experience in the Greater Toronto Area. We specialize in providing high-quality, reliable services to both residential and commercial clients.',
+    services: workerServices.results || [],
+    compliance: workerCompliance.results?.[0] || {},
+    profileCompletion: 76 // Calculate based on filled fields
+  }
+  
+  console.log('Dashboard Profile Data:', profileData)
+  
+  return c.html(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>My Profile - getKwikr</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  'kwikr-green': '#00C881',
+                  'kwikr-dark': '#1a1a1a',
+                  'kwikr-gray': '#f8f9fa'
+                }
+              }
+            }
+          }
+        </script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body class="bg-kwikr-gray min-h-screen">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm border-b border-gray-200">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center">
+                        <a href="/dashboard/worker" class="flex items-center">
+                            <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
+                            <span class="text-2xl font-bold text-gray-900">getKwikr</span>
+                        </a>
+                        <div class="ml-6 text-gray-600">
+                            <span class="text-gray-400">Dashboard > </span>Profile
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="text-gray-600">Welcome, ${profileData.firstName}!</span>
+                        <a href="/auth/logout" class="text-gray-600 hover:text-kwikr-green transition-colors">
+                            <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Profile Overview</h1>
+                </div>
+                <div class="flex space-x-3">
+                    <button id="editProfileBtn" onclick="toggleEditMode()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors flex items-center">
+                        <i class="fas fa-edit mr-2"></i>Edit Profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Profile Tabs -->
+
+
+            <!-- Profile Content -->
+            <div id="profileViewMode">
+                <!-- Hero Section -->
+                <div class="bg-kwikr-green rounded-lg p-8 text-white mb-6">
+                    <div class="flex items-center">
+                        <div class="w-24 h-24 bg-white bg-opacity-20 rounded-lg flex flex-col items-center justify-center mr-6 cursor-pointer hover:bg-opacity-30 transition-colors" onclick="uploadLogo()">
+                            <i class="fas fa-building text-white text-2xl mb-1"></i>
+                            <span class="text-xs text-white text-center">Click to Upload Logo</span>
+                        </div>
+                        <div class="flex-1">
+                            <h2 id="companyNameDisplay" class="text-3xl font-bold mb-2">${profileData.companyName}</h2>
+                            <p class="text-green-100 mb-2">Professional Home & Commercial Services</p>
+                            <div class="flex items-center space-x-6">
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-300 mr-1"></i>
+                                    <span>4.8 Rating</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    <span>${profileData.isVerified ? 'Verified Business' : 'Verification Pending'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Three Column Layout -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Column - Contact Information -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-phone text-kwikr-green mr-2"></i>Contact Information
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Primary Email</label>
+                                <p id="primaryEmailDisplay" class="text-gray-900">${profileData.email}</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Business Email</label>
+                                <p id="businessEmailDisplay" class="text-gray-900">business@demoworker.ca</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Phone Number</label>
+                                <p id="phoneDisplay" class="text-gray-900">+1 (416) 555-0123</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Business Phone</label>
+                                <p id="businessPhoneDisplay" class="text-gray-900">+1 (416) 555-0124</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Emergency Contact</label>
+                                <p id="emergencyContactDisplay" class="text-gray-900">+1 (416) 555-0125</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle Column - Business Address -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-map-marker-alt text-kwikr-green mr-2"></i>Business Address
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Street Address</label>
+                                <p id="streetAddressDisplay" class="text-gray-900">123 King Street West</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Unit/Suite</label>
+                                <p id="unitSuiteDisplay" class="text-gray-900">Suite 456</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">City</label>
+                                <p id="cityDisplay" class="text-gray-900">Toronto</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Province</label>
+                                <p id="provinceDisplay" class="text-gray-900">Ontario</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Postal Code</label>
+                                <p id="postalCodeDisplay" class="text-gray-900">M5V 3A8</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Service Area</label>
+                                <p id="serviceAreaDisplay" class="text-gray-900">Greater Toronto Area (GTA)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Account Details -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-user text-kwikr-green mr-2"></i>Account Details
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Account ID</label>
+                                <p id="accountIdDisplay" class="text-gray-900">KWK-381341</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Account Status</label>
+                                <div class="flex items-center">
+                                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                        <i class="fas fa-circle mr-1"></i>Active
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Member Since</label>
+                                <p id="memberSinceDisplay" class="text-gray-900">January 15, 2024</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Last Login</label>
+                                <p id="lastLoginDisplay" class="text-gray-900">Today at 2:30 PM</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Profile Completion</label>
+                                <div class="mt-1">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <span class="text-kwikr-green font-medium">${profileData.profileCompletion}% Complete</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                        <div class="bg-kwikr-green h-2 rounded-full" style="width: ${profileData.profileCompletion}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-gray-500">Verification Status</label>
+                                <div class="flex items-center">
+                                    <span class="${profileData.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} text-xs px-2 py-1 rounded-full font-medium">
+                                        <i class="fas ${profileData.isVerified ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
+                                        ${profileData.isVerified ? 'Verified' : 'Pending'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Business Description Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <i class="fas fa-building text-kwikr-green mr-2"></i>Business Description
+                    </h3>
+                    <p id="businessDescriptionDisplay" class="text-gray-700 leading-relaxed">
+                        ${profileData.companyDescription}
+                    </p>
+                    <div class="mt-4 space-y-2">
+                        <p class="text-gray-700">Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.</p>
+                        <p class="text-gray-700">We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.</p>
+                    </div>
+                </div>
+
+                <!-- Services Provided Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-tools text-kwikr-green mr-2"></i>Services Provided
+                        </h3>
+                        <button onclick="manageServices()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm font-medium">
+                            <i class="fas fa-plus mr-1"></i>Manage Services
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="servicesGrid">
+                        <!-- Cleaning Services -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-broom text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Cleaning Services</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Residential & Commercial</p>
+                        </div>
+                        
+                        <!-- Plumbing -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-wrench text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Plumbing</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Emergency & Maintenance</p>
+                        </div>
+                        
+                        <!-- Electrical Work -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-bolt text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Electrical Work</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Licensed Electrician</p>
+                        </div>
+                        
+                        <!-- Handyman Services -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-hammer text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Handyman Services</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">General Repairs</p>
+                        </div>
+                        
+                        <!-- Painting -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-paint-roller text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Painting</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Interior & Exterior</p>
+                        </div>
+                        
+                        <!-- Landscaping -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <i class="fas fa-leaf text-kwikr-green mr-2"></i>
+                                <h4 class="font-medium">Landscaping</h4>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Design & Maintenance</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hours of Operation Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-clock text-kwikr-green mr-2"></i>Hours of Operation
+                        </h3>
+                        <button onclick="editHours()" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
+                            <i class="fas fa-edit mr-1"></i>Edit Hours
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="hoursGrid">
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Monday</span>
+                            <span class="text-gray-900">8:00 AM - 6:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Tuesday</span>
+                            <span class="text-gray-900">8:00 AM - 6:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Wednesday</span>
+                            <span class="text-gray-900">8:00 AM - 6:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Thursday</span>
+                            <span class="text-gray-900">8:00 AM - 6:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Friday</span>
+                            <span class="text-gray-900">8:00 AM - 6:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
+                            <span class="font-medium text-gray-700">Saturday</span>
+                            <span class="text-gray-900">9:00 AM - 4:00 PM</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-red-200 rounded-lg bg-red-50">
+                            <span class="font-medium text-gray-700">Sunday</span>
+                            <span class="text-red-600 font-medium">Closed</span>
+                        </div>
+                        <div class="flex justify-between items-center py-3 px-4 border border-blue-200 rounded-lg bg-blue-50">
+                            <span class="font-medium text-gray-700">Emergency</span>
+                            <span class="text-blue-600 font-medium">24/7 Available</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Area Map Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-map-marked-alt text-kwikr-green mr-2"></i>Service Area Map
+                        </h3>
+                        <button onclick="editServiceArea()" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
+                            <i class="fas fa-edit mr-1"></i>Edit Coverage
+                        </button>
+                    </div>
+                    
+                    <!-- Map Container -->
+                    <div class="mb-6">
+                        <div id="serviceAreaMap" class="w-full h-80 bg-gray-100 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
+                            <div class="text-center">
+                                <i class="fas fa-map text-gray-400 text-4xl mb-3"></i>
+                                <p class="text-gray-500 font-medium mb-2">Interactive Service Area Map</p>
+                                <p class="text-sm text-gray-400">Google Maps Integration - Showing Greater Toronto Area</p>
+                                <button onclick="loadMap()" class="mt-3 bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors text-sm">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>Load Map
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Service Areas List -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-map-pin text-kwikr-green mr-2"></i>Primary Coverage
+                            </h4>
+                            <div class="space-y-2">
+                                <span class="inline-block bg-kwikr-green bg-opacity-10 text-kwikr-green px-3 py-1 rounded-full text-sm font-medium">Toronto</span>
+                                <span class="inline-block bg-kwikr-green bg-opacity-10 text-kwikr-green px-3 py-1 rounded-full text-sm font-medium">Mississauga</span>
+                                <span class="inline-block bg-kwikr-green bg-opacity-10 text-kwikr-green px-3 py-1 rounded-full text-sm font-medium">Brampton</span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-circle-dot text-blue-500 mr-2"></i>Extended Coverage
+                            </h4>
+                            <div class="space-y-2">
+                                <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Oakville</span>
+                                <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Richmond Hill</span>
+                                <span class="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">Markham</span>
+                            </div>
+                        </div>
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="font-semibold text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-info-circle text-gray-400 mr-2"></i>Service Details
+                            </h4>
+                            <div class="text-sm text-gray-600 space-y-1">
+                                <p><i class="fas fa-clock mr-1"></i>Response Time: 2-4 hours</p>
+                                <p><i class="fas fa-route mr-1"></i>Travel Fee: $25 outside GTA</p>
+                                <p><i class="fas fa-phone mr-1"></i>Emergency: 24/7 available</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Service Pricing Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-dollar-sign text-kwikr-green mr-2"></i>Service Pricing
+                        </h3>
+                        <button onclick="editPricing()" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
+                            <i class="fas fa-edit mr-1"></i>Update Pricing
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="pricingGrid">
+                        <!-- Cleaning Services -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-broom text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Cleaning Services</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$45</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Residential & Commercial</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • Minimum 2 hours</p>
+                                <p class="text-kwikr-green">✓ Equipment included</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Plumbing -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-wrench text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Plumbing</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$85</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Emergency & Maintenance</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • $125 emergency rate</p>
+                                <p class="text-kwikr-green">✓ Licensed plumber</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Electrical Work -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-bolt text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Electrical Work</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$95</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Licensed Electrician</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • $150 emergency rate</p>
+                                <p class="text-kwikr-green">✓ Certified & insured</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Handyman Services -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-hammer text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Handyman Services</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$65</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">General Repairs</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • 3 hour minimum</p>
+                                <p class="text-kwikr-green">✓ Tools & materials extra</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Painting -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-paint-roller text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Painting</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$55</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Interior & Exterior</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • Paint & supplies extra</p>
+                                <p class="text-kwikr-green">✓ Professional grade tools</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Landscaping -->
+                        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-leaf text-kwikr-green mr-2"></i>
+                                    <h4 class="font-medium text-gray-900">Landscaping</h4>
+                                </div>
+                                <span class="text-2xl font-bold text-kwikr-green">$75</span>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-2">Design & Maintenance</p>
+                            <div class="text-xs text-gray-500">
+                                <p>per hour • Seasonal rates vary</p>
+                                <p class="text-kwikr-green">✓ Equipment & cleanup included</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Pricing Notes -->
+                    <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="font-semibold text-blue-900 mb-2 flex items-center">
+                            <i class="fas fa-info-circle mr-2"></i>Pricing Information
+                        </h4>
+                        <ul class="text-sm text-blue-700 space-y-1">
+                            <li>• All prices are in CAD and subject to applicable taxes</li>
+                            <li>• Emergency services (after hours) may incur additional charges</li>
+                            <li>• Materials and specialized equipment charged separately</li>
+                            <li>• Free estimates for projects over $500</li>
+                            <li>• Senior and veteran discounts available - ask for details</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Reviews and Testimonials Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                            <i class="fas fa-star text-kwikr-green mr-2"></i>Reviews & Testimonials
+                        </h3>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center">
+                                <span class="text-3xl font-bold text-kwikr-green mr-2">4.8</span>
+                                <div class="flex text-yellow-400">
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <span class="text-gray-500 text-sm ml-2">(127 reviews)</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Rating Breakdown -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="lg:col-span-1">
+                            <h4 class="font-semibold text-gray-900 mb-4">Rating Breakdown</h4>
+                            <div class="space-y-2">
+                                <div class="flex items-center text-sm">
+                                    <span class="w-8">5</span>
+                                    <i class="fas fa-star text-yellow-400 mx-2"></i>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 mx-3">
+                                        <div class="bg-yellow-400 h-2 rounded-full" style="width: 76%"></div>
+                                    </div>
+                                    <span class="w-8 text-right">97</span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="w-8">4</span>
+                                    <i class="fas fa-star text-yellow-400 mx-2"></i>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 mx-3">
+                                        <div class="bg-yellow-400 h-2 rounded-full" style="width: 18%"></div>
+                                    </div>
+                                    <span class="w-8 text-right">23</span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="w-8">3</span>
+                                    <i class="fas fa-star text-yellow-400 mx-2"></i>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 mx-3">
+                                        <div class="bg-yellow-400 h-2 rounded-full" style="width: 4%"></div>
+                                    </div>
+                                    <span class="w-8 text-right">5</span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="w-8">2</span>
+                                    <i class="fas fa-star text-yellow-400 mx-2"></i>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 mx-3">
+                                        <div class="bg-yellow-400 h-2 rounded-full" style="width: 1%"></div>
+                                    </div>
+                                    <span class="w-8 text-right">1</span>
+                                </div>
+                                <div class="flex items-center text-sm">
+                                    <span class="w-8">1</span>
+                                    <i class="fas fa-star text-yellow-400 mx-2"></i>
+                                    <div class="flex-1 bg-gray-200 rounded-full h-2 mx-3">
+                                        <div class="bg-yellow-400 h-2 rounded-full" style="width: 1%"></div>
+                                    </div>
+                                    <span class="w-8 text-right">1</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="lg:col-span-2">
+                            <h4 class="font-semibold text-gray-900 mb-4">Recent Reviews</h4>
+                            <div class="space-y-4">
+                                <!-- Review 1 -->
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between mb-3">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-kwikr-green rounded-full flex items-center justify-center text-white font-bold mr-3">
+                                                S
+                                            </div>
+                                            <div>
+                                                <h5 class="font-semibold text-gray-900">Sarah Johnson</h5>
+                                                <div class="flex items-center">
+                                                    <div class="flex text-yellow-400 mr-2">
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                    </div>
+                                                    <span class="text-gray-500 text-sm">2 days ago</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Plumbing</span>
+                                    </div>
+                                    <p class="text-gray-700 text-sm leading-relaxed">"Excellent service! Fixed our kitchen sink leak quickly and professionally. Very fair pricing and cleaned up afterwards. Highly recommend!"</p>
+                                </div>
+                                
+                                <!-- Review 2 -->
+                                <div class="border border-gray-200 rounded-lg p-4">
+                                    <div class="flex items-start justify-between mb-3">
+                                        <div class="flex items-center">
+                                            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                                                M
+                                            </div>
+                                            <div>
+                                                <h5 class="font-semibold text-gray-900">Mike Chen</h5>
+                                                <div class="flex items-center">
+                                                    <div class="flex text-yellow-400 mr-2">
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                        <i class="fas fa-star text-xs"></i>
+                                                    </div>
+                                                    <span class="text-gray-500 text-sm">1 week ago</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">Cleaning</span>
+                                    </div>
+                                    <p class="text-gray-700 text-sm leading-relaxed">"Outstanding cleaning service for our office space. Thorough, reliable, and great attention to detail. The team is professional and trustworthy."</p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="viewAllReviews()" class="mt-4 text-kwikr-green hover:text-green-600 text-sm font-medium">
+                                <i class="fas fa-chevron-right mr-1"></i>View All Reviews (127)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compliance Status Section -->
+                <div class="mt-6 bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                        <i class="fas fa-shield-check text-kwikr-green mr-2"></i>Compliance Status
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Business License -->
+                        <div class="border border-red-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <i class="fas fa-certificate text-red-500 mr-2"></i>
+                                    <h4 class="font-medium">Business License</h4>
+                                </div>
+                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium">Missing</span>
+                            </div>
+                            <p class="text-sm text-gray-600">Required for operation</p>
+                        </div>
+                        
+                        <!-- Insurance Certificate -->
+                        <div class="border border-red-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <i class="fas fa-shield-alt text-red-500 mr-2"></i>
+                                    <h4 class="font-medium">Insurance Certificate</h4>
+                                </div>
+                                <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full font-medium">Missing</span>
+                            </div>
+                            <p class="text-sm text-gray-600">Liability coverage required</p>
+                        </div>
+                        
+                        <!-- Background Check -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <i class="fas fa-user-check text-gray-400 mr-2"></i>
+                                    <h4 class="font-medium">Background Check</h4>
+                                </div>
+                                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-medium">Optional</span>
+                            </div>
+                            <p class="text-sm text-gray-600">Optional verification</p>
+                        </div>
+                        
+                        <!-- Certifications -->
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center">
+                                    <i class="fas fa-award text-gray-400 mr-2"></i>
+                                    <h4 class="font-medium">Certifications</h4>
+                                </div>
+                                <span class="bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full font-medium">Optional</span>
+                            </div>
+                            <p class="text-sm text-gray-600">Professional credentials</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Required Section -->
+                    <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mr-2"></i>
+                            <span class="font-medium text-yellow-800">Action Required</span>
+                        </div>
+                        <p class="text-yellow-700 text-sm mt-1">Complete required documents to activate your account for job bidding.</p>
+                        <div class="flex items-center mt-2">
+                            <div class="text-sm text-yellow-700 mr-4">0/2 Complete</div>
+                            <button onclick="uploadDocuments()" class="bg-yellow-600 text-white px-4 py-1 rounded text-sm hover:bg-yellow-700 transition-colors">
+                                <i class="fas fa-upload mr-1"></i>Upload Documents
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Mode (initially hidden) -->
+            <div id="profileEditMode" class="hidden">
+                <!-- Hero Section in Edit Mode -->
+                <div class="bg-kwikr-green rounded-lg p-8 text-white mb-6">
+                    <div class="flex items-center">
+                        <div class="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-6">
+                            <div id="profileInitialsEdit" class="text-white text-2xl font-bold">${profileData.firstName.charAt(0)}${profileData.lastName.charAt(0)}</div>
+                        </div>
+                        <div class="flex-1">
+                            <h2 class="text-3xl font-bold mb-2">${profileData.companyName}</h2>
+                            <p class="text-green-100 mb-2">Professional Home & Commercial Services</p>
+                            <div class="flex items-center space-x-6">
+                                <div class="flex items-center">
+                                    <i class="fas fa-star text-yellow-300 mr-1"></i>
+                                    <span>4.8 Rating</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    <span>${profileData.isVerified ? 'Verified Business' : 'Verification Pending'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="profileEditForm">
+                    <!-- Three Column Layout in Edit Mode -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        <!-- Left Column - Contact Information Edit -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-phone text-kwikr-green mr-2"></i>Contact Information
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Primary Email</label>
+                                    <input type="email" id="primaryEmailEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="${profileData.email}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Business Email</label>
+                                    <input type="email" id="businessEmailEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="${profileData.businessEmail}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                    <input type="tel" id="phoneEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="${profileData.phone || '+1 (416) 555-0123'}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Business Phone</label>
+                                    <input type="tel" id="businessPhoneEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="+1 (416) 555-0124">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact</label>
+                                    <input type="tel" id="emergencyContactEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="+1 (416) 555-0125">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Middle Column - Business Address Edit -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-map-marker-alt text-kwikr-green mr-2"></i>Business Address
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Street Address</label>
+                                    <input type="text" id="streetAddressEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="123 King Street West">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Unit/Suite</label>
+                                    <input type="text" id="unitSuiteEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="Suite 456">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">City</label>
+                                    <input type="text" id="cityEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="${profileData.city || 'Toronto'}">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                                    <select id="provinceEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent">
+                                        <option value="ON" ${profileData.province === 'ON' ? 'selected' : ''}>Ontario</option>
+                                        <option value="BC" ${profileData.province === 'BC' ? 'selected' : ''}>British Columbia</option>
+                                        <option value="AB" ${profileData.province === 'AB' ? 'selected' : ''}>Alberta</option>
+                                        <option value="SK" ${profileData.province === 'SK' ? 'selected' : ''}>Saskatchewan</option>
+                                        <option value="MB" ${profileData.province === 'MB' ? 'selected' : ''}>Manitoba</option>
+                                        <option value="QC" ${profileData.province === 'QC' ? 'selected' : ''}>Quebec</option>
+                                        <option value="NB" ${profileData.province === 'NB' ? 'selected' : ''}>New Brunswick</option>
+                                        <option value="NS" ${profileData.province === 'NS' ? 'selected' : ''}>Nova Scotia</option>
+                                        <option value="PE" ${profileData.province === 'PE' ? 'selected' : ''}>Prince Edward Island</option>
+                                        <option value="NL" ${profileData.province === 'NL' ? 'selected' : ''}>Newfoundland and Labrador</option>
+                                        <option value="YT" ${profileData.province === 'YT' ? 'selected' : ''}>Yukon</option>
+                                        <option value="NT" ${profileData.province === 'NT' ? 'selected' : ''}>Northwest Territories</option>
+                                        <option value="NU" ${profileData.province === 'NU' ? 'selected' : ''}>Nunavut</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                                    <input type="text" id="postalCodeEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="M5V 3A8" pattern="[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Service Area</label>
+                                    <input type="text" id="serviceAreaEdit" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" value="Greater Toronto Area (GTA)">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column - Account Details (Read Only) -->
+                        <div class="bg-white rounded-lg shadow p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-user text-kwikr-green mr-2"></i>Account Details
+                                <span class="ml-auto text-xs text-gray-500">(Read Only)</span>
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Account ID</label>
+                                    <p class="text-gray-900">${profileData.accountId}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Account Status</label>
+                                    <div class="flex items-center">
+                                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-medium">
+                                            <i class="fas fa-circle mr-1"></i>Active
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Member Since</label>
+                                    <p class="text-gray-900">${profileData.memberSince}</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Last Login</label>
+                                    <p class="text-gray-900">Today at 2:30 PM</p>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Profile Completion</label>
+                                    <div class="mt-1">
+                                        <div class="flex items-center justify-between text-sm">
+                                            <span class="text-kwikr-green font-medium">${profileData.profileCompletion}% Complete</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                            <div class="bg-kwikr-green h-2 rounded-full" style="width: ${profileData.profileCompletion}%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="text-sm font-medium text-gray-500">Verification Status</label>
+                                    <div class="flex items-center">
+                                        <span class="${profileData.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} text-xs px-2 py-1 rounded-full font-medium">
+                                            <i class="fas ${profileData.isVerified ? 'fa-check-circle' : 'fa-clock'} mr-1"></i>
+                                            ${profileData.isVerified ? 'Verified' : 'Pending'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Business Description Edit Section -->
+                    <div class="mt-6 bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                            <i class="fas fa-building text-kwikr-green mr-2"></i>Business Description
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Company Overview</label>
+                                <textarea id="businessDescriptionEdit" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" placeholder="Describe your business, services, and what makes you unique...">${profileData.companyDescription}</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Team & Expertise</label>
+                                <textarea id="teamExpertiseEdit" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" placeholder="Tell clients about your team's qualifications and experience...">Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.</textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Area & Availability</label>
+                                <textarea id="serviceAvailabilityEdit" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-kwikr-green focus:border-transparent" placeholder="Describe your service coverage area and availability...">We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="mt-6 flex justify-end space-x-3">
+                        <button type="button" onclick="cancelEdit()" class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-times mr-2"></i>Cancel Edit
+                        </button>
+                        <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            // Profile data for JavaScript
+            const profileData = ${JSON.stringify(profileData).replace(/</g, '\\u003c').replace(/>/g, '\\u003e')};
+            console.log('Dashboard Profile: Profile data loaded', profileData);
+            
+            // Toggle edit mode
+            function toggleEditMode() {
+                const viewMode = document.getElementById('profileViewMode');
+                const editMode = document.getElementById('profileEditMode');
+                const editBtn = document.getElementById('editProfileBtn');
+                
+                if (viewMode.classList.contains('hidden')) {
+                    // Switch to view mode
+                    viewMode.classList.remove('hidden');
+                    editMode.classList.add('hidden');
+                    editBtn.innerHTML = '<i class="fas fa-edit mr-2"></i>Edit Profile';
+                } else {
+                    // Switch to edit mode
+                    viewMode.classList.add('hidden');
+                    editMode.classList.remove('hidden');
+                    editBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>View Profile';
+                }
+            }
+            
+            function cancelEdit() {
+                // Reset form fields to original values
+                resetFormFields();
+                toggleEditMode();
+            }
+            
+            function resetFormFields() {
+                // Reset all form fields to original profile data
+                document.getElementById('primaryEmailEdit').value = profileData.email;
+                document.getElementById('businessEmailEdit').value = profileData.businessEmail;
+                document.getElementById('phoneEdit').value = profileData.phone || '+1 (416) 555-0123';
+                document.getElementById('businessPhoneEdit').value = '+1 (416) 555-0124';
+                document.getElementById('emergencyContactEdit').value = '+1 (416) 555-0125';
+                
+                document.getElementById('streetAddressEdit').value = '123 King Street West';
+                document.getElementById('unitSuiteEdit').value = 'Suite 456';
+                document.getElementById('cityEdit').value = profileData.city || 'Toronto';
+                document.getElementById('provinceEdit').value = profileData.province || 'ON';
+                document.getElementById('postalCodeEdit').value = 'M5V 3A8';
+                document.getElementById('serviceAreaEdit').value = 'Greater Toronto Area (GTA)';
+                
+                document.getElementById('businessDescriptionEdit').value = profileData.companyDescription;
+                document.getElementById('teamExpertiseEdit').value = 'Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.';
+                document.getElementById('serviceAvailabilityEdit').value = 'We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.';
+            }
+            
+            // Handle form submission
+            document.addEventListener('DOMContentLoaded', function() {
+                const editForm = document.getElementById('profileEditForm');
+                if (editForm) {
+                    editForm.addEventListener('submit', async function(e) {
+                        e.preventDefault();
+                        await saveProfileChanges();
+                    });
+                }
+            });
+            
+            async function saveProfileChanges() {
+                // Collect form data
+                const formData = {
+                    primaryEmail: document.getElementById('primaryEmailEdit').value,
+                    businessEmail: document.getElementById('businessEmailEdit').value,
+                    phone: document.getElementById('phoneEdit').value,
+                    businessPhone: document.getElementById('businessPhoneEdit').value,
+                    emergencyContact: document.getElementById('emergencyContactEdit').value,
+                    
+                    streetAddress: document.getElementById('streetAddressEdit').value,
+                    unitSuite: document.getElementById('unitSuiteEdit').value,
+                    city: document.getElementById('cityEdit').value,
+                    province: document.getElementById('provinceEdit').value,
+                    postalCode: document.getElementById('postalCodeEdit').value,
+                    serviceArea: document.getElementById('serviceAreaEdit').value,
+                    
+                    businessDescription: document.getElementById('businessDescriptionEdit').value,
+                    teamExpertise: document.getElementById('teamExpertiseEdit').value,
+                    serviceAvailability: document.getElementById('serviceAvailabilityEdit').value
+                };
+                
+                console.log('Saving profile changes:', formData);
+                
+                try {
+                    const response = await fetch('/api/worker/profile/update', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        // Update display values with new data
+                        updateDisplayValues(formData);
+                        
+                        // Show success message
+                        showNotification('Profile updated successfully!', 'success');
+                        
+                        // Switch back to view mode
+                        toggleEditMode();
+                    } else {
+                        showNotification(result.error || 'Failed to update profile', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error saving profile:', error);
+                    showNotification('Network error. Please try again.', 'error');
+                }
+            }
+            
+            function updateDisplayValues(formData) {
+                // Update the display elements with new values
+                document.getElementById('primaryEmailDisplay').textContent = formData.primaryEmail;
+                document.getElementById('businessEmailDisplay').textContent = formData.businessEmail;
+                document.getElementById('phoneDisplay').textContent = formData.phone;
+                document.getElementById('businessPhoneDisplay').textContent = formData.businessPhone;
+                document.getElementById('emergencyContactDisplay').textContent = formData.emergencyContact;
+                
+                document.getElementById('streetAddressDisplay').textContent = formData.streetAddress;
+                document.getElementById('unitSuiteDisplay').textContent = formData.unitSuite;
+                document.getElementById('cityDisplay').textContent = formData.city;
+                document.getElementById('provinceDisplay').textContent = getProvinceFullName(formData.province);
+                document.getElementById('postalCodeDisplay').textContent = formData.postalCode;
+                document.getElementById('serviceAreaDisplay').textContent = formData.serviceArea;
+                
+                document.getElementById('businessDescriptionDisplay').textContent = formData.businessDescription;
+            }
+            
+            function getProvinceFullName(code) {
+                const provinces = {
+                    'ON': 'Ontario',
+                    'BC': 'British Columbia',
+                    'AB': 'Alberta',
+                    'SK': 'Saskatchewan',
+                    'MB': 'Manitoba',
+                    'QC': 'Quebec',
+                    'NB': 'New Brunswick',
+                    'NS': 'Nova Scotia',
+                    'PE': 'Prince Edward Island',
+                    'NL': 'Newfoundland and Labrador',
+                    'YT': 'Yukon',
+                    'NT': 'Northwest Territories',
+                    'NU': 'Nunavut'
+                };
+                return provinces[code] || code;
+            }
+            
+            function showNotification(message, type = 'info') {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.className = \`fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full\`;
+                
+                if (type === 'success') {
+                    notification.classList.add('bg-green-500', 'text-white');
+                    notification.innerHTML = \`<i class="fas fa-check-circle mr-2"></i>\${message}\`;
+                } else if (type === 'error') {
+                    notification.classList.add('bg-red-500', 'text-white');
+                    notification.innerHTML = \`<i class="fas fa-exclamation-circle mr-2"></i>\${message}\`;
+                } else {
+                    notification.classList.add('bg-blue-500', 'text-white');
+                    notification.innerHTML = \`<i class="fas fa-info-circle mr-2"></i>\${message}\`;
+                }
+                
+                document.body.appendChild(notification);
+                
+                // Slide in
+                setTimeout(() => {
+                    notification.classList.remove('translate-x-full');
+                }, 100);
+                
+                // Slide out and remove
+                setTimeout(() => {
+                    notification.classList.add('translate-x-full');
+                    setTimeout(() => {
+                        document.body.removeChild(notification);
+                    }, 300);
+                }, 4000);
+            }
+            
+            function manageServices() {
+                window.location.href = '/dashboard/worker/services';
+            }
+            
+            function uploadDocuments() {
+                window.location.href = '/dashboard/worker/compliance';
+            }
+            
+            function uploadLogo() {
+                // Create file input element
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        // For now, show a placeholder message
+                        showNotification('Logo upload functionality coming soon!', 'info');
+                        // TODO: Implement actual logo upload to server
+                    }
+                };
+                input.click();
+            }
+        </script>
+    </body>
+    </html>
+  `)
 })
 
 // Admin Dashboard
@@ -1773,7 +3548,7 @@ dashboardRoutes.get('/admin', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory Admin
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr Admin
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -2255,7 +4030,7 @@ dashboardRoutes.get('/admin', requireAuth, async (c) => {
           console.log('ADMIN DASHBOARD: JavaScript is executing!');
           
           // Set proper page title
-          document.title = 'Admin Dashboard - Kwikr Directory';
+          document.title = 'Admin Dashboard - getKwikr';
           
           // JavaScript working indicator removed to avoid obstructing the view
           
@@ -2727,7 +4502,7 @@ dashboardRoutes.get('/client/profile', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Profile - Kwikr Directory</title>
+        <title>My Profile - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -2751,7 +4526,7 @@ dashboardRoutes.get('/client/profile', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3224,7 +4999,7 @@ dashboardRoutes.get('/client/post-job', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Post a Job - Kwikr Directory</title>
+        <title>Post a Job - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3248,7 +5023,7 @@ dashboardRoutes.get('/client/post-job', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3325,7 +5100,7 @@ dashboardRoutes.get('/client/browse-workers', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Browse Service Providers - Kwikr Directory</title>
+        <title>Browse Service Providers - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3349,7 +5124,7 @@ dashboardRoutes.get('/client/browse-workers', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3871,7 +5646,7 @@ dashboardRoutes.get('/client/job/:id', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Job Details - Kwikr Directory</title>
+        <title>Job Details - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3895,7 +5670,7 @@ dashboardRoutes.get('/client/job/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3959,7 +5734,7 @@ dashboardRoutes.get('/client/job/:id/edit', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Edit Job - Kwikr Directory</title>
+        <title>Edit Job - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -3983,7 +5758,7 @@ dashboardRoutes.get('/client/job/:id/edit', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4047,7 +5822,7 @@ dashboardRoutes.get('/client/worker/:id', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Profile - Kwikr Directory</title>
+        <title>Worker Profile - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -4071,7 +5846,7 @@ dashboardRoutes.get('/client/worker/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4134,7 +5909,7 @@ dashboardRoutes.get('/worker/kanban', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Job Tracking Board - Kwikr Directory</title>
+        <title>Job Tracking Board - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <style>
@@ -4166,7 +5941,7 @@ dashboardRoutes.get('/worker/kanban', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4246,7 +6021,7 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>My Bids - Kwikr Directory</title>
+        <title>My Bids - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
     </head>
@@ -4257,7 +6032,7 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4317,14 +6092,36 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
   `)
 })
 
-// Worker Profile with Tab Navigation
+// Worker Profile - Clean Professional Design (Screenshot Implementation)
+// CLEAN WORKER PROFILE ROUTE - EXACT SCREENSHOT IMPLEMENTATION
+
 dashboardRoutes.get('/worker/profile', requireAuth, async (c) => {
   const user = c.get('user')
-  const tab = c.req.query('tab') || 'profile'
   
   if (user.role !== 'worker') {
     return c.redirect('/dashboard')
   }
+
+  try {
+    // Fetch worker data
+    const workerProfile = await c.env.DB.prepare(`
+      SELECT 
+        u.id, u.first_name, u.last_name, u.email, u.phone, u.province, u.city,
+        u.is_verified, u.created_at, u.business_name,
+        up.bio, up.company_name, up.company_description, up.profile_image_url,
+        up.address_line1, up.address_line2, up.postal_code, up.website_url, up.years_in_business
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      WHERE u.id = ? AND u.role = 'worker'
+    `).bind(user.user_id).first()
+
+    // Use real user data
+    const profile = workerProfile || {
+      ...user,
+      company_name: user.business_name || `${user.first_name} ${user.last_name}`,
+      bio: 'Professional service provider committed to delivering high-quality work.',
+      company_description: user.business_name ? `Professional services by ${user.business_name}` : 'Professional Home & Commercial Services',
+    }
 
   return c.html(`
     <!DOCTYPE html>
@@ -4332,1043 +6129,391 @@ dashboardRoutes.get('/worker/profile', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Worker Profile - Kwikr Directory</title>
+        <title>Worker Profile - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
             theme: {
               extend: {
                 colors: {
-                  'kwikr-green': '#00C881',
-                  'kwikr-dark': '#1a1a1a',
-                  'kwikr-gray': '#f8f9fa'
+                  'kwikr-green': '#00C881'
                 }
               }
             }
           }
         </script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+          .profile-header {
+            background: linear-gradient(135deg, #00C881 0%, #00a86b 100%);
+          }
+          .section-icon {
+            color: #00C881;
+          }
+          .completion-bar { 
+            background: linear-gradient(90deg, #00C881 0%, #00a86b 100%); 
+          }
+        </style>
     </head>
-    <body class="bg-kwikr-gray min-h-screen">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
-                        <a href="/dashboard" class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
-                        </a>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <span class="text-sm text-gray-600">Welcome, ${user.first_name}!</span>
-                        <button onclick="logout()" class="text-gray-700 hover:text-red-600">
-                            <i class="fas fa-sign-out-alt"></i> Logout
-                        </button>
-                    </div>
+    <body class="bg-gray-50">
+        <!-- Navigation Header -->
+        <nav class="bg-white border-b border-gray-200">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+              <div class="flex items-center">
+                <div class="flex-shrink-0 flex items-center">
+                  <i class="fas fa-bolt text-kwikr-green text-2xl mr-2"></i>
+                  <span class="text-xl font-bold text-gray-900">getKwikr</span>
                 </div>
+              </div>
+              <div class="flex items-center space-x-4">
+                <span class="text-sm text-gray-600">Welcome, ${profile.first_name || 'Mel'}</span>
+                <a href="/auth/logout" class="bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-200">
+                  <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                </a>
+              </div>
             </div>
+          </div>
         </nav>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <!-- Breadcrumb -->
-            <div class="mb-6">
-                <nav class="text-sm">
-                    <a href="/dashboard" class="text-kwikr-green hover:underline">Dashboard</a>
-                    <span class="mx-2 text-gray-400">/</span>
-                    <span class="text-gray-600">Profile</span>
-                </nav>
-            </div>
-
-            <!-- Tab Navigation -->
-            <div class="mb-6">
-                <div class="border-b border-gray-200">
-                    <nav class="-mb-px flex space-x-8">
-                        <a href="/dashboard/worker/profile?tab=profile" 
-                           class="py-2 px-1 border-b-2 font-medium text-sm ${tab === 'profile' ? 'border-kwikr-green text-kwikr-green' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">
-                            <i class="fas fa-user mr-2"></i>Profile View
-                        </a>
-
-                        <a href="/dashboard/worker/profile?tab=services" 
-                           class="py-2 px-1 border-b-2 font-medium text-sm ${tab === 'services' ? 'border-kwikr-green text-kwikr-green' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">
-                            <i class="fas fa-cog mr-2"></i>Manage Services
-                        </a>
-                        <a href="/dashboard/worker/profile?tab=compliance" 
-                           class="py-2 px-1 border-b-2 font-medium text-sm ${tab === 'compliance' ? 'border-kwikr-green text-kwikr-green' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}">
-                            <i class="fas fa-certificate mr-2"></i>Manage Compliance
-                        </a>
-                    </nav>
-                </div>
-            </div>
-
-            <!-- Tab Content -->
-            <div class="bg-white rounded-lg shadow">
-                ${tab === 'profile' ? `
-                    <!-- Profile View with Inline Editing -->
-                    <div class="p-6">
-                        <div class="flex justify-between items-center mb-6">
-                            <h2 class="text-2xl font-bold text-gray-900">Profile Overview</h2>
-                            <button id="editProfileBtn" onclick="toggleEditMode()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors">
-                                <i class="fas fa-edit mr-2"></i><span id="editBtnText">Edit Profile</span>
-                            </button>
-                        </div>
-                        
-                        <!-- Company Header Section -->
-                        <div class="bg-gradient-to-r from-kwikr-green to-green-600 rounded-lg p-6 text-white mb-8">
-                            <div class="flex items-center space-x-6">
-                                <!-- Company Logo -->
-                                <div class="flex-shrink-0">
-                                    <div class="w-24 h-24 bg-white bg-opacity-20 rounded-full flex items-center justify-center cursor-pointer hover:bg-opacity-30 transition-colors" onclick="uploadLogo()">
-                                        <i class="fas fa-building text-4xl text-white"></i>
-                                    </div>
-                                    <p class="text-xs text-green-100 mt-2 text-center">Click to Upload Logo</p>
-                                </div>
-                                
-                                <!-- Company Info -->
-                                <div class="flex-grow">
-                                    <div class="view-mode">
-                                        <h3 class="text-2xl font-bold">Demo Worker Services Inc.</h3>
-                                        <p class="text-green-100 mt-1">Professional Home & Commercial Services</p>
-                                    </div>
-                                    <div class="edit-mode hidden">
-                                        <input type="text" class="text-2xl font-bold bg-transparent border border-white border-opacity-30 rounded px-2 py-1 text-white placeholder-green-200 focus:outline-none focus:border-opacity-100" value="Demo Worker Services Inc." placeholder="Company Name">
-                                        <input type="text" class="mt-2 bg-transparent border border-white border-opacity-30 rounded px-2 py-1 text-green-100 placeholder-green-200 focus:outline-none focus:border-opacity-100 w-full" value="Professional Home & Commercial Services" placeholder="Company Tagline">
-                                    </div>
-                                    <div class="flex items-center mt-3 space-x-4">
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white">
-                                            <i class="fas fa-star mr-1"></i> 4.8 Rating
-                                        </span>
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white">
-                                            <i class="fas fa-check-circle mr-1"></i> Verified Business
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Main Profile Information Grid -->
-                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                            
-                            <!-- Contact Information -->
-                            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <i class="fas fa-address-book text-kwikr-green mr-2"></i>
-                                    Contact Information
-                                </h3>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Primary Email</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">${user.email}</p>
-                                        <input type="email" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="${user.email}">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Business Email</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">business@demoworker.ca</p>
-                                        <input type="email" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="business@demoworker.ca">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Phone Number</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">+1 (416) 555-0123</p>
-                                        <input type="tel" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="+1 (416) 555-0123">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Business Phone</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">+1 (416) 555-0124</p>
-                                        <input type="tel" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="+1 (416) 555-0124">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Emergency Contact</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">+1 (416) 555-0125</p>
-                                        <input type="tel" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="+1 (416) 555-0125">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Business Address -->
-                            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <i class="fas fa-map-marker-alt text-kwikr-green mr-2"></i>
-                                    Business Address
-                                </h3>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Street Address</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">123 King Street West</p>
-                                        <input type="text" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="123 King Street West">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Unit/Suite</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">Suite 456</p>
-                                        <input type="text" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="Suite 456">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">City</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">${user.city || 'Toronto'}</p>
-                                        <input type="text" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="${user.city || 'Toronto'}">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Province</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">${user.province || 'Ontario'}</p>
-                                        <select class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                                            <option value="AB">Alberta</option>
-                                            <option value="BC">British Columbia</option>
-                                            <option value="MB">Manitoba</option>
-                                            <option value="NB">New Brunswick</option>
-                                            <option value="NL">Newfoundland and Labrador</option>
-                                            <option value="NS">Nova Scotia</option>
-                                            <option value="ON" selected>Ontario</option>
-                                            <option value="PE">Prince Edward Island</option>
-                                            <option value="QC">Quebec</option>
-                                            <option value="SK">Saskatchewan</option>
-                                            <option value="NT">Northwest Territories</option>
-                                            <option value="NU">Nunavut</option>
-                                            <option value="YT">Yukon</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Postal Code</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">M5V 3A8</p>
-                                        <input type="text" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="M5V 3A8" placeholder="A1A 1A1">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Service Area</label>
-                                        <p class="view-mode mt-1 text-sm text-gray-900">Greater Toronto Area (GTA)</p>
-                                        <input type="text" class="edit-mode hidden mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" value="Greater Toronto Area (GTA)">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Account Details -->
-                            <div class="bg-white border border-gray-200 rounded-lg p-6">
-                                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <i class="fas fa-user-circle text-kwikr-green mr-2"></i>
-                                    Account Details
-                                </h3>
-                                <div class="space-y-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Account ID</label>
-                                        <p class="mt-1 text-sm font-mono text-gray-900">KWR-${(user.user_id || user.id || 2).toString().padStart(6, '0')}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Account Status</label>
-                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                            <i class="fas fa-check-circle mr-1"></i> Active
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Member Since</label>
-                                        <p class="mt-1 text-sm text-gray-900">January 15, 2024</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Last Login</label>
-                                        <p class="mt-1 text-sm text-gray-900">Today at 2:30 PM</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Profile Completion</label>
-                                        <div class="mt-1">
-                                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                                <div class="bg-kwikr-green h-2 rounded-full" style="width: 75%"></div>
-                                            </div>
-                                            <p class="text-xs text-gray-500 mt-1">75% Complete</p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700">Verification Status</label>
-                                        <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            <i class="fas fa-shield-alt mr-1"></i> ID Verified
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Business Description -->
-                        <div class="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-file-alt text-kwikr-green mr-2"></i>
-                                Business Description
-                            </h3>
-                            <div class="view-mode prose text-gray-700">
-                                <p class="mb-3">
-                                    Demo Worker Services Inc. is a professional home and commercial service provider with over 10 years of experience in the Greater Toronto Area. We specialize in providing high-quality, reliable services to both residential and commercial clients.
-                                </p>
-                                <p class="mb-3">
-                                    Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.
-                                </p>
-                                <p>
-                                    We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.
-                                </p>
-                            </div>
-                            <div class="edit-mode hidden">
-                                <textarea rows="8" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green" placeholder="Describe your business, services, experience, and what makes you unique...">Demo Worker Services Inc. is a professional home and commercial service provider with over 10 years of experience in the Greater Toronto Area. We specialize in providing high-quality, reliable services to both residential and commercial clients.
-
-Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.
-
-We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.</textarea>
-                            </div>
-                        </div>
-
-                        <!-- Services Provided -->
-                        <div class="bg-white border border-gray-200 rounded-lg p-6 mb-8">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-tools text-kwikr-green mr-2"></i>
-                                Services Provided
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <div class="flex items-center p-3 bg-green-50 rounded-lg">
-                                    <i class="fas fa-broom text-kwikr-green mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Cleaning Services</p>
-                                        <p class="text-xs text-gray-600">Residential & Commercial</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center p-3 bg-blue-50 rounded-lg">
-                                    <i class="fas fa-wrench text-blue-600 mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Plumbing</p>
-                                        <p class="text-xs text-gray-600">Emergency & Maintenance</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center p-3 bg-yellow-50 rounded-lg">
-                                    <i class="fas fa-bolt text-yellow-600 mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Electrical Work</p>
-                                        <p class="text-xs text-gray-600">Licensed Electrician</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center p-3 bg-purple-50 rounded-lg">
-                                    <i class="fas fa-hammer text-purple-600 mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Handyman Services</p>
-                                        <p class="text-xs text-gray-600">General Repairs</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center p-3 bg-red-50 rounded-lg">
-                                    <i class="fas fa-paint-roller text-red-600 mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Painting</p>
-                                        <p class="text-xs text-gray-600">Interior & Exterior</p>
-                                    </div>
-                                </div>
-                                <div class="flex items-center p-3 bg-indigo-50 rounded-lg">
-                                    <i class="fas fa-seedling text-indigo-600 mr-3"></i>
-                                    <div>
-                                        <p class="font-medium text-gray-900">Landscaping</p>
-                                        <p class="text-xs text-gray-600">Design & Maintenance</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="mt-4 text-center">
-                                <a href="/dashboard/worker/profile?tab=services" class="text-kwikr-green hover:underline text-sm font-medium">
-                                    <i class="fas fa-plus mr-1"></i>Manage Services
-                                </a>
-                            </div>
-                        </div>
-
-                        <!-- Compliance Status -->
-                        <div class="bg-white border border-gray-200 rounded-lg p-6">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-certificate text-kwikr-green mr-2"></i>
-                                Compliance Status
-                            </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-file-contract text-red-600 mr-3"></i>
-                                        <div>
-                                            <p class="font-medium text-gray-900">Business License</p>
-                                            <p class="text-sm text-gray-600">Required for operation</p>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Missing</span>
-                                </div>
-                                
-                                <div class="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-shield-alt text-red-600 mr-3"></i>
-                                        <div>
-                                            <p class="font-medium text-gray-900">Insurance Certificate</p>
-                                            <p class="text-sm text-gray-600">Liability coverage required</p>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Missing</span>
-                                </div>
-                                
-                                <div class="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-user-check text-gray-600 mr-3"></i>
-                                        <div>
-                                            <p class="font-medium text-gray-900">Background Check</p>
-                                            <p class="text-sm text-gray-600">Optional verification</p>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Optional</span>
-                                </div>
-                                
-                                <div class="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-award text-gray-600 mr-3"></i>
-                                        <div>
-                                            <p class="font-medium text-gray-900">Certifications</p>
-                                            <p class="text-sm text-gray-600">Professional credentials</p>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Optional</span>
-                                </div>
-                            </div>
-                            
-                            <!-- Overall Compliance Status -->
-                            <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-exclamation-triangle text-yellow-600 mr-3"></i>
-                                        <div>
-                                            <h4 class="text-sm font-medium text-yellow-800">Action Required</h4>
-                                            <p class="text-sm text-yellow-700">Complete required documents to activate your account for job bidding.</p>
-                                        </div>
-                                    </div>
-                                    <span class="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                        0/2 Complete
-                                    </span>
-                                </div>
-                                <div class="mt-3">
-                                    <a href="/dashboard/worker/profile?tab=compliance" class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white text-sm font-medium rounded-md hover:bg-yellow-700">
-                                        <i class="fas fa-upload mr-2"></i>
-                                        Upload Documents
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Edit Mode Action Buttons -->
-                        <div class="edit-mode hidden mt-8 flex justify-center space-x-4">
-                            <button onclick="saveProfile()" class="bg-kwikr-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors">
-                                <i class="fas fa-save mr-2"></i>Save Changes
-                            </button>
-                            <button onclick="cancelEdit()" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors">
-                                <i class="fas fa-times mr-2"></i>Cancel
-                            </button>
-                        </div>
-                    </div>
-                ` : tab === 'edit' ? `
-                    <!-- Edit Profile -->
-                    <div class="p-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h2>
-                        
-                        <form id="editProfileForm" class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="firstName" class="block text-sm font-medium text-gray-700">First Name</label>
-                                    <input type="text" id="firstName" name="firstName" value="${user.first_name}" 
-                                           class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                                </div>
-                                
-                                <div>
-                                    <label for="lastName" class="block text-sm font-medium text-gray-700">Last Name</label>
-                                    <input type="text" id="lastName" name="lastName" value="${user.last_name}" 
-                                           class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                                </div>
-                            </div>
-
-                            <div>
-                                <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                                <input type="email" id="email" name="email" value="${user.email}" 
-                                       class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                            </div>
-
-                            <div>
-                                <label for="phone" class="block text-sm font-medium text-gray-700">Phone</label>
-                                <input type="tel" id="phone" name="phone" value="${user.phone || ''}" 
-                                       class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                            </div>
-
-                            <div>
-                                <label for="bio" class="block text-sm font-medium text-gray-700">Bio</label>
-                                <textarea id="bio" name="bio" rows="4" 
-                                          class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green"
-                                          placeholder="Tell clients about yourself and your experience..."></textarea>
-                            </div>
-
-                            <div>
-                                <button type="submit" 
-                                        class="bg-kwikr-green text-white px-6 py-3 rounded-lg hover:bg-green-600 transition-colors">
-                                    <i class="fas fa-save mr-2"></i>Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                ` : tab === 'services' ? `
-                    <!-- Manage Services -->
-                    <div class="p-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Manage Your Services</h2>
-                        <p class="text-gray-600 mb-8">Select the services you provide from the available categories below. Click on any service to add it to your profile with pricing and description.</p>
-
-                        <!-- My Active Services -->
-                        <div class="mb-8">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-check-circle text-kwikr-green mr-2"></i>
-                                My Active Services <span id="serviceCount" class="ml-2 bg-kwikr-green text-white text-xs px-2 py-1 rounded-full">3</span>
-                            </h3>
-                            <div id="activeServices" class="grid gap-4">
-                                <!-- Demo active services -->
-                                <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex justify-between items-center">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-broom text-green-600 text-xl mr-3"></i>
-                                        <div>
-                                            <h4 class="font-medium text-gray-900">Cleaning Services</h4>
-                                            <p class="text-sm text-gray-600">Residential & commercial cleaning</p>
-                                            <p class="text-sm text-green-600 font-medium">Starting at $45/hour</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button onclick="editService('Cleaning')" class="text-blue-600 hover:text-blue-800">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="removeService('Cleaning')" class="text-red-600 hover:text-red-800">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex justify-between items-center">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-wrench text-green-600 text-xl mr-3"></i>
-                                        <div>
-                                            <h4 class="font-medium text-gray-900">Plumbing</h4>
-                                            <p class="text-sm text-gray-600">Emergency repairs & installations</p>
-                                            <p class="text-sm text-green-600 font-medium">Starting at $85/hour</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button onclick="editService('Plumbing')" class="text-blue-600 hover:text-blue-800">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="removeService('Plumbing')" class="text-red-600 hover:text-red-800">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="bg-green-50 border border-green-200 rounded-lg p-4 flex justify-between items-center">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-tools text-green-600 text-xl mr-3"></i>
-                                        <div>
-                                            <h4 class="font-medium text-gray-900">Handyman Services</h4>
-                                            <p class="text-sm text-gray-600">General repairs & maintenance</p>
-                                            <p class="text-sm text-green-600 font-medium">Starting at $55/hour</p>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center space-x-2">
-                                        <button onclick="editService('Handyman')" class="text-blue-600 hover:text-blue-800">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="removeService('Handyman')" class="text-red-600 hover:text-red-800">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Available Services to Add -->
-                        <div class="mb-6">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-plus-circle text-gray-400 mr-2"></i>
-                                Add More Services
-                            </h3>
-                            <p class="text-sm text-gray-600 mb-4">Click on any service below to add it to your profile. You can customize pricing and descriptions after adding.</p>
-                            
-                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                <div id="service-Electrical" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Electrical', 'fas fa-bolt', 'Electrical installations & repairs')">
-                                    <i class="fas fa-bolt text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Electrical Work</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Carpentry" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Carpentry', 'fas fa-hammer', 'Custom carpentry & woodwork')">
-                                    <i class="fas fa-hammer text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Carpentry</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Painting" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Painting', 'fas fa-paint-roller', 'Interior & exterior painting')">
-                                    <i class="fas fa-paint-roller text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Painting</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-HVAC" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('HVAC', 'fas fa-fan', 'Heating & cooling systems')">
-                                    <i class="fas fa-fan text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">HVAC Services</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Roofing" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Roofing', 'fas fa-home', 'Roof repair & installation')">
-                                    <i class="fas fa-home text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Roofing</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Flooring" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Flooring', 'fas fa-layer-group', 'Floor installation & repair')">
-                                    <i class="fas fa-layer-group text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Flooring</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Landscaping" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Landscaping', 'fas fa-seedling', 'Landscaping & garden design')">
-                                    <i class="fas fa-seedling text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Landscaping</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Moving" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Moving', 'fas fa-truck', 'Moving & relocation services')">
-                                    <i class="fas fa-truck text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Moving Services</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                                
-                                <div id="service-Appliance" class="available-service border border-gray-200 rounded-lg p-4 hover:border-kwikr-green hover:bg-green-50 cursor-pointer transition-colors" onclick="addServiceToProfile('Appliance Repair', 'fas fa-cog', 'Appliance repair & maintenance')">
-                                    <i class="fas fa-cog text-kwikr-green text-2xl mb-2"></i>
-                                    <h4 class="font-medium">Appliance Repair</h4>
-                                    <p class="text-xs text-gray-500 mt-1">Click to add</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Service Details Modal -->
-                        <div id="serviceModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
-                            <div class="flex items-center justify-center min-h-screen p-4">
-                                <div class="bg-white rounded-lg p-6 max-w-lg w-full">
-                                    <h3 class="text-lg font-semibold text-gray-900 mb-4" id="modalTitle">Add Service to Your Profile</h3>
-                                    <form id="serviceDetailsForm">
-                                        <div class="space-y-4">
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Service Category</label>
-                                                <div class="mt-1 flex items-center">
-                                                    <i id="serviceIcon" class="text-kwikr-green text-xl mr-3"></i>
-                                                    <span id="serviceName" class="font-medium text-gray-900"></span>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Service Description</label>
-                                                <textarea id="serviceDescription" rows="3" required
-                                                          class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green"
-                                                          placeholder="Describe your expertise and what you offer..."></textarea>
-                                            </div>
-                                            <div class="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label class="block text-sm font-medium text-gray-700">Starting Price ($)</label>
-                                                    <input type="number" id="servicePrice" min="0" step="0.01" required
-                                                           class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green"
-                                                           placeholder="0.00">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-sm font-medium text-gray-700">Price Unit</label>
-                                                    <select id="priceUnit" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green">
-                                                        <option value="hour">per hour</option>
-                                                        <option value="project">per project</option>
-                                                        <option value="sqft">per sq ft</option>
-                                                        <option value="day">per day</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm font-medium text-gray-700">Service Area</label>
-                                                <input type="text" id="serviceArea" 
-                                                       class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-kwikr-green focus:border-kwikr-green"
-                                                       placeholder="e.g., Greater Toronto Area" value="Greater Toronto Area">
-                                            </div>
-                                        </div>
-                                        <div class="flex justify-end space-x-3 mt-6">
-                                            <button type="button" onclick="closeServiceModal()" 
-                                                    class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
-                                                Cancel
-                                            </button>
-                                            <button type="submit" 
-                                                    class="bg-kwikr-green text-white px-4 py-2 rounded-md hover:bg-green-600">
-                                                <i class="fas fa-plus mr-2"></i><span id="submitBtnText">Add Service</span>
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : tab === 'compliance' ? `
-                    <!-- Manage Compliance -->
-                    <div class="p-6">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-6">Manage Compliance Documents</h2>
-                        
-                        <!-- Upload Status -->
-                        <div class="mb-8">
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                                <div class="flex items-center">
-                                    <i class="fas fa-exclamation-triangle text-yellow-600 mr-3"></i>
-                                    <div>
-                                        <h4 class="text-sm font-medium text-yellow-800">Documents Required</h4>
-                                        <p class="text-sm text-yellow-700">Please upload the following documents to complete your compliance status.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Required Documents -->
-                        <div class="grid gap-6">
-                            <!-- Business License -->
-                            <div class="border border-gray-200 rounded-lg p-6">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-gray-900">Business License</h3>
-                                        <p class="text-sm text-gray-600">Valid business license or contractor's license</p>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Required</span>
-                                </div>
-                                
-                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
-                                    <p class="text-gray-600 mb-2">Drag and drop your business license here, or</p>
-                                    <button class="bg-kwikr-green text-white px-4 py-2 rounded hover:bg-green-600">
-                                        Browse Files
-                                    </button>
-                                    <p class="text-xs text-gray-500 mt-2">Accepted formats: PDF, JPG, PNG (Max 5MB)</p>
-                                </div>
-                            </div>
-
-                            <!-- Insurance Certificate -->
-                            <div class="border border-gray-200 rounded-lg p-6">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-gray-900">Insurance Certificate</h3>
-                                        <p class="text-sm text-gray-600">Proof of liability insurance coverage</p>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Required</span>
-                                </div>
-                                
-                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
-                                    <p class="text-gray-600 mb-2">Drag and drop your insurance certificate here, or</p>
-                                    <button class="bg-kwikr-green text-white px-4 py-2 rounded hover:bg-green-600">
-                                        Browse Files
-                                    </button>
-                                    <p class="text-xs text-gray-500 mt-2">Accepted formats: PDF, JPG, PNG (Max 5MB)</p>
-                                </div>
-                            </div>
-
-                            <!-- Background Check -->
-                            <div class="border border-gray-200 rounded-lg p-6">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-gray-900">Background Check</h3>
-                                        <p class="text-sm text-gray-600">Criminal background check (issued within last 6 months)</p>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Optional</span>
-                                </div>
-                                
-                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
-                                    <p class="text-gray-600 mb-2">Drag and drop your background check here, or</p>
-                                    <button class="bg-kwikr-green text-white px-4 py-2 rounded hover:bg-green-600">
-                                        Browse Files
-                                    </button>
-                                    <p class="text-xs text-gray-500 mt-2">Accepted formats: PDF, JPG, PNG (Max 5MB)</p>
-                                </div>
-                            </div>
-
-                            <!-- Certifications -->
-                            <div class="border border-gray-200 rounded-lg p-6">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 class="text-lg font-semibold text-gray-900">Professional Certifications</h3>
-                                        <p class="text-sm text-gray-600">Trade-specific certifications and training certificates</p>
-                                    </div>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Optional</span>
-                                </div>
-                                
-                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                    <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl mb-2"></i>
-                                    <p class="text-gray-600 mb-2">Drag and drop your certifications here, or</p>
-                                    <button class="bg-kwikr-green text-white px-4 py-2 rounded hover:bg-green-600">
-                                        Browse Files
-                                    </button>
-                                    <p class="text-xs text-gray-500 mt-2">Accepted formats: PDF, JPG, PNG (Max 5MB each)</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Compliance Status Summary -->
-                        <div class="mt-8 bg-gray-50 rounded-lg p-6">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-4">Compliance Status</h3>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-700">Business License</span>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Missing</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-700">Insurance Certificate</span>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Missing</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-700">Background Check</span>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Not Required</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-700">Professional Certifications</span>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Not Required</span>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-4 pt-4 border-t border-gray-200">
-                                <div class="flex justify-between items-center">
-                                    <span class="font-medium text-gray-900">Overall Compliance</span>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Incomplete (0/2)</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ` : ''}
-            </div>
+        <!-- Breadcrumb -->
+        <div class="bg-white border-b border-gray-200">
+          <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <nav class="flex space-x-2 text-sm text-gray-600">
+              <a href="/dashboard" class="hover:text-kwikr-green">Dashboard</a>
+              <span>/</span>
+              <span class="text-gray-900 font-medium">Profile</span>
+            </nav>
+          </div>
         </div>
 
-        <!-- Scripts -->
-        <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
-        <script src="/static/app.js"></script>
-        <script>
-          window.currentUser = {
-            id: ${user.user_id},
-            email: "${user.email}",
-            role: "${user.role}",
-            firstName: "${user.first_name}",
-            lastName: "${user.last_name}"
-          };
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-          // Service management functions
-          let currentServiceData = null;
-          let editingServiceId = null;
 
-          function addServiceToProfile(serviceName, iconClass, description) {
-            currentServiceData = {
-              name: serviceName,
-              icon: iconClass,
-              description: description
-            };
-            editingServiceId = null;
+          <!-- Profile Overview -->
+          <div class="bg-white rounded-lg shadow-sm">
+            <div class="p-6">
+              <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-900">Profile Overview</h1>
+                <button onclick="window.location.href='/dashboard/worker/profile?edit=true'" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 flex items-center">
+                  <i class="fas fa-edit mr-2"></i>
+                  Edit Profile
+                </button>
+              </div>
 
-            // Update modal title and form
-            document.getElementById('modalTitle').textContent = 'Add Service to Your Profile';
-            document.getElementById('submitBtnText').textContent = 'Add Service';
-            document.getElementById('serviceIcon').className = iconClass;
-            document.getElementById('serviceName').textContent = serviceName;
-            document.getElementById('serviceDescription').value = description;
-            document.getElementById('servicePrice').value = '';
-            document.getElementById('priceUnit').value = 'hour';
-            document.getElementById('serviceArea').value = 'Greater Toronto Area';
-
-            // Show modal
-            document.getElementById('serviceModal').classList.remove('hidden');
-          }
-
-          function editService(serviceId, serviceName, iconClass, description, price, unit, area) {
-            currentServiceData = {
-              name: serviceName,
-              icon: iconClass,
-              description: description
-            };
-            editingServiceId = serviceId;
-
-            // Update modal title and form
-            document.getElementById('modalTitle').textContent = 'Edit Service Details';
-            document.getElementById('submitBtnText').textContent = 'Save Changes';
-            document.getElementById('serviceIcon').className = iconClass;
-            document.getElementById('serviceName').textContent = serviceName;
-            document.getElementById('serviceDescription').value = description;
-            document.getElementById('servicePrice').value = price;
-            document.getElementById('priceUnit').value = unit;
-            document.getElementById('serviceArea').value = area;
-
-            // Show modal
-            document.getElementById('serviceModal').classList.remove('hidden');
-          }
-
-          function removeService(serviceId, serviceName) {
-            if (confirm(\`Are you sure you want to remove \${serviceName} from your services?\`)) {
-              // Find and remove the service card
-              const serviceCard = document.querySelector(\`[data-service-id="\${serviceId}"]\`);
-              if (serviceCard) {
-                serviceCard.remove();
-              }
-
-              // Show the service in available services again
-              const availableService = document.getElementById(\`service-\${serviceName.replace(/\\s+/g, '')}\`);
-              if (availableService) {
-                availableService.classList.remove('hidden');
-              }
-
-              alert(\`\${serviceName} has been removed from your services.\`);
-            }
-          }
-
-          function closeServiceModal() {
-            document.getElementById('serviceModal').classList.add('hidden');
-            currentServiceData = null;
-            editingServiceId = null;
-          }
-
-          // Form handlers
-          document.getElementById('serviceDetailsForm')?.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            if (!currentServiceData) return;
-
-            // Get form values
-            const description = document.getElementById('serviceDescription').value;
-            const price = document.getElementById('servicePrice').value;
-            const unit = document.getElementById('priceUnit').value;
-            const area = document.getElementById('serviceArea').value;
-
-            if (editingServiceId) {
-              // Update existing service
-              const serviceCard = document.querySelector(\`[data-service-id="\${editingServiceId}"]\`);
-              if (serviceCard) {
-                serviceCard.querySelector('.service-description').textContent = description;
-                serviceCard.querySelector('.service-price').textContent = \`$\${price} \${unit}\`;
-                serviceCard.querySelector('.service-area').textContent = area;
-              }
-              alert('Service updated successfully!');
-            } else {
-              // Add new service to active services
-              const activeServicesGrid = document.getElementById('activeServicesGrid');
-              const serviceId = 'service_' + Date.now();
-              
-              const serviceCard = document.createElement('div');
-              serviceCard.className = 'bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow';
-              serviceCard.setAttribute('data-service-id', serviceId);
-              serviceCard.innerHTML = \`
-                <div class="flex items-start justify-between mb-4">
+              <!-- Company Header -->
+              <div class="profile-header rounded-lg p-6 text-white mb-8">
+                <div class="flex items-center justify-between">
                   <div class="flex items-center">
-                    <i class="\${currentServiceData.icon} text-kwikr-green text-2xl mr-3"></i>
+                    <div class="w-16 h-16 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mr-4">
+                      <i class="fas fa-building text-2xl"></i>
+                    </div>
                     <div>
-                      <h3 class="font-semibold text-gray-900">\${currentServiceData.name}</h3>
-                      <p class="text-sm text-gray-600 service-description">\${description}</p>
+                      <h2 class="text-2xl font-bold mb-1">${profile.company_name || 'Demo Worker Services Inc.'}</h2>
+                      <p class="text-green-100 mb-2">${profile.company_description || 'Professional Home & Commercial Services'}</p>
+                      <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                          <div class="text-yellow-300 mr-2">★★★★☆</div>
+                          <span class="text-sm">4.8 Rating</span>
+                        </div>
+                        <div class="flex items-center">
+                          <i class="fas fa-check-circle mr-1"></i>
+                          <span class="text-sm">${profile.is_verified ? 'Verified Business' : 'Pending Verification'}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div class="flex space-x-2">
-                    <button onclick="editService('\${serviceId}', '\${currentServiceData.name}', '\${currentServiceData.icon}', '\${description}', '\${price}', '\${unit}', '\${area}')" 
-                            class="text-blue-600 hover:text-blue-800">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button onclick="removeService('\${serviceId}', '\${currentServiceData.name}')" 
-                            class="text-red-600 hover:text-red-800">
-                      <i class="fas fa-trash-alt"></i>
+                  <div class="text-right">
+                    <button class="text-white hover:text-green-100 text-sm underline">
+                      Click to upload Logo
                     </button>
                   </div>
                 </div>
-                <div class="text-sm text-gray-600">
-                  <p class="mb-1"><i class="fas fa-dollar-sign mr-2"></i><span class="service-price">$\${price} \${unit}</span></p>
-                  <p><i class="fas fa-map-marker-alt mr-2"></i><span class="service-area">\${area}</span></p>
+              </div>
+
+              <!-- Three Column Layout -->
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Contact Information -->
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-envelope section-icon mr-2"></i>
+                    Contact Information
+                  </h3>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Primary Email</label>
+                      <p class="text-gray-900">${profile.email || 'mgarry@emailsareonline.ai'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Business Email</label>
+                      <p class="text-gray-900">business@demoworker.ca</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Phone Number</label>
+                      <p class="text-gray-900">${profile.phone || '+1 (416) 555-0123'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Business Phone</label>
+                      <p class="text-gray-900">+1 (416) 555-0124</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Emergency Contact</label>
+                      <p class="text-gray-900">+1 (416) 555-2765</p>
+                    </div>
+                  </div>
                 </div>
-              \`;
-              
-              activeServicesGrid.appendChild(serviceCard);
 
-              // Hide this service from available services
-              const availableService = document.getElementById(\`service-\${currentServiceData.name.replace(/\\s+/g, '')}\`);
-              if (availableService) {
-                availableService.classList.add('hidden');
-              }
+                <!-- Business Address -->
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-map-marker-alt section-icon mr-2"></i>
+                    Business Address
+                  </h3>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Street Address</label>
+                      <p class="text-gray-900">${profile.address_line1 || '123 King Street West'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Unit/Suite</label>
+                      <p class="text-gray-900">${profile.address_line2 || 'Suite 456'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">City</label>
+                      <p class="text-gray-900">${profile.city || 'Toronto'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Province</label>
+                      <p class="text-gray-900">${profile.province || 'Ontario'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Postal Code</label>
+                      <p class="text-gray-900">${profile.postal_code || 'M5V 3A8'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Service Area</label>
+                      <p class="text-gray-900">Greater Toronto Area (GTA)</p>
+                    </div>
+                  </div>
+                </div>
 
-              alert(\`\${currentServiceData.name} has been added to your services!\`);
-            }
+                <!-- Account Details -->
+                <div class="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-user-cog section-icon mr-2"></i>
+                    Account Details
+                  </h3>
+                  <div class="space-y-3">
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Account ID</label>
+                      <p class="text-gray-900">KWR-${profile.id || '361341'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Account Status</label>
+                      <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Active
+                      </span>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Member Since</label>
+                      <p class="text-gray-900">${profile.created_at ? new Date(profile.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'January 16, 2024'}</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Last Login</label>
+                      <p class="text-gray-900">Today at 2:30 PM</p>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Profile Completion</label>
+                      <div class="mt-1">
+                        <div class="flex items-center justify-between mb-1">
+                          <span class="text-sm text-gray-600">76% Complete</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                          <div class="completion-bar h-2 rounded-full" style="width: 76%"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label class="text-sm font-medium text-gray-600">Verification Status</label>
+                      <div class="mt-1">
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${profile.is_verified ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}">
+                          <i class="fas fa-${profile.is_verified ? 'check-circle' : 'clock'} mr-1"></i>
+                          ${profile.is_verified ? 'ID Verified' : 'Pending Verification'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-            closeServiceModal();
+              <!-- Business Description -->
+              <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <i class="fas fa-file-alt section-icon mr-2"></i>
+                  Business Description
+                </h3>
+                <p class="text-gray-700 leading-relaxed">
+                  ${profile.bio || 'Demo Worker Services Inc. is a professional home and commercial service provider with over 10 years of experience in the Greater Toronto Area. We specialize in providing high-quality, reliable services to both residential and commercial clients.'}
+                </p>
+                <br>
+                <p class="text-gray-700 leading-relaxed">
+                  Our team of certified professionals is committed to delivering exceptional results on every project. We pride ourselves on punctuality, attention to detail, and customer satisfaction. All our work is fully insured and comes with a satisfaction guarantee.
+                </p>
+                <br>
+                <p class="text-gray-700 leading-relaxed">
+                  We serve the entire GTA and are available for both emergency and scheduled services. Our 24/7 customer service ensures that help is always available when you need it most.
+                </p>
+              </div>
+
+              <!-- Services Provided -->
+              <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+                    <i class="fas fa-tools section-icon mr-2"></i>
+                    Services Provided
+                  </h3>
+                  <a href="/dashboard/worker/services" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
+                    + Manage Services
+                  </a>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-broom text-blue-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-blue-800">Cleaning Services</h4>
+                    <p class="text-xs text-blue-600">Residential & Commercial</p>
+                  </div>
+                  <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-wrench text-purple-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-purple-800">Plumbing</h4>
+                    <p class="text-xs text-purple-600">Emergency & Maintenance</p>
+                  </div>
+                  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-bolt text-yellow-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-yellow-800">Electrical Work</h4>
+                    <p class="text-xs text-yellow-600">Licensed Electrician</p>
+                  </div>
+                  <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-hammer text-green-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-green-800">Handyman Services</h4>
+                    <p class="text-xs text-green-600">General Repairs</p>
+                  </div>
+                  <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-paint-roller text-red-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-red-800">Painting</h4>
+                    <p class="text-xs text-red-600">Interior & Exterior</p>
+                  </div>
+                  <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
+                    <i class="fas fa-seedling text-indigo-600 text-xl mb-2"></i>
+                    <h4 class="text-sm font-medium text-indigo-800">Landscaping</h4>
+                    <p class="text-xs text-indigo-600">Design & Maintenance</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Compliance Status -->
+              <div class="bg-white border border-gray-200 rounded-lg p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <i class="fas fa-shield-alt section-icon mr-2"></i>
+                  Compliance Status
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div class="space-y-4">
+                    <div class="border-l-4 border-red-500 bg-red-50 rounded-lg p-4">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                          <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                          <div>
+                            <h4 class="font-medium text-red-800">Business License</h4>
+                            <p class="text-sm text-red-600">Required for operation</p>
+                          </div>
+                        </div>
+                        <span class="text-xs font-medium text-red-800 bg-red-100 px-2 py-1 rounded">Missing</span>
+                      </div>
+                    </div>
+                    
+                    <div class="border-l-4 border-red-500 bg-red-50 rounded-lg p-4">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                          <i class="fas fa-shield-alt text-red-500 mr-3"></i>
+                          <div>
+                            <h4 class="font-medium text-red-800">Insurance Certificate</h4>
+                            <p class="text-sm text-red-600">Liability coverage required</p>
+                          </div>
+                        </div>
+                        <span class="text-xs font-medium text-red-800 bg-red-100 px-2 py-1 rounded">Missing</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-4">
+                    <div class="border-l-4 border-yellow-500 bg-yellow-50 rounded-lg p-4">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                          <i class="fas fa-user-check text-yellow-500 mr-3"></i>
+                          <div>
+                            <h4 class="font-medium text-yellow-800">Background Check</h4>
+                            <p class="text-sm text-yellow-600">Optional verification</p>
+                          </div>
+                        </div>
+                        <span class="text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded">Optional</span>
+                      </div>
+                    </div>
+                    
+                    <div class="border-l-4 border-yellow-500 bg-yellow-50 rounded-lg p-4">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                          <i class="fas fa-certificate text-yellow-500 mr-3"></i>
+                          <div>
+                            <h4 class="font-medium text-yellow-800">Certifications</h4>
+                            <p class="text-sm text-yellow-600">Professional credentials</p>
+                          </div>
+                        </div>
+                        <span class="text-xs font-medium text-yellow-800 bg-yellow-100 px-2 py-1 rounded">Optional</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action Required Alert -->
+                <div class="mt-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                  <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-yellow-400 mr-3"></i>
+                    <div>
+                      <h4 class="text-sm font-medium text-yellow-800">Action Required</h4>
+                      <p class="text-sm text-yellow-700 mt-1">Complete required documents to activate your account for job bidding.</p>
+                    </div>
+                    <div class="ml-auto">
+                      <span class="text-xs font-medium text-yellow-800">0/2 Complete</span>
+                    </div>
+                  </div>
+                  <div class="mt-4">
+                    <button onclick="window.location.href='/dashboard/worker/compliance'" class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 flex items-center text-sm font-medium">
+                      <i class="fas fa-upload mr-2"></i>
+                      Upload Documents
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            console.log('Clean Worker Profile loaded successfully!');
           });
-
-          document.getElementById('editProfileForm')?.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            // Update profile logic here
-            alert('Profile updated successfully!');
-          });
-
-          // Inline editing functions
-          let isEditMode = false;
-
-          function toggleEditMode() {
-            isEditMode = !isEditMode;
-            const viewElements = document.querySelectorAll('.view-mode');
-            const editElements = document.querySelectorAll('.edit-mode');
-            const editBtn = document.getElementById('editProfileBtn');
-            const editBtnText = document.getElementById('editBtnText');
-
-            if (isEditMode) {
-              // Switch to edit mode
-              viewElements.forEach(el => el.classList.add('hidden'));
-              editElements.forEach(el => el.classList.remove('hidden'));
-              editBtn.classList.remove('bg-kwikr-green', 'hover:bg-green-600');
-              editBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-              editBtnText.textContent = 'Cancel Edit';
-            } else {
-              // Switch to view mode
-              viewElements.forEach(el => el.classList.remove('hidden'));
-              editElements.forEach(el => el.classList.add('hidden'));
-              editBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
-              editBtn.classList.add('bg-kwikr-green', 'hover:bg-green-600');
-              editBtnText.textContent = 'Edit Profile';
-            }
-          }
-
-          function saveProfile() {
-            // Collect form data from all edit fields
-            const editInputs = document.querySelectorAll('.edit-mode input, .edit-mode select, .edit-mode textarea');
-            const formData = {};
-            
-            editInputs.forEach(input => {
-              if (input.name || input.id) {
-                formData[input.name || input.id] = input.value;
-              }
-            });
-
-            // Here you would typically send the data to the server
-            console.log('Saving profile data:', formData);
-            
-            // For demo purposes, just show success and exit edit mode
-            alert('Profile updated successfully!');
-            toggleEditMode();
-          }
-
-          function cancelEdit() {
-            // Reset all edit fields to original values and exit edit mode
-            const editInputs = document.querySelectorAll('.edit-mode input, .edit-mode select, .edit-mode textarea');
-            
-            // Reset to original values (you'd typically store these when entering edit mode)
-            editInputs.forEach(input => {
-              if (input.dataset.originalValue) {
-                input.value = input.dataset.originalValue;
-              }
-            });
-
-            toggleEditMode();
-          }
-
-          function uploadLogo() {
-            // Create file input for logo upload
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = 'image/*';
-            fileInput.onchange = function(e) {
-              const file = e.target.files[0];
-              if (file) {
-                // Here you would typically upload the file to the server
-                console.log('Uploading logo:', file.name);
-                alert('Logo upload functionality would be implemented here');
-              }
-            };
-            fileInput.click();
-          }
         </script>
     </body>
     </html>
   `)
+  } catch (error) {
+    console.error('Error fetching worker profile data:', error)
+    return c.html(`<h1>Error loading profile</h1>`)
+  }
 })
-
 // Worker Payments Page
 dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
   const user = c.get('user')
@@ -5383,7 +6528,7 @@ dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Payment Management - Kwikr Directory</title>
+        <title>Payment Management - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5407,7 +6552,7 @@ dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard" class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5624,7 +6769,7 @@ dashboardRoutes.get('/worker/earnings', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Earnings & Tracking - Kwikr Directory</title>
+        <title>Earnings & Tracking - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5649,7 +6794,7 @@ dashboardRoutes.get('/worker/earnings', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5946,7 +7091,7 @@ dashboardRoutes.get('/worker/calendar', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Calendar & Scheduling - Kwikr Directory</title>
+        <title>Calendar & Scheduling - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -5994,7 +7139,7 @@ dashboardRoutes.get('/worker/calendar', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6213,7 +7358,7 @@ dashboardRoutes.get('/worker/messages', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Messages & Communication - Kwikr Directory</title>
+        <title>Messages & Communication - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -6237,7 +7382,7 @@ dashboardRoutes.get('/worker/messages', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6497,7 +7642,7 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Service Portfolio - Kwikr Directory</title>
+        <title>Service Portfolio - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -6558,7 +7703,7 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6847,6 +7992,80 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
     </body>
     </html>
   `)
+})
+
+// API endpoint for updating worker profile
+dashboardRoutes.post('/api/worker/profile/update', requireAuth, async (c) => {
+  const user = c.get('user')
+  
+  if (user.role !== 'worker') {
+    return c.json({ success: false, error: 'Unauthorized' }, 403)
+  }
+
+  try {
+    const formData = await c.req.json()
+    console.log('Updating worker profile for user:', user.user_id, formData)
+    
+    // Update user table
+    await c.env.DB.prepare(`
+      UPDATE users 
+      SET email = ?, phone = ?, city = ?, province = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).bind(
+      formData.primaryEmail,
+      formData.phone,
+      formData.city,
+      formData.province,
+      user.user_id
+    ).run()
+    
+    // Update user_profiles table (create if doesn't exist)
+    const existingProfile = await c.env.DB.prepare(`
+      SELECT id FROM user_profiles WHERE user_id = ?
+    `).bind(user.user_id).first()
+    
+    if (existingProfile) {
+      // Update existing profile
+      await c.env.DB.prepare(`
+        UPDATE user_profiles 
+        SET company_description = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE user_id = ?
+      `).bind(
+        formData.businessDescription,
+        user.user_id
+      ).run()
+    } else {
+      // Create new profile
+      await c.env.DB.prepare(`
+        INSERT INTO user_profiles (user_id, company_description, created_at, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).bind(
+        user.user_id,
+        formData.businessDescription
+      ).run()
+    }
+    
+    console.log('Profile updated successfully for user:', user.user_id)
+    
+    return c.json({ 
+      success: true, 
+      message: 'Profile updated successfully',
+      updatedData: {
+        email: formData.primaryEmail,
+        phone: formData.phone,
+        city: formData.city,
+        province: formData.province,
+        businessDescription: formData.businessDescription
+      }
+    })
+    
+  } catch (error) {
+    console.error('Error updating worker profile:', error)
+    return c.json({ 
+      success: false, 
+      error: 'Failed to update profile. Please try again.' 
+    }, 500)
+  }
 })
 
 export default dashboardRoutes

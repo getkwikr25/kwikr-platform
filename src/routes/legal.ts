@@ -10,7 +10,7 @@ legalRoutes.get('/terms', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Terms of Service - Kwikr Directory</title>
+        <title>Terms of Service - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -34,7 +34,7 @@ legalRoutes.get('/terms', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -53,10 +53,10 @@ legalRoutes.get('/terms', async (c) => {
                 
                 <div class="prose max-w-none">
                     <h2 class="text-2xl font-semibold mb-4">1. Acceptance of Terms</h2>
-                    <p class="mb-6">By accessing and using Kwikr Directory, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                    <p class="mb-6">By accessing and using getKwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
                     
                     <h2 class="text-2xl font-semibold mb-4">2. Service Description</h2>
-                    <p class="mb-6">Kwikr Directory is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
+                    <p class="mb-6">getKwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
                     
                     <h2 class="text-2xl font-semibold mb-4">3. User Obligations</h2>
                     <ul class="list-disc pl-6 mb-6">
@@ -78,7 +78,7 @@ legalRoutes.get('/terms', async (c) => {
                     <p class="mb-6">Payment terms vary by subscription plan. Service fees and subscription costs are outlined in your chosen plan. All payments are processed securely through our payment partners.</p>
                     
                     <h2 class="text-2xl font-semibold mb-4">6. Limitation of Liability</h2>
-                    <p class="mb-6">Kwikr Directory acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
+                    <p class="mb-6">getKwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
                     
                     <h2 class="text-2xl font-semibold mb-4">7. Privacy</h2>
                     <p class="mb-6">Your privacy is important to us. Please review our <a href="/legal/privacy" class="text-kwikr-green hover:text-green-600">Privacy Policy</a> to understand how we collect, use, and protect your information.</p>
@@ -114,7 +114,7 @@ legalRoutes.get('/privacy', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Privacy Policy - Kwikr Directory</title>
+        <title>Privacy Policy - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -138,7 +138,7 @@ legalRoutes.get('/privacy', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Dashboard - getKwikr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'kwikr-green': '#00C881',
+              'kwikr-dark': '#1a1a1a',
+              'kwikr-gray': '#f8f9fa'
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex-shrink-0">
+                        <h1 class="text-2xl font-bold text-kwikr-green">
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                        </h1>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <button id="notificationBtn" class="text-gray-700 hover:text-kwikr-green transition-colors relative">
+                            <i class="fas fa-bell text-xl"></i>
+                            <span id="notificationBadge" class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">3</span>
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <button id="profileDropdown" class="flex items-center text-gray-700 hover:text-kwikr-green transition-colors">
+                            <div class="w-8 h-8 bg-kwikr-green rounded-full flex items-center justify-center text-white font-bold mr-2">
+                                J
+                            </div>
+                            <span>John Doe</span>
+                            <i class="fas fa-chevron-down ml-2 text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Sidebar Navigation -->
+            <aside class="lg:w-64 flex-shrink-0">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Dashboard</h2>
+                    <nav class="space-y-2">
+                        <button onclick="showSection('overview')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors active">
+                            <i class="fas fa-tachometer-alt mr-3 w-5"></i>
+                            Overview
+                        </button>
+                        <button onclick="showSection('profile')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-user mr-3 w-5"></i>
+                            Profile Management
+                        </button>
+                        <button onclick="showSection('jobs')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-briefcase mr-3 w-5"></i>
+                            Job Management
+                        </button>
+                        <button onclick="showSection('favorites')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-heart mr-3 w-5"></i>
+                            Favorite Workers
+                        </button>
+                        <button onclick="showSection('payments')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-credit-card mr-3 w-5"></i>
+                            Payment Methods
+                        </button>
+                        <button onclick="showSection('history')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-history mr-3 w-5"></i>
+                            Service History
+                        </button>
+                        <button onclick="showSection('notifications')" class="dashboard-nav-btn flex items-center w-full px-3 py-2 text-left text-gray-700 hover:bg-kwikr-green hover:text-white rounded-lg transition-colors">
+                            <i class="fas fa-bell mr-3 w-5"></i>
+                            Notifications
+                        </button>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1">
+                <!-- Overview Section -->
+                <div id="overview-section" class="dashboard-section">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Welcome back, John!</h1>
+                        <p class="text-gray-600">Here's what's happening with your account today.</p>
+                    </div>
+
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <div class="flex items-center">
+                                <div class="bg-blue-100 p-3 rounded-lg">
+                                    <i class="fas fa-briefcase text-blue-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Active Jobs</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="activeJobsCount">3</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <div class="flex items-center">
+                                <div class="bg-green-100 p-3 rounded-lg">
+                                    <i class="fas fa-heart text-green-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Favorite Workers</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="favoritesCount">12</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <div class="flex items-center">
+                                <div class="bg-purple-100 p-3 rounded-lg">
+                                    <i class="fas fa-history text-purple-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Completed Services</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="completedServicesCount">28</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-lg shadow-sm p-6">
+                            <div class="flex items-center">
+                                <div class="bg-yellow-100 p-3 rounded-lg">
+                                    <i class="fas fa-dollar-sign text-yellow-600 text-xl"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <p class="text-sm font-medium text-gray-600">Total Spent</p>
+                                    <p class="text-2xl font-bold text-gray-900" id="totalSpent">$2,340</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h2>
+                        <div class="space-y-4" id="recentActivity">
+                            <!-- Activity items will be loaded here -->
+                            <div class="flex items-center p-4 bg-gray-50 rounded-lg">
+                                <div class="bg-green-100 p-2 rounded-full mr-4">
+                                    <i class="fas fa-check text-green-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900">Service completed by Alice Johnson</p>
+                                    <p class="text-sm text-gray-500">House cleaning - $120.00 • 2 hours ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center p-4 bg-gray-50 rounded-lg">
+                                <div class="bg-blue-100 p-2 rounded-full mr-4">
+                                    <i class="fas fa-user-plus text-blue-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900">Added new favorite worker</p>
+                                    <p class="text-sm text-gray-500">Bob Smith - Plumbing Services • 1 day ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center p-4 bg-gray-50 rounded-lg">
+                                <div class="bg-purple-100 p-2 rounded-full mr-4">
+                                    <i class="fas fa-briefcase text-purple-600"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-medium text-gray-900">New job posted</p>
+                                    <p class="text-sm text-gray-500">Kitchen deep cleaning • 2 days ago</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Profile Management Section -->
+                <div id="profile-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Profile Management</h1>
+                        <p class="text-gray-600">Update your personal information and account settings.</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <form id="profileForm" class="space-y-6">
+                            <!-- Personal Information -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                    <input type="text" id="firstName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" value="John">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                    <input type="text" id="lastName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" value="Doe">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                    <input type="email" id="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" value="john.doe@email.com">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                                    <input type="tel" id="phone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" value="(555) 123-4567">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+                                    <input type="date" id="dateOfBirth" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+                                    <select id="gender" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                        <option value="">Select Gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                        <option value="prefer_not_to_say">Prefer not to say</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Address Information -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Address Information</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Street Address</label>
+                                        <input type="text" id="streetAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="123 Main Street">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">City</label>
+                                        <input type="text" id="city" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="Toronto">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Province</label>
+                                        <select id="province" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                            <option value="">Select Province</option>
+                                            <option value="AB">Alberta</option>
+                                            <option value="BC">British Columbia</option>
+                                            <option value="MB">Manitoba</option>
+                                            <option value="NB">New Brunswick</option>
+                                            <option value="NL">Newfoundland and Labrador</option>
+                                            <option value="NS">Nova Scotia</option>
+                                            <option value="ON" selected>Ontario</option>
+                                            <option value="PE">Prince Edward Island</option>
+                                            <option value="QC">Quebec</option>
+                                            <option value="SK">Saskatchewan</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
+                                        <input type="text" id="postalCode" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="M1A 1A1">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Preferences -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Preferences</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Preferred Language</label>
+                                        <select id="preferredLanguage" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                            <option value="en" selected>English</option>
+                                            <option value="fr">French</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                                        <select id="timezone" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                            <option value="America/Toronto" selected>Eastern Time (Toronto)</option>
+                                            <option value="America/Vancouver">Pacific Time (Vancouver)</option>
+                                            <option value="America/Edmonton">Mountain Time (Calgary/Edmonton)</option>
+                                            <option value="America/Winnipeg">Central Time (Winnipeg)</option>
+                                            <option value="America/Halifax">Atlantic Time (Halifax)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Communication Preference</label>
+                                        <select id="communicationPreference" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                            <option value="email" selected>Email</option>
+                                            <option value="sms">SMS</option>
+                                            <option value="both">Both Email & SMS</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <div class="flex justify-end">
+                                    <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                        <i class="fas fa-save mr-2"></i>Save Changes
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Job Management Section -->
+                <div id="jobs-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h1 class="text-2xl font-bold text-gray-900 mb-2">Job Management</h1>
+                                <p class="text-gray-600">Manage your posted jobs and track their progress.</p>
+                            </div>
+                            <button onclick="showCreateJobModal()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Post New Job
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Job Filters -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="jobStatusFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                    <option value="">All Status</option>
+                                    <option value="draft">Draft</option>
+                                    <option value="posted">Posted</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                                <select id="jobSortFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                    <option value="created_at">Date Created</option>
+                                    <option value="updated_at">Last Updated</option>
+                                    <option value="budget">Budget</option>
+                                </select>
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="loadJobs()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-search mr-2"></i>Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Jobs List -->
+                    <div class="space-y-4" id="jobsList">
+                        <!-- Jobs will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Favorite Workers Section -->
+                <div id="favorites-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Favorite Workers</h1>
+                        <p class="text-gray-600">Manage your saved favorite workers for easy access.</p>
+                    </div>
+
+                    <!-- Favorites List -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="favoritesList">
+                        <!-- Favorites will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Payment Methods Section -->
+                <div id="payments-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h1 class="text-2xl font-bold text-gray-900 mb-2">Payment Methods</h1>
+                                <p class="text-gray-600">Manage your payment methods and billing information.</p>
+                            </div>
+                            <button onclick="showAddPaymentModal()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Add Payment Method
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Payment Methods List -->
+                    <div class="space-y-4" id="paymentMethodsList">
+                        <!-- Payment methods will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Service History Section -->
+                <div id="history-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Service History</h1>
+                        <p class="text-gray-600">View your past bookings and service records.</p>
+                    </div>
+
+                    <!-- History Filters -->
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select id="historyStatusFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                    <option value="">All Status</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+                                <select id="historyServiceFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                    <option value="">All Services</option>
+                                    <option value="cleaning">Cleaning</option>
+                                    <option value="plumbing">Plumbing</option>
+                                    <option value="electrical">Electrical</option>
+                                    <option value="handyman">Handyman</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                                <input type="month" id="historyDateFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            </div>
+                            <div class="flex items-end">
+                                <button onclick="loadServiceHistory()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                    <i class="fas fa-search mr-2"></i>Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- History List -->
+                    <div class="space-y-4" id="serviceHistoryList">
+                        <!-- Service history will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Notifications Section -->
+                <div id="notifications-section" class="dashboard-section hidden">
+                    <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                        <h1 class="text-2xl font-bold text-gray-900 mb-2">Notification Preferences</h1>
+                        <p class="text-gray-600">Customize how and when you receive notifications.</p>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <form id="notificationForm" class="space-y-6">
+                            <!-- Email Notifications -->
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Email Notifications</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="emailJobUpdates" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="emailJobUpdates" class="ml-3 text-sm text-gray-700">Job updates and status changes</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="emailNewBids" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="emailNewBids" class="ml-3 text-sm text-gray-700">New bids on my jobs</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="emailMessages" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="emailMessages" class="ml-3 text-sm text-gray-700">New messages from workers</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="emailPayments" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="emailPayments" class="ml-3 text-sm text-gray-700">Payment confirmations and receipts</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- SMS Notifications -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">SMS Notifications</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="smsJobUpdates" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="smsJobUpdates" class="ml-3 text-sm text-gray-700">Urgent job updates</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="smsReminders" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="smsReminders" class="ml-3 text-sm text-gray-700">Appointment reminders</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="smsPayments" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="smsPayments" class="ml-3 text-sm text-gray-700">Payment confirmations</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Push Notifications -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <h3 class="text-lg font-medium text-gray-900 mb-4">Push Notifications</h3>
+                                <div class="space-y-3">
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="pushJobUpdates" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="pushJobUpdates" class="ml-3 text-sm text-gray-700">Real-time job updates</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="pushMessages" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="pushMessages" class="ml-3 text-sm text-gray-700">New messages</label>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <input type="checkbox" id="pushPromotions" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                                        <label for="pushPromotions" class="ml-3 text-sm text-gray-700">Promotions and offers</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <div class="border-t border-gray-200 pt-6">
+                                <div class="flex justify-end">
+                                    <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors">
+                                        <i class="fas fa-save mr-2"></i>Save Preferences
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Create Job Modal -->
+    <div id="createJobModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Post New Job</h3>
+                    <button onclick="hideCreateJobModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="createJobForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+                        <input type="text" id="jobTitle" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="e.g., Deep Clean My House" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Service Category</label>
+                        <select id="jobCategory" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" required>
+                            <option value="">Select Category</option>
+                            <option value="cleaning">House Cleaning</option>
+                            <option value="plumbing">Plumbing</option>
+                            <option value="electrical">Electrical</option>
+                            <option value="handyman">Handyman</option>
+                            <option value="landscaping">Landscaping</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="jobDescription" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="Describe what you need done..." required></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Budget</label>
+                            <input type="number" id="jobBudget" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Preferred Date</label>
+                            <input type="date" id="jobDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" required>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                        <input type="text" id="jobLocation" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="Street address, City, Province" required>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="hideCreateJobModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                            <i class="fas fa-plus mr-2"></i>Post Job
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Payment Method Modal -->
+    <div id="addPaymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg max-w-md w-full">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">Add Payment Method</h3>
+                    <button onclick="hideAddPaymentModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form id="addPaymentForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Card Number</label>
+                        <input type="text" id="cardNumber" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="1234 5678 9012 3456" required>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
+                            <input type="text" id="expiryDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="MM/YY" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">CVV</label>
+                            <input type="text" id="cvv" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="123" required>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Cardholder Name</label>
+                        <input type="text" id="cardholderName" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green" placeholder="John Doe" required>
+                    </div>
+                    
+                    <div class="flex items-center">
+                        <input type="checkbox" id="setAsDefault" class="h-4 w-4 text-kwikr-green focus:ring-kwikr-green border-gray-300 rounded">
+                        <label for="setAsDefault" class="ml-2 text-sm text-gray-700">Set as default payment method</label>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" onclick="hideAddPaymentModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                            <i class="fas fa-save mr-2"></i>Add Card
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden">
+        <div class="bg-white rounded-lg p-6 flex items-center space-x-3">
+            <i class="fas fa-spinner fa-spin text-kwikr-green text-xl"></i>
+            <span class="text-gray-700">Loading...</span>
+        </div>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="successToast" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+        <div class="flex items-center">
+            <i class="fas fa-check-circle mr-2"></i>
+            <span id="successMessage">Success!</span>
+        </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="errorToast" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-x-full transition-transform duration-300">
+        <div class="flex items-center">
+            <i class="fas fa-exclamation-circle mr-2"></i>
+            <span id="errorMessage">Error occurred!</span>
+        </div>
+    </div>
+
+    <script src="/static/client-dashboard.js"></script>
+</body>
+</html>

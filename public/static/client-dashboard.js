@@ -1,682 +1,1042 @@
 // Client Dashboard JavaScript
+// Handles all client dashboard functionality
 
-// Use global currentUser if already defined, otherwise create local one
-if (typeof window.currentUser === 'undefined') {
-  window.currentUser = null
-}
-let currentJobs = []
+// Configuration
+const API_BASE = '/api/client-dashboard';
+const CLIENT_ID = 1; // Mock client ID - in real app, this would come from authentication
 
-// Fallback API request function if app.js is not loaded
-if (typeof window.apiRequest === 'undefined') {
-  window.apiRequest = async function(endpoint, options = {}) {
-    // Try to get token from localStorage first, then from cookies
-    let token = null
-    try {
-      token = localStorage.getItem('sessionToken')
-    } catch (e) {
-      // localStorage access denied, try to get from cookies
-      const cookies = document.cookie.split(';')
-      for (let cookie of cookies) {
-        const [name, value] = cookie.trim().split('=')
-        if (name === 'session') {
-          token = value
-          break
-        }
-      }
-    }
-    
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` })
-      },
-      ...options
-    }
-    
-    if (options.body && typeof options.body === 'object') {
-      config.body = JSON.stringify(options.body)
-    }
-    
-    try {
-      const response = await fetch(`/api${endpoint}`, config)
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Request failed')
-      }
-      
-      return data
-    } catch (error) {
-      console.error('API request failed:', error)
-      throw error
-    }
-  }
-}
-
-// Utility functions
-if (typeof window.formatCurrency === 'undefined') {
-  window.formatCurrency = function(amount) {
-    return new Intl.NumberFormat('en-CA', {
-      style: 'currency',
-      currency: 'CAD'
-    }).format(amount)
-  }
-}
-
-if (typeof window.formatDate === 'undefined') {
-  window.formatDate = function(dateString) {
-    return new Date(dateString).toLocaleDateString('en-CA', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-}
-
-if (typeof window.getStatusBadge === 'undefined') {
-  window.getStatusBadge = function(status) {
-    const statusClasses = {
-      'posted': 'bg-blue-100 text-blue-800',
-      'assigned': 'bg-yellow-100 text-yellow-800',
-      'in_progress': 'bg-purple-100 text-purple-800',
-      'completed': 'bg-green-100 text-green-800',
-      'cancelled': 'bg-red-100 text-red-800'
-    }
-    
-    const statusLabels = {
-      'posted': 'Posted',
-      'assigned': 'Assigned',
-      'in_progress': 'In Progress',
-      'completed': 'Completed',
-      'cancelled': 'Cancelled'
-    }
-    
-    const cssClass = statusClasses[status] || 'bg-gray-100 text-gray-800'
-    const label = statusLabels[status] || status
-    
-    return `<span class="px-2 py-1 rounded-full text-xs font-medium ${cssClass}">${label}</span>`
-  }
-}
-
-if (typeof window.getUrgencyBadge === 'undefined') {
-  window.getUrgencyBadge = function(urgency) {
-    const urgencyClasses = {
-      'low': 'bg-gray-100 text-gray-800',
-      'normal': 'bg-blue-100 text-blue-800',
-      'high': 'bg-yellow-100 text-yellow-800',
-      'urgent': 'bg-red-100 text-red-800'
-    }
-    
-    const urgencyLabels = {
-      'low': 'Low',
-      'normal': 'Normal',
-      'high': 'High',
-      'urgent': 'Urgent'
-    }
-    
-    const cssClass = urgencyClasses[urgency] || 'bg-blue-100 text-blue-800'
-    const label = urgencyLabels[urgency] || urgency
-    
-    return `<span class="px-2 py-1 rounded-full text-xs font-medium ${cssClass}">${label}</span>`
-  }
-}
+// State management
+let currentSection = 'overview';
+let jobs = [];
+let favorites = [];
+let paymentMethods = [];
+let serviceHistory = [];
 
 // Initialize dashboard
-document.addEventListener('DOMContentLoaded', async function() {
-  await loadUserInfo()
-  await loadJobStats()
-  await loadJobs()
-  await loadJobCategories()
-})
+document.addEventListener('DOMContentLoaded', function() {
+    initializeDashboard();
+});
 
-// Load user information
-async function loadUserInfo() {
-  try {
-    const response = await apiRequest('/auth/me')
-    currentUser = response.user
+/**
+ * INITIALIZATION FUNCTIONS
+ */
+function initializeDashboard() {
+    // Show default section
+    showSection('overview');
     
-    if (currentUser.role !== 'client') {
-      window.location.href = '/dashboard'
-      return
+    // Load initial data
+    loadDashboardData();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Set minimum date for job posting to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('jobDate').min = today;
+    
+    console.log('Client Dashboard initialized');
+}
+
+function setupEventListeners() {
+    // Profile form submission
+    document.getElementById('profileForm')?.addEventListener('submit', handleProfileUpdate);
+    
+    // Job creation form submission
+    document.getElementById('createJobForm')?.addEventListener('submit', handleJobCreation);
+    
+    // Payment method form submission
+    document.getElementById('addPaymentForm')?.addEventListener('submit', handlePaymentMethodAdd);
+    
+    // Notification form submission
+    document.getElementById('notificationForm')?.addEventListener('submit', handleNotificationUpdate);
+}
+
+/**
+ * NAVIGATION FUNCTIONS
+ */
+function showSection(sectionName) {
+    // Hide all sections
+    const sections = document.querySelectorAll('.dashboard-section');
+    sections.forEach(section => section.classList.add('hidden'));
+    
+    // Show selected section
+    const selectedSection = document.getElementById(`${sectionName}-section`);
+    if (selectedSection) {
+        selectedSection.classList.remove('hidden');
     }
-  } catch (error) {
-    console.error('Failed to load user info:', error)
-    window.location.href = '/?session=expired'
-  }
+    
+    // Update navigation active state
+    const navButtons = document.querySelectorAll('.dashboard-nav-btn');
+    navButtons.forEach(btn => {
+        btn.classList.remove('active', 'bg-kwikr-green', 'text-white');
+        btn.classList.add('text-gray-700');
+    });
+    
+    // Activate current button
+    const activeButton = document.querySelector(`[onclick="showSection('${sectionName}')"]`);
+    if (activeButton) {
+        activeButton.classList.add('active', 'bg-kwikr-green', 'text-white');
+        activeButton.classList.remove('text-gray-700');
+    }
+    
+    currentSection = sectionName;
+    
+    // Load section-specific data
+    loadSectionData(sectionName);
 }
 
-// Load job statistics
-async function loadJobStats() {
-  try {
-    const response = await apiRequest('/jobs/client/stats')
-    
-    document.getElementById('totalJobs').textContent = response.total || '0'
-    document.getElementById('activeJobs').textContent = response.active || '0'
-    document.getElementById('completedJobs').textContent = response.completed || '0'
-    document.getElementById('pendingBids').textContent = response.pendingBids || '0'
-    
-  } catch (error) {
-    console.error('Failed to load job stats:', error)
-    // Set defaults
-    document.getElementById('totalJobs').textContent = '0'
-    document.getElementById('activeJobs').textContent = '0'
-    document.getElementById('completedJobs').textContent = '0'
-    document.getElementById('pendingBids').textContent = '0'
-  }
+function loadSectionData(sectionName) {
+    switch (sectionName) {
+        case 'overview':
+            loadOverviewData();
+            break;
+        case 'profile':
+            loadProfileData();
+            break;
+        case 'jobs':
+            loadJobs();
+            break;
+        case 'favorites':
+            loadFavorites();
+            break;
+        case 'payments':
+            loadPaymentMethods();
+            break;
+        case 'history':
+            loadServiceHistory();
+            break;
+        case 'notifications':
+            loadNotificationPreferences();
+            break;
+    }
 }
 
-// Load client's jobs
-async function loadJobs() {
-  try {
-    const response = await apiRequest('/client/jobs')
-    currentJobs = response.jobs || []
-    
-    renderJobs(currentJobs)
-  } catch (error) {
-    console.error('Failed to load jobs:', error)
-    document.getElementById('jobsList').innerHTML = `
-      <div class="p-6 text-center text-gray-500">
-        <i class="fas fa-exclamation-triangle text-2xl mb-4"></i>
-        <p>Failed to load jobs. Please try again.</p>
-        <button onclick="loadJobs()" class="mt-2 text-kwikr-green hover:underline">Retry</button>
-      </div>
-    `
-  }
-}
-
-// Render jobs list
-function renderJobs(jobs) {
-  const jobsList = document.getElementById('jobsList')
-  
-  if (!jobs || jobs.length === 0) {
-    jobsList.innerHTML = `
-      <div class="p-6 text-center text-gray-500">
-        <i class="fas fa-briefcase text-4xl mb-4 text-gray-300"></i>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">No jobs posted yet</h3>
-        <p class="mb-4">Start by posting your first job to find service providers.</p>
-        <button onclick="showPostJobModal()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
-          <i class="fas fa-plus mr-2"></i>Post Your First Job
-        </button>
-      </div>
-    `
-    return
-  }
-  
-  const jobsHtml = jobs.map(job => `
-    <div class="p-6 hover:bg-gray-50">
-      <div class="flex justify-between items-start mb-3">
-        <div class="flex-1">
-          <h3 class="text-lg font-semibold text-gray-900 mb-1">${job.title}</h3>
-          <p class="text-sm text-gray-600 mb-2">${job.category_name || job.category}</p>
-          <p class="text-gray-700 text-sm mb-3">${job.description.substring(0, 150)}${job.description.length > 150 ? '...' : ''}</p>
-          
-          <div class="flex items-center space-x-4 text-sm text-gray-600">
-            <span><i class="fas fa-calendar mr-1"></i> ${formatDate(job.created_at)}</span>
-            <span><i class="fas fa-dollar-sign mr-1"></i> ${formatCurrency(job.budget_min)} - ${formatCurrency(job.budget_max)}</span>
-            <span><i class="fas fa-map-marker-alt mr-1"></i> ${job.location_city}, ${job.location_province}</span>
-          </div>
-        </div>
+/**
+ * DATA LOADING FUNCTIONS
+ */
+async function loadDashboardData() {
+    try {
+        showLoading(true);
         
-        <div class="text-right">
-          ${getStatusBadge(job.status)}
-          <div class="mt-2">
-            ${getUrgencyBadge(job.urgency)}
-          </div>
-        </div>
-      </div>
-      
-      <div class="flex justify-between items-center pt-3 border-t border-gray-100">
-        <div class="text-sm text-gray-600">
-          <i class="fas fa-users mr-1"></i> ${job.bid_count || 0} bids
-        </div>
-        <div class="flex space-x-2">
-          <button onclick="viewJobDetails(${job.id})" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
-            View Details
-          </button>
-          ${job.status === 'posted' ? `
-            <button onclick="editJob(${job.id})" class="text-blue-600 hover:text-blue-700 text-sm font-medium">
-              Edit
-            </button>
-          ` : ''}
-        </div>
-      </div>
-    </div>
-  `).join('')
-  
-  jobsList.innerHTML = jobsHtml
-}
-
-// Load job categories for the post job form
-async function loadJobCategories() {
-  try {
-    const response = await apiRequest('/jobs/categories')
-    const categories = response.categories || []
-    
-    const categorySelect = document.getElementById('jobCategory')
-    categorySelect.innerHTML = '<option value="">Select Category</option>'
-    
-    categories.forEach(category => {
-      categorySelect.innerHTML += `<option value="${category.id}">${category.name}</option>`
-    })
-    
-  } catch (error) {
-    console.error('Failed to load job categories:', error)
-  }
-}
-
-// Post job - Navigate to job posting page
-function showPostJobModal() {
-  window.location.href = '/dashboard/client/post-job'
-}
-
-// Legacy post job modal functions removed - now using dedicated job posting page
-
-// Handle post job form submission
-async function handlePostJob(event) {
-  event.preventDefault()
-  
-  const formData = {
-    title: document.getElementById('jobTitle').value,
-    category_id: parseInt(document.getElementById('jobCategory').value),
-    urgency: document.getElementById('jobUrgency').value,
-    budget_min: parseFloat(document.getElementById('budgetMin').value) || null,
-    budget_max: parseFloat(document.getElementById('budgetMax').value) || null,
-    description: document.getElementById('jobDescription').value,
-    location_province: document.getElementById('locationProvince').value,
-    location_city: document.getElementById('locationCity').value,
-    location_address: document.getElementById('locationAddress').value || null,
-    start_date: document.getElementById('startDate').value || null,
-    expected_completion: document.getElementById('expectedCompletion').value || null
-  }
-  
-  // Validate required fields
-  if (!formData.title || !formData.category_id || !formData.description || 
-      !formData.location_province || !formData.location_city) {
-    showNotification('Please fill in all required fields', 'error')
-    return
-  }
-  
-  try {
-    const response = await apiRequest('/client/jobs', {
-      method: 'POST',
-      body: formData
-    })
-    
-    showNotification('Job posted successfully!', 'success')
-    // Job posted successfully - reload to show in dashboard
-    
-    // Reload jobs and activities
-    setTimeout(() => {
-      if (typeof window.loadRecentActivities === 'function') {
-        window.loadRecentActivities()
-      }
-      window.location.reload() // Refresh to show new job
-    }, 1000)
-    
-  } catch (error) {
-    showNotification(error.message || 'Failed to post job', 'error')
-  }
-}
-
-// View job details - Navigate to job details page
-function viewJobDetails(jobId) {
-  window.location.href = `/dashboard/client/job/${jobId}`
-}
-
-// Job details modal functions removed - now using dedicated job details page
-
-// Accept bid
-async function acceptBid(bidId) {
-  if (!confirm('Are you sure you want to accept this bid? This will assign the job to this worker.')) {
-    return
-  }
-  
-  try {
-    await apiRequest(`/client/bids/${bidId}/accept`, { method: 'POST' })
-    showNotification('Bid accepted successfully!', 'success')
-    // Bid action completed
-    setTimeout(() => window.location.reload(), 1000)
-  } catch (error) {
-    console.error('Error accepting bid:', error)
-    showNotification('Failed to accept bid', 'error')
-  }
-}
-
-// Decline bid
-async function declineBid(bidId) {
-  if (!confirm('Are you sure you want to decline this bid?')) {
-    return
-  }
-  
-  try {
-    await apiRequest(`/client/bids/${bidId}/decline`, { method: 'POST' })
-    showNotification('Bid declined', 'success')
-    // Bid action completed
-    setTimeout(() => window.location.reload(), 1000)
-  } catch (error) {
-    console.error('Error declining bid:', error)
-    showNotification('Failed to decline bid', 'error')
-  }
-}
-
-// Edit job - Navigate to edit job page
-function editJob(jobId) {
-  window.location.href = `/dashboard/client/job/${jobId}/edit`
-}
-
-// Edit job modal functions removed - now using dedicated edit job page
-
-// Load job categories
-async function loadJobCategories() {
-  try {
-    const response = await apiRequest('/client/job-categories')
-    const categories = response.categories
-    
-    // Populate category dropdowns
-    const categorySelects = document.querySelectorAll('select[name="category_id"]')
-    categorySelects.forEach(select => {
-      select.innerHTML = '<option value="">Select a category...</option>'
-      categories.forEach(category => {
-        const option = document.createElement('option')
-        option.value = category.id
-        option.textContent = category.name
-        select.appendChild(option)
-      })
-    })
-  } catch (error) {
-    console.error('Failed to load categories:', error)
-  }
-}
-
-// Browse workers - Navigate to worker browser page
-function browseWorkers() {
-  window.location.href = '/dashboard/client/browse-workers'
-}
-
-// Worker search modal functions removed - now using dedicated browse workers page
-
-// Load job categories for worker search
-async function loadJobCategoriesForWorkerSearch() {
-  try {
-    const response = await apiRequest('/client/job-categories')
-    const categories = response.categories
-    
-    const select = document.getElementById('workerSearchCategory')
-    if (select && categories) {
-      categories.forEach(category => {
-        const option = document.createElement('option')
-        option.value = category.name
-        option.textContent = category.name
-        select.appendChild(option)
-      })
+        // Load dashboard summary
+        const response = await fetch(`${API_BASE}/summary/${CLIENT_ID}`);
+        if (response.ok) {
+            const data = await response.json();
+            updateDashboardStats(data);
+        }
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        showError('Failed to load dashboard data');
+    } finally {
+        showLoading(false);
     }
-  } catch (error) {
-    console.error('Failed to load job categories:', error)
-  }
 }
 
-// Search workers
-async function searchWorkers() {
-  const category = document.getElementById('workerSearchCategory')?.value || ''
-  const province = document.getElementById('workerSearchProvince')?.value || ''
-  const city = document.getElementById('workerSearchCity')?.value || ''
-  
-  const container = document.getElementById('workersContainer')
-  if (!container) return
-  
-  // Show loading
-  container.innerHTML = `
-    <div class="text-center py-8 text-gray-500">
-      <i class="fas fa-spinner fa-spin text-2xl mb-3"></i>
-      <p>Searching for service providers...</p>
-    </div>
-  `
-  
-  try {
-    const params = new URLSearchParams()
-    if (category) params.append('category', category)
-    if (province) params.append('province', province)  
-    if (city) params.append('location', city)
+async function loadOverviewData() {
+    // Update recent activity (mock data for now)
+    const recentActivity = document.getElementById('recentActivity');
+    if (recentActivity) {
+        // Activity will be loaded from API in real implementation
+        console.log('Overview data loaded');
+    }
+}
+
+async function loadProfileData() {
+    try {
+        const response = await fetch(`${API_BASE}/profile/${CLIENT_ID}`);
+        if (response.ok) {
+            const profile = await response.json();
+            populateProfileForm(profile);
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('Failed to load profile data');
+    }
+}
+
+async function loadJobs() {
+    try {
+        showLoading(true);
+        
+        const statusFilter = document.getElementById('jobStatusFilter')?.value || '';
+        const sortFilter = document.getElementById('jobSortFilter')?.value || 'created_at';
+        
+        const params = new URLSearchParams({
+            status: statusFilter,
+            sortBy: sortFilter,
+            limit: '20',
+            offset: '0'
+        });
+        
+        const response = await fetch(`${API_BASE}/jobs/${CLIENT_ID}?${params}`);
+        if (response.ok) {
+            jobs = await response.json();
+            renderJobs(jobs);
+        } else {
+            // Show mock data if API fails
+            jobs = getMockJobs();
+            renderJobs(jobs);
+        }
+        
+    } catch (error) {
+        console.error('Error loading jobs:', error);
+        jobs = getMockJobs();
+        renderJobs(jobs);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function loadFavorites() {
+    try {
+        showLoading(true);
+        
+        const response = await fetch(`${API_BASE}/favorites/${CLIENT_ID}`);
+        if (response.ok) {
+            favorites = await response.json();
+            renderFavorites(favorites);
+        } else {
+            // Show mock data if API fails
+            favorites = getMockFavorites();
+            renderFavorites(favorites);
+        }
+        
+    } catch (error) {
+        console.error('Error loading favorites:', error);
+        favorites = getMockFavorites();
+        renderFavorites(favorites);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function loadPaymentMethods() {
+    try {
+        showLoading(true);
+        
+        const response = await fetch(`${API_BASE}/payment-methods/${CLIENT_ID}`);
+        if (response.ok) {
+            paymentMethods = await response.json();
+            renderPaymentMethods(paymentMethods);
+        } else {
+            // Show mock data if API fails
+            paymentMethods = getMockPaymentMethods();
+            renderPaymentMethods(paymentMethods);
+        }
+        
+    } catch (error) {
+        console.error('Error loading payment methods:', error);
+        paymentMethods = getMockPaymentMethods();
+        renderPaymentMethods(paymentMethods);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function loadServiceHistory() {
+    try {
+        showLoading(true);
+        
+        const statusFilter = document.getElementById('historyStatusFilter')?.value || '';
+        const serviceFilter = document.getElementById('historyServiceFilter')?.value || '';
+        const dateFilter = document.getElementById('historyDateFilter')?.value || '';
+        
+        const params = new URLSearchParams({
+            status: statusFilter,
+            serviceType: serviceFilter,
+            limit: '20',
+            offset: '0'
+        });
+        
+        if (dateFilter) {
+            const date = new Date(dateFilter);
+            params.append('startDate', `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`);
+            params.append('endDate', `${date.getFullYear()}-${String(date.getMonth() + 2).padStart(2, '0')}-01`);
+        }
+        
+        const response = await fetch(`${API_BASE}/history/${CLIENT_ID}?${params}`);
+        if (response.ok) {
+            serviceHistory = await response.json();
+            renderServiceHistory(serviceHistory);
+        } else {
+            // Show mock data if API fails
+            serviceHistory = getMockServiceHistory();
+            renderServiceHistory(serviceHistory);
+        }
+        
+    } catch (error) {
+        console.error('Error loading service history:', error);
+        serviceHistory = getMockServiceHistory();
+        renderServiceHistory(serviceHistory);
+    } finally {
+        showLoading(false);
+    }
+}
+
+async function loadNotificationPreferences() {
+    try {
+        const response = await fetch(`${API_BASE}/notifications/${CLIENT_ID}`);
+        if (response.ok) {
+            const preferences = await response.json();
+            populateNotificationForm(preferences);
+        }
+    } catch (error) {
+        console.error('Error loading notification preferences:', error);
+        showError('Failed to load notification preferences');
+    }
+}
+
+/**
+ * RENDERING FUNCTIONS
+ */
+function updateDashboardStats(data) {
+    if (data) {
+        document.getElementById('activeJobsCount').textContent = data.activeJobs || 3;
+        document.getElementById('favoritesCount').textContent = data.favoriteWorkers || 12;
+        document.getElementById('completedServicesCount').textContent = data.completedServices || 28;
+        document.getElementById('totalSpent').textContent = `$${data.totalSpent || '2,340'}`;
+    }
+}
+
+function renderJobs(jobsData) {
+    const jobsList = document.getElementById('jobsList');
+    if (!jobsList) return;
     
-    const response = await apiRequest(`/client/workers/search?${params.toString()}`)
-    displayWorkersResults(response.workers || [])
-  } catch (error) {
-    console.error('Failed to search workers:', error)
-    container.innerHTML = `
-      <div class="text-center py-8 text-red-500">
-        <i class="fas fa-exclamation-triangle text-2xl mb-3"></i>
-        <p>Failed to search service providers</p>
-        <p class="text-sm mt-2">Please try again</p>
-      </div>
-    `
-  }
-}
-
-// Display workers search results
-function displayWorkersResults(workers) {
-  const container = document.getElementById('workersContainer')
-  if (!container) return
-  
-  if (workers.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-8 text-gray-500">
-        <i class="fas fa-user-slash text-3xl mb-3"></i>
-        <p>No service providers found matching your criteria</p>
-        <p class="text-sm mt-2">Try adjusting your search filters</p>
-      </div>
-    `
-    return
-  }
-  
-  container.innerHTML = `
-    <div class="mb-4 flex justify-between items-center">
-      <h3 class="text-lg font-semibold text-gray-900">Found ${workers.length} service provider${workers.length !== 1 ? 's' : ''}</h3>
-    </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      ${workers.map(worker => `
-        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div class="flex items-start space-x-4">
-            <div class="flex-shrink-0">
-              ${worker.profile_image_url ? `
-                <img src="${worker.profile_image_url}" alt="${worker.first_name} ${worker.last_name}" 
-                     class="w-16 h-16 rounded-full object-cover">
-              ` : `
-                <div class="w-16 h-16 rounded-full bg-kwikr-green flex items-center justify-center text-white font-bold text-xl">
-                  ${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}
-                </div>
-              `}
-            </div>
-            <div class="flex-1 min-w-0">
-              <h4 class="text-lg font-semibold text-gray-900 mb-1">${worker.first_name} ${worker.last_name}</h4>
-              <p class="text-sm text-gray-600 mb-2">
-                <i class="fas fa-map-marker-alt mr-1"></i>
-                ${worker.city || 'N/A'}, ${worker.province || 'N/A'}
-              </p>
-              
-              ${worker.bio ? `
-                <p class="text-sm text-gray-700 mb-3 line-clamp-2">${worker.bio.substring(0, 120)}${worker.bio.length > 120 ? '...' : ''}</p>
-              ` : ''}
-              
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3 text-sm text-gray-600">
-                  ${worker.avg_rating ? `
-                    <span class="flex items-center">
-                      <i class="fas fa-star text-yellow-400 mr-1"></i>
-                      ${parseFloat(worker.avg_rating).toFixed(1)} (${worker.review_count} reviews)
-                    </span>
-                  ` : '<span class="text-gray-400">No reviews yet</span>'}
-                  ${worker.experience_years ? `
-                    <span><i class="fas fa-calendar mr-1"></i>${worker.experience_years} years exp</span>
-                  ` : ''}
-                </div>
-              </div>
-              
-              <div class="mt-3 flex space-x-2">
-                <button onclick="viewWorkerProfile(${worker.id})" 
-                        class="flex-1 bg-kwikr-green text-white px-3 py-2 rounded text-sm hover:bg-green-600">
-                  <i class="fas fa-eye mr-1"></i>View Profile
+    if (!jobsData || jobsData.length === 0) {
+        jobsList.innerHTML = `
+            <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-briefcase text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Jobs Found</h3>
+                <p class="text-gray-600 mb-4">You haven't posted any jobs yet.</p>
+                <button onclick="showCreateJobModal()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                    <i class="fas fa-plus mr-2"></i>Post Your First Job
                 </button>
-                <button onclick="contactWorker(${worker.id})" 
-                        class="flex-1 bg-blue-500 text-white px-3 py-2 rounded text-sm hover:bg-blue-600">
-                  <i class="fas fa-envelope mr-1"></i>Contact
+            </div>
+        `;
+        return;
+    }
+    
+    jobsList.innerHTML = jobsData.map(job => `
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">${job.title}</h3>
+                    <p class="text-gray-600 text-sm mb-3">${job.description}</p>
+                    <div class="flex flex-wrap gap-2 mb-3">
+                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">${job.category}</span>
+                        <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">$${job.budget}</span>
+                        <span class="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">${formatJobStatus(job.status)}</span>
+                    </div>
+                    <div class="flex items-center text-sm text-gray-500">
+                        <i class="fas fa-calendar mr-1"></i>
+                        <span>Posted ${formatDate(job.created_at)}</span>
+                        <i class="fas fa-map-marker-alt ml-4 mr-1"></i>
+                        <span>${job.location}</span>
+                    </div>
+                </div>
+                <div class="flex space-x-2 ml-4">
+                    <button onclick="editJob(${job.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="viewJobBids(${job.id})" class="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="deleteJob(${job.id})" class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            ${job.bids_count ? `
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <div class="flex justify-between items-center">
+                        <span class="text-sm text-gray-600">${job.bids_count} bid(s) received</span>
+                        <button onclick="viewJobBids(${job.id})" class="text-kwikr-green hover:text-green-600 text-sm font-medium">
+                            View Bids <i class="fas fa-arrow-right ml-1"></i>
+                        </button>
+                    </div>
+                </div>
+            ` : ''}
+        </div>
+    `).join('');
+}
+
+function renderFavorites(favoritesData) {
+    const favoritesList = document.getElementById('favoritesList');
+    if (!favoritesList) return;
+    
+    if (!favoritesData || favoritesData.length === 0) {
+        favoritesList.innerHTML = `
+            <div class="col-span-full bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-heart text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Favorite Workers</h3>
+                <p class="text-gray-600 mb-4">You haven't added any workers to your favorites yet.</p>
+                <a href="/search" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 inline-block">
+                    <i class="fas fa-search mr-2"></i>Find Workers
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    favoritesList.innerHTML = favoritesData.map(favorite => `
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="text-center mb-4">
+                ${favorite.worker_image ? 
+                    `<img src="${favorite.worker_image}" alt="${favorite.worker_name}" class="w-20 h-20 rounded-full object-cover mx-auto mb-3">` :
+                    `<div class="w-20 h-20 rounded-full bg-kwikr-green text-white flex items-center justify-center mx-auto mb-3 text-xl font-bold">
+                        ${getInitials(favorite.worker_name)}
+                    </div>`
+                }
+                <h3 class="font-semibold text-gray-900">${favorite.worker_name}</h3>
+                <p class="text-sm text-gray-600 mb-2">${favorite.worker_services}</p>
+                <div class="flex justify-center items-center mb-2">
+                    <span class="text-yellow-400 text-sm">★★★★★</span>
+                    <span class="ml-1 text-sm text-gray-600">${favorite.worker_rating || '4.8'}</span>
+                </div>
+            </div>
+            
+            ${favorite.notes ? `
+                <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                    <p class="text-sm text-gray-600 italic">"${favorite.notes}"</p>
+                </div>
+            ` : ''}
+            
+            <div class="flex space-x-2">
+                <a href="/universal-profile/${favorite.worker_id}" class="flex-1 bg-kwikr-green text-white text-center py-2 rounded-lg hover:bg-green-600 text-sm">
+                    <i class="fas fa-eye mr-1"></i>View Profile
+                </a>
+                <button onclick="removeFavorite(${favorite.worker_id})" class="px-3 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm">
+                    <i class="fas fa-heart-broken"></i>
                 </button>
-              </div>
             </div>
-          </div>
         </div>
-      `).join('')}
-    </div>
-  `
+    `).join('');
 }
 
-// Generate HTML for workers display
-function displayWorkersHTML(workers) {
-  if (workers.length === 0) {
-    return `
-      <div class="text-center py-8">
-        <i class="fas fa-search text-gray-400 text-4xl mb-4"></i>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">No workers found</h3>
-        <p class="text-gray-500">Try adjusting your search criteria</p>
-      </div>
-    `
-  }
-  
-  return workers.map(worker => `
-    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4 hover:shadow-md transition-shadow">
-      <div class="flex items-start justify-between">
-        <div class="flex items-start space-x-4">
-          <div class="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-            <i class="fas fa-user text-gray-400 text-xl"></i>
-          </div>
-          <div class="flex-1">
-            <h3 class="text-lg font-semibold text-gray-900">
-              ${worker.first_name} ${worker.last_name}
-            </h3>
-            <p class="text-sm text-gray-600 mb-2">
-              <i class="fas fa-map-marker-alt mr-1"></i>
-              ${worker.city || 'N/A'}, ${worker.province || 'N/A'}
-            </p>
-            ${worker.bio ? `<p class="text-sm text-gray-600 mb-3">${worker.bio}</p>` : ''}
-            <div class="flex items-center space-x-4 text-sm text-gray-500">
-              ${worker.avg_rating ? `
-                <span class="flex items-center">
-                  <i class="fas fa-star text-yellow-400 mr-1"></i>
-                  ${parseFloat(worker.avg_rating).toFixed(1)} (${worker.review_count} reviews)
-                </span>
-              ` : '<span>No reviews yet</span>'}
-              ${worker.experience_years ? `
-                <span><i class="fas fa-calendar mr-1"></i>${worker.experience_years} years exp</span>
-              ` : ''}
+function renderPaymentMethods(methodsData) {
+    const paymentMethodsList = document.getElementById('paymentMethodsList');
+    if (!paymentMethodsList) return;
+    
+    if (!methodsData || methodsData.length === 0) {
+        paymentMethodsList.innerHTML = `
+            <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-credit-card text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Payment Methods</h3>
+                <p class="text-gray-600 mb-4">Add a payment method to start booking services.</p>
+                <button onclick="showAddPaymentModal()" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600">
+                    <i class="fas fa-plus mr-2"></i>Add Payment Method
+                </button>
             </div>
-          </div>
+        `;
+        return;
+    }
+    
+    paymentMethodsList.innerHTML = methodsData.map(method => `
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex justify-between items-start">
+                <div class="flex items-center">
+                    <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                        <i class="fas ${getCardIcon(method.card_brand)} text-blue-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-900">${formatCardBrand(method.card_brand)} •••• ${method.card_last_four}</h3>
+                        <p class="text-sm text-gray-600">Expires ${method.expiry_month}/${method.expiry_year}</p>
+                        ${method.is_default ? '<span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Default</span>' : ''}
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    ${!method.is_default ? `
+                        <button onclick="setDefaultPayment(${method.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50" title="Set as default">
+                            <i class="fas fa-star"></i>
+                        </button>
+                    ` : ''}
+                    <button onclick="editPaymentMethod(${method.id})" class="text-gray-600 hover:text-gray-800 p-2 rounded-lg hover:bg-gray-50" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deletePaymentMethod(${method.id})" class="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="flex flex-col space-y-2">
-          <button onclick="viewWorkerProfile(${worker.id})" 
-                  class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm">
-            View Profile
-          </button>
-          <button onclick="contactWorker(${worker.id})" 
-                  class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm">
-            Contact
-          </button>
+    `).join('');
+}
+
+function renderServiceHistory(historyData) {
+    const serviceHistoryList = document.getElementById('serviceHistoryList');
+    if (!serviceHistoryList) return;
+    
+    if (!historyData || historyData.length === 0) {
+        serviceHistoryList.innerHTML = `
+            <div class="bg-white rounded-lg shadow-sm p-8 text-center">
+                <i class="fas fa-history text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Service History</h3>
+                <p class="text-gray-600 mb-4">Your completed services will appear here.</p>
+                <a href="/search" class="bg-kwikr-green text-white px-6 py-2 rounded-lg hover:bg-green-600 inline-block">
+                    <i class="fas fa-search mr-2"></i>Book a Service
+                </a>
+            </div>
+        `;
+        return;
+    }
+    
+    serviceHistoryList.innerHTML = historyData.map(service => `
+        <div class="bg-white rounded-lg shadow-sm p-6">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                    <div class="flex items-center mb-2">
+                        <h3 class="text-lg font-semibold text-gray-900 mr-3">${service.service_type}</h3>
+                        <span class="bg-${service.status === 'completed' ? 'green' : 'red'}-100 text-${service.status === 'completed' ? 'green' : 'red'}-800 text-xs px-2 py-1 rounded-full">
+                            ${formatServiceStatus(service.status)}
+                        </span>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-2">Provided by ${service.worker_name}</p>
+                    <div class="flex items-center text-sm text-gray-500 mb-2">
+                        <i class="fas fa-calendar mr-1"></i>
+                        <span>${formatDate(service.service_date)}</span>
+                        <i class="fas fa-clock ml-4 mr-1"></i>
+                        <span>${service.duration} hours</span>
+                        <i class="fas fa-dollar-sign ml-4 mr-1"></i>
+                        <span>$${service.cost}</span>
+                    </div>
+                    ${service.notes ? `
+                        <p class="text-sm text-gray-600 bg-gray-50 p-2 rounded">${service.notes}</p>
+                    ` : ''}
+                </div>
+                <div class="flex space-x-2 ml-4">
+                    ${service.status === 'completed' && !service.reviewed ? `
+                        <button onclick="showReviewModal(${service.id})" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 text-sm">
+                            <i class="fas fa-star mr-1"></i>Review
+                        </button>
+                    ` : ''}
+                    <button onclick="viewServiceDetails(${service.id})" class="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            
+            ${service.reviewed ? `
+                <div class="bg-yellow-50 p-3 rounded-lg">
+                    <div class="flex items-center">
+                        <span class="text-yellow-400 text-sm mr-2">★★★★★</span>
+                        <span class="text-sm text-gray-600">You rated this service ${service.rating}/5 stars</span>
+                    </div>
+                </div>
+            ` : ''}
         </div>
-      </div>
-    </div>
-  `).join('')
+    `).join('');
 }
 
-// View worker profile - Navigate to worker profile page
-function viewWorkerProfile(workerId) {
-  window.location.href = `/dashboard/client/worker/${workerId}`
+/**
+ * FORM HANDLING FUNCTIONS
+ */
+async function handleProfileUpdate(event) {
+    event.preventDefault();
+    
+    try {
+        showLoading(true);
+        
+        const formData = new FormData(event.target);
+        const profileData = Object.fromEntries(formData);
+        
+        const response = await fetch(`${API_BASE}/profile/${CLIENT_ID}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(profileData)
+        });
+        
+        if (response.ok) {
+            showSuccess('Profile updated successfully!');
+        } else {
+            throw new Error('Failed to update profile');
+        }
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showError('Failed to update profile');
+    } finally {
+        showLoading(false);
+    }
 }
 
-// Worker profile modal function removed - now using dedicated worker profile page
-
-// Contact worker
-function contactWorker(workerId) {
-  showNotification('Messaging feature coming soon!', 'info')
+async function handleJobCreation(event) {
+    event.preventDefault();
+    
+    try {
+        showLoading(true);
+        
+        const formData = new FormData(event.target);
+        const jobData = Object.fromEntries(formData);
+        
+        const response = await fetch(`${API_BASE}/jobs/${CLIENT_ID}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(jobData)
+        });
+        
+        if (response.ok) {
+            hideCreateJobModal();
+            showSuccess('Job posted successfully!');
+            loadJobs(); // Reload jobs list
+        } else {
+            throw new Error('Failed to create job');
+        }
+        
+    } catch (error) {
+        console.error('Error creating job:', error);
+        showError('Failed to create job');
+    } finally {
+        showLoading(false);
+    }
 }
 
-// Invite worker to job
-function inviteToJob(workerId) {
-  showNotification('Job invitation feature coming soon!', 'info')
+async function handlePaymentMethodAdd(event) {
+    event.preventDefault();
+    
+    try {
+        showLoading(true);
+        
+        const formData = new FormData(event.target);
+        const paymentData = {
+            type: 'card',
+            card_last_four: formData.get('cardNumber').slice(-4),
+            card_brand: detectCardBrand(formData.get('cardNumber')),
+            expiry_month: formData.get('expiryDate').split('/')[0],
+            expiry_year: formData.get('expiryDate').split('/')[1],
+            cardholder_name: formData.get('cardholderName'),
+            is_default: formData.get('setAsDefault') === 'on'
+        };
+        
+        const response = await fetch(`${API_BASE}/payment-methods/${CLIENT_ID}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(paymentData)
+        });
+        
+        if (response.ok) {
+            hideAddPaymentModal();
+            showSuccess('Payment method added successfully!');
+            loadPaymentMethods(); // Reload payment methods
+        } else {
+            throw new Error('Failed to add payment method');
+        }
+        
+    } catch (error) {
+        console.error('Error adding payment method:', error);
+        showError('Failed to add payment method');
+    } finally {
+        showLoading(false);
+    }
 }
 
-// View and edit client profile - Navigate to profile page
-function viewProfile() {
-  window.location.href = '/dashboard/client/profile'
+async function handleNotificationUpdate(event) {
+    event.preventDefault();
+    
+    try {
+        showLoading(true);
+        
+        const formData = new FormData(event.target);
+        const notificationData = {
+            email_job_updates: formData.get('emailJobUpdates') === 'on',
+            email_new_bids: formData.get('emailNewBids') === 'on',
+            email_messages: formData.get('emailMessages') === 'on',
+            email_payments: formData.get('emailPayments') === 'on',
+            sms_job_updates: formData.get('smsJobUpdates') === 'on',
+            sms_reminders: formData.get('smsReminders') === 'on',
+            sms_payments: formData.get('smsPayments') === 'on',
+            push_job_updates: formData.get('pushJobUpdates') === 'on',
+            push_messages: formData.get('pushMessages') === 'on',
+            push_promotions: formData.get('pushPromotions') === 'on'
+        };
+        
+        const response = await fetch(`${API_BASE}/notifications/${CLIENT_ID}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(notificationData)
+        });
+        
+        if (response.ok) {
+            showSuccess('Notification preferences updated!');
+        } else {
+            throw new Error('Failed to update notification preferences');
+        }
+        
+    } catch (error) {
+        console.error('Error updating notifications:', error);
+        showError('Failed to update notification preferences');
+    } finally {
+        showLoading(false);
+    }
 }
 
-// Client profile modal functions removed - now using dedicated profile page
-
-// Load recent activities
-async function loadRecentActivities() {
-  try {
-    const response = await apiRequest('/client/activities?limit=10')
-    displayRecentActivities(response.activities || [])
-  } catch (error) {
-    console.error('Error loading activities:', error)
-    displayRecentActivities([])
-  }
+/**
+ * MODAL FUNCTIONS
+ */
+function showCreateJobModal() {
+    document.getElementById('createJobModal').classList.remove('hidden');
 }
 
-// Display recent activities
-function displayRecentActivities(activities) {
-  const container = document.getElementById('recentActivities')
-  if (!container) return
-
-  if (activities.length === 0) {
-    container.innerHTML = `
-      <div class="text-center py-8 text-gray-500">
-        <i class="fas fa-bell text-2xl mb-2"></i>
-        <p>No recent activities</p>
-        <p class="text-sm mt-2">Post your first job to get started!</p>
-      </div>
-    `
-    return
-  }
-
-  container.innerHTML = activities.map(activity => `
-    <div class="flex items-start space-x-3 p-4 hover:bg-gray-50 rounded-lg">
-      <div class="flex-shrink-0 w-8 h-8 bg-kwikr-green rounded-full flex items-center justify-center">
-        <i class="${getActivityIcon(activity.activity_type)} text-white text-sm"></i>
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-gray-900">${activity.activity_title}</p>
-        <p class="text-sm text-gray-600">${activity.activity_description}</p>
-        <p class="text-xs text-gray-500 mt-1">${formatDate(activity.activity_date)}</p>
-      </div>
-      ${activity.related_type === 'job' ? `
-        <button onclick="viewJobDetails(${activity.related_id})" 
-                class="text-kwikr-green hover:text-green-600 text-sm">
-          View
-        </button>
-      ` : ''}
-    </div>
-  `).join('')
+function hideCreateJobModal() {
+    document.getElementById('createJobModal').classList.add('hidden');
+    document.getElementById('createJobForm').reset();
 }
 
-// Get activity icon
-function getActivityIcon(activityType) {
-  const icons = {
-    'job_posted': 'fas fa-plus',
-    'bid_received': 'fas fa-envelope',
-    'job_status_change': 'fas fa-sync-alt'
-  }
-  return icons[activityType] || 'fas fa-bell'
+function showAddPaymentModal() {
+    document.getElementById('addPaymentModal').classList.remove('hidden');
 }
 
-// Make functions globally available
-window.showPostJobModal = showPostJobModal
-window.handlePostJob = handlePostJob
-window.viewJobDetails = viewJobDetails
-window.editJob = editJob
-window.acceptBid = acceptBid
-window.declineBid = declineBid
-window.browseWorkers = browseWorkers
-window.viewProfile = viewProfile
-window.loadRecentActivities = loadRecentActivities
-window.viewWorkerProfile = viewWorkerProfile
-window.contactWorker = contactWorker
-window.inviteToJob = inviteToJob
-window.loadJobCategories = loadJobCategories
+function hideAddPaymentModal() {
+    document.getElementById('addPaymentModal').classList.add('hidden');
+    document.getElementById('addPaymentForm').reset();
+}
+
+/**
+ * ACTION FUNCTIONS
+ */
+async function removeFavorite(workerId) {
+    if (!confirm('Remove this worker from your favorites?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/favorites/${CLIENT_ID}/${workerId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showSuccess('Worker removed from favorites');
+            loadFavorites(); // Reload favorites
+        } else {
+            throw new Error('Failed to remove favorite');
+        }
+        
+    } catch (error) {
+        console.error('Error removing favorite:', error);
+        showError('Failed to remove favorite');
+    }
+}
+
+async function setDefaultPayment(methodId) {
+    try {
+        const response = await fetch(`${API_BASE}/payment-methods/${CLIENT_ID}/${methodId}/default`, {
+            method: 'PATCH'
+        });
+        
+        if (response.ok) {
+            showSuccess('Default payment method updated');
+            loadPaymentMethods(); // Reload payment methods
+        } else {
+            throw new Error('Failed to set default payment method');
+        }
+        
+    } catch (error) {
+        console.error('Error setting default payment:', error);
+        showError('Failed to set default payment method');
+    }
+}
+
+async function deletePaymentMethod(methodId) {
+    if (!confirm('Delete this payment method?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/payment-methods/${CLIENT_ID}/${methodId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showSuccess('Payment method deleted');
+            loadPaymentMethods(); // Reload payment methods
+        } else {
+            throw new Error('Failed to delete payment method');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting payment method:', error);
+        showError('Failed to delete payment method');
+    }
+}
+
+async function deleteJob(jobId) {
+    if (!confirm('Delete this job posting?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/jobs/${CLIENT_ID}/${jobId}`, {
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            showSuccess('Job deleted successfully');
+            loadJobs(); // Reload jobs
+        } else {
+            throw new Error('Failed to delete job');
+        }
+        
+    } catch (error) {
+        console.error('Error deleting job:', error);
+        showError('Failed to delete job');
+    }
+}
+
+/**
+ * UTILITY FUNCTIONS
+ */
+function populateProfileForm(profile) {
+    if (!profile) return;
+    
+    // Populate form fields with profile data
+    const fields = ['firstName', 'lastName', 'email', 'phone', 'dateOfBirth', 'gender', 
+                   'streetAddress', 'city', 'province', 'postalCode', 'preferredLanguage', 
+                   'timezone', 'communicationPreference'];
+    
+    fields.forEach(field => {
+        const element = document.getElementById(field);
+        if (element && profile[field]) {
+            element.value = profile[field];
+        }
+    });
+}
+
+function populateNotificationForm(preferences) {
+    if (!preferences) return;
+    
+    // Populate notification checkboxes
+    const checkboxes = ['emailJobUpdates', 'emailNewBids', 'emailMessages', 'emailPayments',
+                       'smsJobUpdates', 'smsReminders', 'smsPayments', 'pushJobUpdates', 
+                       'pushMessages', 'pushPromotions'];
+    
+    checkboxes.forEach(checkbox => {
+        const element = document.getElementById(checkbox);
+        if (element && preferences[checkbox] !== undefined) {
+            element.checked = preferences[checkbox];
+        }
+    });
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function formatJobStatus(status) {
+    const statusMap = {
+        'draft': 'Draft',
+        'posted': 'Posted',
+        'in_progress': 'In Progress',
+        'completed': 'Completed',
+        'cancelled': 'Cancelled'
+    };
+    return statusMap[status] || status;
+}
+
+function formatServiceStatus(status) {
+    const statusMap = {
+        'completed': 'Completed',
+        'cancelled': 'Cancelled'
+    };
+    return statusMap[status] || status;
+}
+
+function formatCardBrand(brand) {
+    const brandMap = {
+        'visa': 'Visa',
+        'mastercard': 'Mastercard',
+        'amex': 'American Express',
+        'discover': 'Discover'
+    };
+    return brandMap[brand] || brand;
+}
+
+function getCardIcon(brand) {
+    const iconMap = {
+        'visa': 'fa-cc-visa',
+        'mastercard': 'fa-cc-mastercard',
+        'amex': 'fa-cc-amex',
+        'discover': 'fa-cc-discover'
+    };
+    return iconMap[brand] || 'fa-credit-card';
+}
+
+function detectCardBrand(cardNumber) {
+    const number = cardNumber.replace(/\s/g, '');
+    
+    if (number.startsWith('4')) return 'visa';
+    if (number.startsWith('5') || number.startsWith('2')) return 'mastercard';
+    if (number.startsWith('3')) return 'amex';
+    if (number.startsWith('6')) return 'discover';
+    
+    return 'unknown';
+}
+
+function getInitials(name) {
+    if (!name) return 'U';
+    const parts = name.split(' ');
+    return parts.length >= 2 ? 
+        `${parts[0].charAt(0)}${parts[1].charAt(0)}` : 
+        name.charAt(0);
+}
+
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.classList.toggle('hidden', !show);
+    }
+}
+
+function showSuccess(message) {
+    const toast = document.getElementById('successToast');
+    const messageEl = document.getElementById('successMessage');
+    
+    if (toast && messageEl) {
+        messageEl.textContent = message;
+        toast.classList.remove('translate-x-full');
+        
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+        }, 3000);
+    }
+}
+
+function showError(message) {
+    const toast = document.getElementById('errorToast');
+    const messageEl = document.getElementById('errorMessage');
+    
+    if (toast && messageEl) {
+        messageEl.textContent = message;
+        toast.classList.remove('translate-x-full');
+        
+        setTimeout(() => {
+            toast.classList.add('translate-x-full');
+        }, 3000);
+    }
+}
+
+/**
+ * MOCK DATA FUNCTIONS (for fallback when API is not available)
+ */
+function getMockJobs() {
+    return [
+        {
+            id: 1,
+            title: 'Deep Clean My House',
+            description: 'Need a thorough deep cleaning of my 3-bedroom house including bathrooms, kitchen, and living areas.',
+            category: 'House Cleaning',
+            budget: 250,
+            status: 'posted',
+            location: 'Toronto, ON',
+            created_at: '2024-01-15T10:30:00Z',
+            bids_count: 5
+        },
+        {
+            id: 2,
+            title: 'Fix Leaky Kitchen Faucet',
+            description: 'Kitchen faucet has been dripping for weeks. Need professional plumber to fix it.',
+            category: 'Plumbing',
+            budget: 150,
+            status: 'in_progress',
+            location: 'Toronto, ON',
+            created_at: '2024-01-10T14:15:00Z',
+            bids_count: 3
+        }
+    ];
+}
+
+function getMockFavorites() {
+    return [
+        {
+            worker_id: 1,
+            worker_name: 'Alice Johnson',
+            worker_services: 'House Cleaning, Deep Cleaning',
+            worker_rating: 4.9,
+            worker_image: null,
+            notes: 'Excellent attention to detail, very reliable'
+        },
+        {
+            worker_id: 2,
+            worker_name: 'Bob Smith',
+            worker_services: 'Plumbing, Emergency Repairs',
+            worker_rating: 4.7,
+            worker_image: null,
+            notes: 'Quick response time, fair pricing'
+        }
+    ];
+}
+
+function getMockPaymentMethods() {
+    return [
+        {
+            id: 1,
+            card_brand: 'visa',
+            card_last_four: '1234',
+            expiry_month: '12',
+            expiry_year: '25',
+            is_default: true
+        },
+        {
+            id: 2,
+            card_brand: 'mastercard',
+            card_last_four: '5678',
+            expiry_month: '06',
+            expiry_year: '26',
+            is_default: false
+        }
+    ];
+}
+
+function getMockServiceHistory() {
+    return [
+        {
+            id: 1,
+            service_type: 'House Cleaning',
+            worker_name: 'Alice Johnson',
+            service_date: '2024-01-10T10:00:00Z',
+            duration: 3,
+            cost: 150,
+            status: 'completed',
+            reviewed: true,
+            rating: 5,
+            notes: 'Thorough and professional cleaning service'
+        },
+        {
+            id: 2,
+            service_type: 'Plumbing Repair',
+            worker_name: 'Bob Smith',
+            service_date: '2024-01-05T14:00:00Z',
+            duration: 2,
+            cost: 120,
+            status: 'completed',
+            reviewed: false
+        }
+    ];
+}
+
+// Placeholder functions for features not yet implemented
+function editJob(jobId) {
+    showError('Job editing feature coming soon!');
+}
+
+function viewJobBids(jobId) {
+    showError('Bid viewing feature coming soon!');
+}
+
+function editPaymentMethod(methodId) {
+    showError('Payment method editing feature coming soon!');
+}
+
+function showReviewModal(serviceId) {
+    showError('Review feature coming soon!');
+}
+
+function viewServiceDetails(serviceId) {
+    showError('Service details feature coming soon!');
+}

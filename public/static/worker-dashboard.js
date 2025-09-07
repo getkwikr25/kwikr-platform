@@ -1753,6 +1753,257 @@ async function navigateToProfile() {
   }
 }
 
+// ===== NEW PROFILE SECTION FUNCTIONS =====
+
+// Hours of Operation Functions
+function editHours() {
+  const hoursDisplay = document.getElementById('hoursDisplay')
+  const hoursEditForm = document.getElementById('hoursEditForm')
+  
+  if (hoursDisplay) hoursDisplay.classList.add('hidden')
+  if (hoursEditForm) hoursEditForm.classList.remove('hidden')
+  
+  // Populate form with current hours
+  populateHoursForm()
+}
+
+function populateHoursForm() {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const hoursFormDays = document.getElementById('hoursFormDays')
+  
+  if (!hoursFormDays) return
+  
+  hoursFormDays.innerHTML = days.map(day => `
+    <div class="flex items-center space-x-3">
+      <div class="w-20 text-sm font-medium text-gray-700">${day}</div>
+      <input type="checkbox" id="open_${day.toLowerCase()}" class="rounded border-gray-300 text-kwikr-green focus:ring-kwikr-green" ${day !== 'Sunday' ? 'checked' : ''}>
+      <label for="open_${day.toLowerCase()}" class="text-sm text-gray-600">Open</label>
+      <div class="flex space-x-2">
+        <input type="time" id="start_${day.toLowerCase()}" value="${day !== 'Sunday' ? '08:00' : ''}" 
+               class="text-sm p-2 border border-gray-300 rounded focus:outline-none focus:border-kwikr-green" ${day === 'Sunday' ? 'disabled' : ''}>
+        <span class="text-gray-500 text-sm">to</span>
+        <input type="time" id="end_${day.toLowerCase()}" value="${day !== 'Sunday' ? '18:00' : ''}" 
+               class="text-sm p-2 border border-gray-300 rounded focus:outline-none focus:border-kwikr-green" ${day === 'Sunday' ? 'disabled' : ''}>
+      </div>
+    </div>
+  `).join('')
+  
+  // Add event listeners to checkboxes
+  days.forEach(day => {
+    const checkbox = document.getElementById(`open_${day.toLowerCase()}`)
+    const startInput = document.getElementById(`start_${day.toLowerCase()}`)
+    const endInput = document.getElementById(`end_${day.toLowerCase()}`)
+    
+    if (checkbox) {
+      checkbox.addEventListener('change', function() {
+        if (startInput) startInput.disabled = !this.checked
+        if (endInput) endInput.disabled = !this.checked
+      })
+    }
+  })
+}
+
+function cancelHoursEdit() {
+  const hoursDisplay = document.getElementById('hoursDisplay')
+  const hoursEditForm = document.getElementById('hoursEditForm')
+  
+  if (hoursDisplay) hoursDisplay.classList.remove('hidden')
+  if (hoursEditForm) hoursEditForm.classList.add('hidden')
+}
+
+async function saveHours(event) {
+  event.preventDefault()
+  
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const hoursData = {}
+  
+  days.forEach(day => {
+    const isOpen = document.getElementById(`open_${day.toLowerCase()}`).checked
+    const startTime = document.getElementById(`start_${day.toLowerCase()}`).value
+    const endTime = document.getElementById(`end_${day.toLowerCase()}`).value
+    
+    hoursData[day.toLowerCase()] = {
+      is_open: isOpen,
+      start_time: isOpen ? startTime : null,
+      end_time: isOpen ? endTime : null
+    }
+  })
+  
+  try {
+    await apiRequest('/worker/hours', {
+      method: 'PUT',
+      body: { hours: hoursData }
+    })
+    
+    showNotification('Hours of operation updated successfully!', 'success')
+    cancelHoursEdit()
+    
+    // Refresh the display
+    setTimeout(() => window.location.reload(), 1000)
+  } catch (error) {
+    console.error('Error saving hours:', error)
+    showNotification('Failed to save hours of operation', 'error')
+  }
+}
+
+// Service Area Map Functions
+function editServiceArea() {
+  showNotification('Service area editing functionality coming soon!', 'info')
+}
+
+function loadMap() {
+  // Initialize Google Maps (placeholder)
+  const mapContainer = document.getElementById('serviceAreaMap')
+  if (mapContainer) {
+    mapContainer.innerHTML = `
+      <div class="bg-gray-100 h-64 rounded-lg flex items-center justify-center">
+        <div class="text-center text-gray-500">
+          <i class="fas fa-map-marked-alt text-4xl mb-2"></i>
+          <p class="text-sm">Interactive Map</p>
+          <p class="text-xs">Google Maps integration coming soon</p>
+        </div>
+      </div>
+    `
+  }
+}
+
+// Service Pricing Functions
+function editPricing() {
+  const pricingDisplay = document.getElementById('pricingDisplay')
+  const pricingEditForm = document.getElementById('pricingEditForm')
+  
+  if (pricingDisplay) pricingDisplay.classList.add('hidden')
+  if (pricingEditForm) pricingEditForm.classList.remove('hidden')
+  
+  // Populate form with current pricing
+  populatePricingForm()
+}
+
+function populatePricingForm() {
+  const services = [
+    { id: 'cleaning', name: 'House Cleaning', rate: 45 },
+    { id: 'plumbing', name: 'Plumbing Services', rate: 85 },
+    { id: 'electrical', name: 'Electrical Work', rate: 95 },
+    { id: 'gardening', name: 'Landscaping', rate: 55 },
+    { id: 'painting', name: 'Painting', rate: 65 },
+    { id: 'handyman', name: 'General Handyman', rate: 50 }
+  ]
+  
+  const pricingFormServices = document.getElementById('pricingFormServices')
+  
+  if (!pricingFormServices) return
+  
+  pricingFormServices.innerHTML = services.map(service => `
+    <div class="border border-gray-200 rounded-lg p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center">
+          <input type="checkbox" id="service_${service.id}" class="rounded border-gray-300 text-kwikr-green focus:ring-kwikr-green" checked>
+          <label for="service_${service.id}" class="ml-2 text-sm font-medium text-gray-700">${service.name}</label>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="text-sm text-gray-500">$</span>
+          <input type="number" id="rate_${service.id}" value="${service.rate}" min="0" step="5"
+                 class="w-20 p-2 border border-gray-300 rounded focus:outline-none focus:border-kwikr-green text-right">
+          <span class="text-sm text-gray-500">/hr</span>
+        </div>
+      </div>
+    </div>
+  `).join('')
+}
+
+function cancelPricingEdit() {
+  const pricingDisplay = document.getElementById('pricingDisplay')
+  const pricingEditForm = document.getElementById('pricingEditForm')
+  
+  if (pricingDisplay) pricingDisplay.classList.remove('hidden')
+  if (pricingEditForm) pricingEditForm.classList.add('hidden')
+}
+
+async function savePricing(event) {
+  event.preventDefault()
+  
+  const services = ['cleaning', 'plumbing', 'electrical', 'gardening', 'painting', 'handyman']
+  const pricingData = {}
+  
+  services.forEach(serviceId => {
+    const isEnabled = document.getElementById(`service_${serviceId}`).checked
+    const rate = parseFloat(document.getElementById(`rate_${serviceId}`).value)
+    
+    pricingData[serviceId] = {
+      enabled: isEnabled,
+      hourly_rate: rate
+    }
+  })
+  
+  try {
+    await apiRequest('/worker/pricing', {
+      method: 'PUT',
+      body: { pricing: pricingData }
+    })
+    
+    showNotification('Service pricing updated successfully!', 'success')
+    cancelPricingEdit()
+    
+    // Refresh the display
+    setTimeout(() => window.location.reload(), 1000)
+  } catch (error) {
+    console.error('Error saving pricing:', error)
+    showNotification('Failed to save service pricing', 'error')
+  }
+}
+
+// Reviews and Testimonials Functions
+function viewAllReviews() {
+  showNotification('Full reviews management feature coming soon!', 'info')
+}
+
+async function loadReviews() {
+  try {
+    const response = await apiRequest('/worker/reviews')
+    const reviews = response.reviews || []
+    
+    const reviewsContainer = document.getElementById('reviewsContainer')
+    if (!reviewsContainer) return
+    
+    if (reviews.length === 0) {
+      reviewsContainer.innerHTML = `
+        <div class="text-center py-8 text-gray-500">
+          <i class="fas fa-star text-4xl mb-4"></i>
+          <p class="text-lg">No reviews yet</p>
+          <p class="text-sm">Complete your first job to start receiving reviews</p>
+        </div>
+      `
+      return
+    }
+    
+    const reviewsHtml = reviews.slice(0, 3).map(review => `
+      <div class="border-l-4 border-kwikr-green pl-4">
+        <div class="flex items-center mb-2">
+          <div class="text-yellow-400">
+            ${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}
+          </div>
+          <span class="ml-2 text-sm text-gray-500">${formatDate(review.created_at)}</span>
+        </div>
+        <p class="text-gray-700 text-sm mb-2">"${review.comment}"</p>
+        <p class="text-xs text-gray-500">- ${review.client_name}</p>
+      </div>
+    `).join('')
+    
+    reviewsContainer.innerHTML = reviewsHtml
+    
+  } catch (error) {
+    console.error('Error loading reviews:', error)
+    const reviewsContainer = document.getElementById('reviewsContainer')
+    if (reviewsContainer) {
+      reviewsContainer.innerHTML = `
+        <div class="text-center py-4 text-gray-500">
+          <p class="text-sm">Unable to load reviews</p>
+        </div>
+      `
+    }
+  }
+}
+
 // Make functions globally available
 window.loadAvailableJobs = loadAvailableJobs
 window.navigateToProfile = navigateToProfile
@@ -1778,6 +2029,20 @@ window.modifyBid = modifyBid
 window.closeModifyBidModal = closeModifyBidModal
 window.submitModifiedBid = submitModifiedBid
 window.loadJobsPage = loadJobsPage
+
+// New profile section functions
+window.editHours = editHours
+window.cancelHoursEdit = cancelHoursEdit
+window.saveHours = saveHours
+window.populateHoursForm = populateHoursForm
+window.editServiceArea = editServiceArea
+window.loadMap = loadMap
+window.editPricing = editPricing
+window.cancelPricingEdit = cancelPricingEdit
+window.savePricing = savePricing
+window.populatePricingForm = populatePricingForm
+window.viewAllReviews = viewAllReviews
+window.loadReviews = loadReviews
 
 // Additional helper functions for services management
 window.showAddServiceForm = showAddServiceForm

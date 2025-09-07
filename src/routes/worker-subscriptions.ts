@@ -34,7 +34,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
       <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Subscription Plans - Kwikr Directory</title>
+          <title>Subscription Plans - getKwikr</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <script>
             tailwind.config = {
@@ -58,7 +58,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
                   <div class="flex justify-between items-center h-16">
                       <div class="flex items-center">
                           <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                              <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                              <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                           </a>
                       </div>
                       <div class="flex items-center space-x-4">
@@ -176,8 +176,12 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
 
                               <!-- CTA Button -->
                               <div class="text-center">
-                                  <button onclick="selectPlan(${plan.id}, '${plan.plan_name}', ${plan.monthly_price})" 
-                                          class="w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
+                                  <a href="/signup/worker?plan=${
+                                            plan.plan_slug === 'pay-as-you-go' ? 'payasyougo' :
+                                            plan.plan_slug === 'growth-plan' ? 'growth' :
+                                            plan.plan_slug === 'pro-plan' ? 'pro' : 'payasyougo'
+                                          }" 
+                                          class="w-full py-3 px-6 rounded-lg font-semibold transition-all duration-300 block text-center ${
                                             plan.plan_slug === 'pay-as-you-go' ? 
                                               'bg-gray-800 text-white hover:bg-gray-900' :
                                             isRecommended ? 
@@ -189,7 +193,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
                                       ${plan.monthly_price === 0 ? 'GET STARTED FOR FREE' : 
                                         plan.plan_slug === 'growth-plan' ? 'GET THE GROWTH PLAN' : 
                                         'GET THE PRO PLAN'}
-                                  </button>
+                                  </a>
                                   
                                   ${plan.monthly_price === 0 ? `
                                       <div class="mt-3 flex items-center justify-center text-sm text-green-600">
@@ -357,22 +361,7 @@ workerSubscriptionRoutes.get('/pricing', async (c) => {
                   });
               }
 
-              function selectPlan(planId, planName, price) {
-                  // Check if user is logged in
-                  const sessionToken = localStorage.getItem('sessionToken');
-                  
-                  if (!sessionToken) {
-                      alert('Please sign in to select a subscription plan.');
-                      return;
-                  }
-
-                  // For now, just show a message
-                  if (price === 0) {
-                      alert(\`You've selected the \${planName} plan! This plan is free to start.\`);
-                  } else {
-                      alert(\`You've selected the \${planName} plan at $\${price}/month. Subscription management coming soon!\`);
-                  }
-              }
+              // Plan selection now uses direct links to signup pages - no JavaScript function needed
 
               function showLoginModal() {
                   alert('Login modal coming soon!');

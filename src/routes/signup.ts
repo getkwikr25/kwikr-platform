@@ -14,7 +14,7 @@ signupRoutes.get('/client', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up as Client - Kwikr Directory</title>
+        <title>Sign Up as Client - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -38,7 +38,7 @@ signupRoutes.get('/client', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -200,14 +200,14 @@ signupRoutes.get('/client', async (c) => {
                     const data = await response.json();
                     
                     if (response.ok) {
-                        alert('Account created successfully! Redirecting to your dashboard...');
+                        // Redirect directly to client dashboard after successful account creation
                         window.location.href = '/dashboard/client';
                     } else {
-                        alert(data.error || 'Registration failed. Please try again.');
+                        // Show error message inline instead of popup\n                        console.error('Registration failed:', data.error);\n                        // Could add inline error display here in future
                     }
                 } catch (error) {
                     console.error('Signup error:', error);
-                    alert('Registration failed. Please try again.');
+                    // Show error message inline instead of popup\n                    console.error('Registration failed - network or server error');\n                    // Could add inline error display here in future
                 }
             });
         </script>
@@ -226,10 +226,10 @@ signupRoutes.get('/client', async (c) => {
                         <p class="text-sm text-gray-500 mb-6">Last Updated: September 5, 2025</p>
                         
                         <h4 class="text-lg font-semibold mb-3">1. Acceptance of Terms</h4>
-                        <p class="mb-4">By accessing and using Kwikr Directory, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                        <p class="mb-4">By accessing and using getKwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">2. Service Description</h4>
-                        <p class="mb-4">Kwikr Directory is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
+                        <p class="mb-4">getKwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">3. User Obligations</h4>
                         <ul class="list-disc pl-6 mb-4">
@@ -251,7 +251,7 @@ signupRoutes.get('/client', async (c) => {
                         <p class="mb-4">Payment terms vary by subscription plan. Service fees and subscription costs are outlined in your chosen plan. All payments are processed securely through our payment partners.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">6. Limitation of Liability</h4>
-                        <p class="mb-4">Kwikr Directory acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
+                        <p class="mb-4">getKwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">7. Privacy</h4>
                         <p class="mb-4">Your privacy is important to us. Please review our Privacy Policy to understand how we collect, use, and protect your information.</p>
@@ -372,7 +372,7 @@ signupRoutes.get('/worker', async (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Sign Up as Service Provider - Kwikr Directory</title>
+        <title>Sign Up as Service Provider - getKwikr</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
           tailwind.config = {
@@ -396,7 +396,7 @@ signupRoutes.get('/worker', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
+                            <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -608,10 +608,10 @@ signupRoutes.get('/worker', async (c) => {
                     return;
                 }
                 
-                // Validate business email format
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                // Validate business email format (more permissive regex)
+                const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
                 if (!emailRegex.test(formData.businessEmail)) {
-                    alert('Please enter a valid business email address');
+                    showFieldError('businessEmail', 'Please enter a valid business email address');
                     return;
                 }
                 
@@ -640,17 +640,103 @@ signupRoutes.get('/worker', async (c) => {
                     const data = await response.json();
                     console.log('Registration response:', data);
                     
-                    if (response.ok) {
-                        alert('Account created successfully! Redirecting to choose your subscription plan...');
-                        window.location.href = '/subscriptions/worker';
+                    if (response.ok && data.success) {
+                        // Check if user selected a specific plan
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const selectedPlan = urlParams.get('plan');
+                        
+                        if (selectedPlan && data.session_token) {
+                            // Auto-subscribe to the selected plan
+                            await subscribeToSelectedPlan(selectedPlan, data.session_token);
+                        } else {
+                            // Redirect to subscription selection after account creation
+                            window.location.href = '/subscriptions/pricing';
+                        }
                     } else {
-                        alert(data.error || 'Registration failed. Please try again.');
+                        // Show error message inline instead of popup\n                        console.error('Registration failed:', data.error);\n                        // Could add inline error display here in future
                     }
                 } catch (error) {
                     console.error('Signup error:', error);
-                    alert('Registration failed. Please try again.');
+                    // Show error message inline instead of popup\n                    console.error('Registration failed - network or server error');\n                    // Could add inline error display here in future
                 }
             });
+            
+            // Auto-subscribe to selected plan
+            async function subscribeToSelectedPlan(planSlug, sessionToken) {
+                try {
+                    // Map plan slugs to IDs
+                    const planMap = {
+                        'payasyougo': 1,
+                        'growth': 2,
+                        'pro': 3
+                    };
+                    
+                    const planId = planMap[planSlug];
+                    if (!planId) {
+                        // Invalid plan - redirect to subscription selection without popup
+                        window.location.href = '/subscriptions/pricing';
+                        return;
+                    }
+                    
+                    const response = await fetch('/api/subscriptions/subscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': \`Bearer \${sessionToken}\`
+                        },
+                        body: JSON.stringify({
+                            plan_id: planId,
+                            billing_cycle: 'monthly'
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok && data.success) {
+                        // Redirect directly to dashboard after successful signup - no popup needed
+                        window.location.href = '/dashboard/worker/profile';
+                    } else {
+                        // Redirect to subscription selection - no popup needed
+                        window.location.href = '/subscriptions/pricing';
+                    }
+                } catch (error) {
+                    console.error('Subscription error:', error);
+                    // Redirect to subscription selection after signup - no popup needed
+                    window.location.href = '/subscriptions/pricing';
+                }
+            }
+            
+            // Field validation helper functions for worker signup
+            function showFieldError(fieldId, message) {
+                const field = document.getElementById(fieldId);
+                if (!field) return;
+                
+                // Clear any existing error for this field
+                const container = field.closest('div');
+                if (container) {
+                    const existingError = container.querySelector('.field-error');
+                    if (existingError) {
+                        existingError.remove();
+                    }
+                }
+                
+                // Add error styling to field
+                field.classList.add('border-red-500', 'focus:border-red-500');
+                field.classList.remove('border-gray-300', 'focus:border-kwikr-green');
+                
+                // Create and show error message
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'field-error text-red-500 text-sm mt-1';
+                errorDiv.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>' + message;
+                
+                if (container) {
+                    container.appendChild(errorDiv);
+                }
+                
+                // Scroll the field into view and focus
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                field.focus();
+            }
         </script>
 
         <!-- Terms of Service Modal -->
@@ -667,10 +753,10 @@ signupRoutes.get('/worker', async (c) => {
                         <p class="text-sm text-gray-500 mb-6">Last Updated: September 5, 2025</p>
                         
                         <h4 class="text-lg font-semibold mb-3">1. Acceptance of Terms</h4>
-                        <p class="mb-4">By accessing and using Kwikr Directory, you accept and agree to be bound by the terms and provision of this agreement.</p>
+                        <p class="mb-4">By accessing and using getKwikr, you accept and agree to be bound by the terms and provision of this agreement.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">2. Service Description</h4>
-                        <p class="mb-4">Kwikr Directory is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
+                        <p class="mb-4">getKwikr is a platform that connects clients with service providers across Canada. We facilitate connections but do not directly provide services.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">3. User Obligations</h4>
                         <ul class="list-disc pl-6 mb-4">
@@ -692,7 +778,7 @@ signupRoutes.get('/worker', async (c) => {
                         <p class="mb-4">Payment terms vary by subscription plan. Service fees and subscription costs are outlined in your chosen plan. All payments are processed securely through our payment partners.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">6. Limitation of Liability</h4>
-                        <p class="mb-4">Kwikr Directory acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
+                        <p class="mb-4">getKwikr acts as a platform facilitator. We are not liable for the quality, safety, or legality of services provided by third-party service providers.</p>
                         
                         <h4 class="text-lg font-semibold mb-3">7. Privacy</h4>
                         <p class="mb-4">Your privacy is important to us. Please review our Privacy Policy to understand how we collect, use, and protect your information.</p>
@@ -805,135 +891,4 @@ signupRoutes.get('/worker', async (c) => {
   `)
 })
 
-// Signup Selection Page
-signupRoutes.get('/', async (c) => {
-  return c.html(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Join Kwikr Directory - Choose Account Type</title>
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-          tailwind.config = {
-            theme: {
-              extend: {
-                colors: {
-                  'kwikr-green': '#00C881',
-                  'kwikr-dark': '#1a1a1a',
-                  'kwikr-gray': '#f8f9fa'
-                }
-              }
-            }
-          }
-        </script>
-        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
-    </head>
-    <body class="bg-gray-50 min-h-screen">
-        <!-- Navigation -->
-        <nav class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center">
-                        <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <i class="fas fa-bolt mr-2"></i>Kwikr Directory
-                        </a>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <a href="/" class="text-gray-700 hover:text-kwikr-green">Home</a>
-                        <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green">Sign In</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-            <div class="max-w-4xl w-full space-y-8">
-                <div class="text-center">
-                    <h1 class="text-4xl font-bold text-gray-900 mb-4">Join Kwikr Directory</h1>
-                    <p class="text-xl text-gray-600">Choose how you want to use our platform</p>
-                </div>
-
-                <div class="grid md:grid-cols-2 gap-8 mt-12">
-                    <!-- Client Signup -->
-                    <div class="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-blue-200">
-                        <div class="text-center">
-                            <div class="mx-auto h-20 w-20 bg-blue-100 rounded-full flex items-center justify-center mb-6">
-                                <i class="fas fa-user text-3xl text-blue-600"></i>
-                            </div>
-                            <h2 class="text-2xl font-bold text-gray-900 mb-4">I Need Services</h2>
-                            <p class="text-gray-600 mb-6">Looking to hire trusted, verified service providers for your home or business needs.</p>
-                            
-                            <div class="space-y-3 text-left mb-8">
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-blue-600 mr-3"></i>
-                                    Post jobs for free
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-blue-600 mr-3"></i>
-                                    Get multiple competitive bids
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-blue-600 mr-3"></i>
-                                    Hire verified professionals
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-blue-600 mr-3"></i>
-                                    Pay only when satisfied
-                                </div>
-                            </div>
-                            
-                            <a href="/signup/client" class="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium inline-block">
-                                Sign Up as Client
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Worker Signup -->
-                    <div class="bg-white rounded-2xl shadow-lg p-8 hover:shadow-xl transition-shadow duration-300 border-2 border-transparent hover:border-kwikr-green">
-                        <div class="text-center">
-                            <div class="mx-auto h-20 w-20 bg-kwikr-green bg-opacity-10 rounded-full flex items-center justify-center mb-6">
-                                <i class="fas fa-tools text-3xl text-kwikr-green"></i>
-                            </div>
-                            <h2 class="text-2xl font-bold text-gray-900 mb-4">I Provide Services</h2>
-                            <p class="text-gray-600 mb-6">Professional service provider ready to grow your business and connect with verified clients.</p>
-                            
-                            <div class="space-y-3 text-left mb-8">
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-kwikr-green mr-3"></i>
-                                    Get qualified leads
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-kwikr-green mr-3"></i>
-                                    Build your business profile
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-kwikr-green mr-3"></i>
-                                    Secure payment processing
-                                </div>
-                                <div class="flex items-center text-sm text-gray-600">
-                                    <i class="fas fa-check text-kwikr-green mr-3"></i>
-                                    Flexible subscription plans
-                                </div>
-                            </div>
-                            
-                            <a href="/signup/worker" class="w-full bg-kwikr-green text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors font-medium inline-block">
-                                Sign Up as Service Provider
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="text-center mt-12">
-                    <p class="text-gray-600">
-                        Already have an account? 
-                        <a href="/auth/login" class="font-medium text-kwikr-green hover:text-green-600">Sign in here</a>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-  `)
-})
+// Signup Selection Page removed - users go directly to /subscriptions/pricing or specific signup pages

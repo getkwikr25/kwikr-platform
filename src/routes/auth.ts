@@ -62,10 +62,10 @@ authRoutes.post('/register', async (c) => {
     // Secure password hashing using PBKDF2
     const { hash: passwordHash, salt: passwordSalt } = await PasswordUtils.hashPassword(password)
     
-    // Insert new user - handle optional business fields for clients
+    // Insert new user - remove service_type as it doesn't exist in users table
     const result = await c.env.DB.prepare(`
-      INSERT INTO users (email, password_hash, password_salt, role, first_name, last_name, province, city, phone, business_name, business_email, service_type)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO users (email, password_hash, password_salt, role, first_name, last_name, province, city, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       email, 
       passwordHash, 
@@ -75,20 +75,37 @@ authRoutes.post('/register', async (c) => {
       lastName, 
       province, 
       city, 
-      phone || null, 
-      businessName || null, 
-      businessEmail || null, 
-      serviceType || null
+      phone || null
     ).run()
     
     if (!result.success) {
       return c.json({ error: 'Failed to create user' }, 500)
     }
     
-    // Create user profile
-    await c.env.DB.prepare(`
-      INSERT INTO user_profiles (user_id) VALUES (?)
-    `).bind(result.meta.last_row_id).run()
+    // Create user profile with business information for workers
+    if (role === 'worker') {
+      await c.env.DB.prepare(`
+        INSERT INTO user_profiles (user_id, company_name) VALUES (?, ?)
+      `).bind(result.meta.last_row_id, businessName).run()
+      
+      // Create worker service record based on selected service type
+      if (serviceType) {
+        await c.env.DB.prepare(`
+          INSERT INTO worker_services (user_id, service_category, service_name, description, is_available)
+          VALUES (?, ?, ?, ?, 1)
+        `).bind(
+          result.meta.last_row_id, 
+          serviceType, 
+          serviceType, 
+          `Professional ${serviceType} services`
+        ).run()
+      }
+    } else {
+      // Create basic profile for clients
+      await c.env.DB.prepare(`
+        INSERT INTO user_profiles (user_id) VALUES (?)
+      `).bind(result.meta.last_row_id).run()
+    }
     
     // Create default subscription
     await c.env.DB.prepare(`
@@ -96,10 +113,35 @@ authRoutes.post('/register', async (c) => {
       VALUES (?, 'pay_as_you_go', 'active', 0.00, 12.00)
     `).bind(result.meta.last_row_id).run()
     
+    // Create session token automatically after successful registration
+    const sessionToken = btoa(`${result.meta.last_row_id}:${Date.now()}:${Math.random()}`)
+    
+    // Store session
+    await c.env.DB.prepare(`
+      INSERT INTO user_sessions (user_id, session_token, expires_at, ip_address)
+      VALUES (?, ?, datetime('now', '+7 days'), ?)
+    `).bind(result.meta.last_row_id, sessionToken, 'unknown').run()
+    
+    // Set session cookie for dashboard authentication
+    const host = c.req.header('host') || ''
+    const isHttps = host.includes('.dev') || c.req.header('x-forwarded-proto') === 'https'
+    c.header('Set-Cookie', `session=${sessionToken}; path=/; max-age=604800; secure=${isHttps}; samesite=lax`)
+    
     return c.json({ 
+      success: true,
       message: 'User created successfully',
       userId: result.meta.last_row_id,
-      role: role
+      role: role,
+      session_token: sessionToken,
+      user: {
+        id: result.meta.last_row_id,
+        email: email,
+        role: role,
+        firstName: firstName,
+        lastName: lastName,
+        province: province,
+        city: city
+      }
     })
     
   } catch (error) {
@@ -159,6 +201,11 @@ authRoutes.post('/login', async (c) => {
       INSERT INTO user_sessions (user_id, session_token, expires_at, ip_address)
       VALUES (?, ?, datetime('now', '+7 days'), ?)
     `).bind(user.id, sessionToken, 'unknown').run()
+    
+    // Set session cookie for dashboard authentication
+    const host = c.req.header('host') || ''
+    const isHttps = host.includes('.dev') || c.req.header('x-forwarded-proto') === 'https'
+    c.header('Set-Cookie', `session=${sessionToken}; path=/; max-age=604800; secure=${isHttps}; samesite=lax`)
     
     return c.json({
       message: 'Login successful',

@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Center - getKwikr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'kwikr-green': '#00C881',
+              'kwikr-dark': '#1a1a1a',
+              'kwikr-gray': '#f8f9fa'
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
+                        <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                    </a>
+                    <span class="ml-4 text-gray-400">|</span>
+                    <h1 class="ml-4 text-xl font-semibold text-gray-700">Notification Center</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <button id="notificationBell" class="text-gray-500 hover:text-gray-700 relative">
+                            <i class="fas fa-bell text-lg"></i>
+                            <span id="notificationBadge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center hidden">0</span>
+                        </button>
+                    </div>
+                    <button class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-user-circle text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Header with Quick Actions -->
+        <div class="mb-8">
+            <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow-lg text-white p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-2">Notification Management</h2>
+                        <p class="text-blue-100">Manage your notifications, preferences, and communication settings</p>
+                    </div>
+                    <div class="flex space-x-3">
+                        <button onclick="testInAppNotification()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-colors">
+                            <i class="fas fa-bell-slash mr-2"></i>Test In-App
+                        </button>
+                        <button onclick="testEmailNotification()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-colors">
+                            <i class="fas fa-envelope mr-2"></i>Test Email
+                        </button>
+                        <button onclick="testSMSNotification()" class="bg-white bg-opacity-20 text-white px-4 py-2 rounded-lg hover:bg-opacity-30 transition-colors">
+                            <i class="fas fa-sms mr-2"></i>Test SMS
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Tabs -->
+        <div class="bg-white rounded-lg shadow-sm mb-8">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('in-app')" id="tab-in-app" class="py-4 px-1 border-b-2 border-blue-500 text-blue-600 font-medium text-sm">
+                        <i class="fas fa-bell mr-2"></i>In-App Notifications
+                    </button>
+                    <button onclick="switchTab('preferences')" id="tab-preferences" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-cog mr-2"></i>Preferences
+                    </button>
+                    <button onclick="switchTab('history')" id="tab-history" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-history mr-2"></i>History
+                    </button>
+                    <button onclick="switchTab('push')" id="tab-push" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-mobile-alt mr-2"></i>Push Settings
+                    </button>
+                    <button onclick="switchTab('admin')" id="tab-admin" class="py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-shield-alt mr-2"></i>Admin Settings
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Tab Content -->
+        
+        <!-- In-App Notifications Tab -->
+        <div id="content-in-app" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Notifications List -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-6 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-gray-900">Recent Notifications</h3>
+                                <div class="flex items-center space-x-2">
+                                    <select id="filterUnread" onchange="loadNotifications()" class="text-sm border rounded-md px-3 py-1">
+                                        <option value="all">All Notifications</option>
+                                        <option value="unread">Unread Only</option>
+                                    </select>
+                                    <button onclick="markAllAsRead()" class="text-sm text-blue-600 hover:text-blue-800">
+                                        Mark All Read
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div id="notificationsList" class="space-y-4">
+                                <!-- Notifications will be loaded here -->
+                            </div>
+                            <div class="mt-6 text-center">
+                                <button onclick="loadMoreNotifications()" id="loadMoreBtn" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                    Load More
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="space-y-6">
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h4 class="font-semibold text-gray-900 mb-4">Notification Stats</h4>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Unread</span>
+                                <span id="unreadCount" class="font-semibold text-red-600">0</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">Today</span>
+                                <span id="todayCount" class="font-semibold">0</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-gray-600">This Week</span>
+                                <span id="weekCount" class="font-semibold">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <h4 class="font-semibold text-gray-900 mb-4">Quick Actions</h4>
+                        <div class="space-y-3">
+                            <button onclick="clearArchivedNotifications()" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded">
+                                <i class="fas fa-trash text-red-500 mr-2"></i>Clear Archived
+                            </button>
+                            <button onclick="exportNotifications()" class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded">
+                                <i class="fas fa-download text-blue-500 mr-2"></i>Export History
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Preferences Tab -->
+        <div id="content-preferences" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <!-- Email Preferences -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-envelope text-blue-600 mr-3"></i>
+                            <h3 class="text-lg font-semibold text-gray-900">Email Notifications</h3>
+                        </div>
+                        <div id="emailPreferences" class="space-y-4">
+                            <!-- Preferences will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- SMS Preferences -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-sms text-green-600 mr-3"></i>
+                            <h3 class="text-lg font-semibold text-gray-900">SMS Notifications</h3>
+                        </div>
+                        <div id="smsPreferences" class="space-y-4">
+                            <!-- Preferences will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- In-App Preferences -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-bell text-purple-600 mr-3"></i>
+                            <h3 class="text-lg font-semibold text-gray-900">In-App Notifications</h3>
+                        </div>
+                        <div id="inAppPreferences" class="space-y-4">
+                            <!-- Preferences will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Quiet Hours -->
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-moon text-indigo-600 mr-3"></i>
+                            <h3 class="text-lg font-semibold text-gray-900">Quiet Hours</h3>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Start Time</label>
+                                <input type="time" id="quietHoursStart" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">End Time</label>
+                                <input type="time" id="quietHoursEnd" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            </div>
+                            <button onclick="saveQuietHours()" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors">
+                                Save Quiet Hours
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification History Tab -->
+        <div id="content-history" class="tab-content hidden">
+            <div class="bg-white rounded-lg shadow-sm">
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Notification History</h3>
+                        <div class="flex items-center space-x-3">
+                            <select id="historyType" onchange="loadHistory()" class="text-sm border rounded-md px-3 py-1">
+                                <option value="">All Types</option>
+                                <option value="email">Email</option>
+                                <option value="sms">SMS</option>
+                                <option value="push">Push</option>
+                                <option value="in_app">In-App</option>
+                            </select>
+                            <select id="historyCategory" onchange="loadHistory()" class="text-sm border rounded-md px-3 py-1">
+                                <option value="">All Categories</option>
+                                <option value="job_alert">Job Alerts</option>
+                                <option value="payment">Payment</option>
+                                <option value="booking">Booking</option>
+                                <option value="system">System</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="security">Security</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div id="historyList" class="space-y-4">
+                        <!-- History will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Push Settings Tab -->
+        <div id="content-push" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-mobile-alt text-green-600 mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-900">Push Notifications</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div id="pushStatus" class="p-4 rounded-lg bg-gray-50">
+                            <div class="flex items-center">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                <span class="text-sm text-gray-600">Checking push notification status...</span>
+                            </div>
+                        </div>
+                        <button id="pushToggleBtn" onclick="togglePushNotifications()" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                            Enable Push Notifications
+                        </button>
+                        <div id="pushSubscriptions" class="space-y-3">
+                            <!-- Subscriptions will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-test-tube text-orange-600 mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-900">Test Push Notification</h3>
+                    </div>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Test Title</label>
+                            <input type="text" id="pushTestTitle" placeholder="Test Notification" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Test Message</label>
+                            <textarea id="pushTestMessage" placeholder="This is a test push notification" class="w-full px-3 py-2 border border-gray-300 rounded-lg rows-3"></textarea>
+                        </div>
+                        <button onclick="sendTestPush()" class="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
+                            Send Test Push
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Settings Tab -->
+        <div id="content-admin" class="tab-content hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-cogs text-red-600 mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-900">System Settings</h3>
+                    </div>
+                    <div id="adminSettings" class="space-y-4">
+                        <!-- Admin settings will be loaded here -->
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-chart-bar text-blue-600 mr-3"></i>
+                        <h3 class="text-lg font-semibold text-gray-900">Analytics</h3>
+                    </div>
+                    <div id="notificationAnalytics" class="space-y-4">
+                        <!-- Analytics will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2">
+        <!-- Toasts will be added here -->
+    </div>
+
+    <script>
+        // Global variables
+        let currentUserId = 1; // In a real app, get from authentication
+        let currentOffset = 0;
+        let currentTab = 'in-app';
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            switchTab('in-app');
+            updateNotificationBell();
+            checkPushNotificationSupport();
+        });
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Remove active state from all tabs
+            document.querySelectorAll('[id^="tab-"]').forEach(tab => {
+                tab.className = tab.className.replace('border-blue-500 text-blue-600', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300');
+            });
+
+            // Show selected tab content
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+
+            // Add active state to selected tab
+            const activeTab = document.getElementById(`tab-${tabName}`);
+            activeTab.className = activeTab.className.replace('border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300', 'border-blue-500 text-blue-600');
+
+            currentTab = tabName;
+
+            // Load data for the selected tab
+            switch (tabName) {
+                case 'in-app':
+                    loadNotifications();
+                    break;
+                case 'preferences':
+                    loadPreferences();
+                    break;
+                case 'history':
+                    loadHistory();
+                    break;
+                case 'push':
+                    loadPushSettings();
+                    break;
+                case 'admin':
+                    loadAdminSettings();
+                    loadAnalytics();
+                    break;
+            }
+        }
+
+        // Notification Bell
+        async function updateNotificationBell() {
+            try {
+                const response = await axios.get(`/api/notifications/in-app/${currentUserId}/count`);
+                const count = response.data.unread_count;
+                
+                const badge = document.getElementById('notificationBadge');
+                if (count > 0) {
+                    badge.textContent = count > 99 ? '99+' : count;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error updating notification bell:', error);
+            }
+        }
+
+        // Load In-App Notifications
+        async function loadNotifications(reset = true) {
+            if (reset) {
+                currentOffset = 0;
+            }
+
+            try {
+                const unreadOnly = document.getElementById('filterUnread').value === 'unread';
+                const response = await axios.get(`/api/notifications/in-app/${currentUserId}`, {
+                    params: {
+                        unread_only: unreadOnly,
+                        limit: 20,
+                        offset: currentOffset
+                    }
+                });
+
+                const container = document.getElementById('notificationsList');
+                if (reset) {
+                    container.innerHTML = '';
+                }
+
+                const notifications = response.data.notifications;
+                
+                if (notifications.length === 0 && reset) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-bell-slash text-4xl mb-4"></i>
+                            <p>No notifications found</p>
+                        </div>
+                    `;
+                } else {
+                    notifications.forEach(notification => {
+                        const notificationElement = createNotificationElement(notification);
+                        container.appendChild(notificationElement);
+                    });
+                }
+
+                // Update stats
+                document.getElementById('unreadCount').textContent = response.data.unread_count;
+                updateNotificationBell();
+
+                // Update load more button
+                const loadMoreBtn = document.getElementById('loadMoreBtn');
+                if (response.data.pagination.has_more) {
+                    loadMoreBtn.style.display = 'inline-block';
+                    currentOffset += notifications.length;
+                } else {
+                    loadMoreBtn.style.display = 'none';
+                }
+
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+                showToast('Error loading notifications', 'error');
+            }
+        }
+
+        function createNotificationElement(notification) {
+            const div = document.createElement('div');
+            div.className = `notification-item border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow ${notification.is_read ? 'bg-white' : 'bg-blue-50 border-blue-200'}`;
+            div.setAttribute('data-id', notification.id);
+
+            const priorityColor = {
+                'low': 'gray',
+                'normal': 'blue',
+                'high': 'orange',
+                'urgent': 'red'
+            }[notification.priority_level] || 'blue';
+
+            div.innerHTML = `
+                <div class="flex items-start space-x-4">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 rounded-full bg-${priorityColor}-100 flex items-center justify-center">
+                            <i class="${notification.icon_class} text-${priorityColor}-600"></i>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="flex items-center justify-between">
+                            <h4 class="font-medium text-gray-900">${notification.title}</h4>
+                            <span class="text-xs text-gray-500">${formatDate(notification.created_at)}</span>
+                        </div>
+                        <p class="text-gray-600 text-sm mt-1">${notification.message}</p>
+                        ${notification.action_url ? `
+                            <a href="${notification.action_url}" class="text-blue-600 hover:text-blue-800 text-sm font-medium mt-2 inline-block">
+                                ${notification.action_label || 'View Details'}
+                            </a>
+                        ` : ''}
+                        <div class="flex items-center space-x-3 mt-3">
+                            ${!notification.is_read ? `
+                                <button onclick="markAsRead(${notification.id})" class="text-blue-600 hover:text-blue-800 text-xs font-medium">
+                                    Mark as Read
+                                </button>
+                            ` : ''}
+                            <button onclick="archiveNotification(${notification.id})" class="text-gray-500 hover:text-gray-700 text-xs font-medium">
+                                Archive
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return div;
+        }
+
+        async function markAsRead(notificationId) {
+            try {
+                await axios.put(`/api/notifications/in-app/${notificationId}/read`, {
+                    user_id: currentUserId
+                });
+                
+                // Update the notification element
+                const element = document.querySelector(`[data-id="${notificationId}"]`);
+                if (element) {
+                    element.className = element.className.replace('bg-blue-50 border-blue-200', 'bg-white');
+                    const markReadBtn = element.querySelector('button[onclick*="markAsRead"]');
+                    if (markReadBtn) {
+                        markReadBtn.remove();
+                    }
+                }
+
+                updateNotificationBell();
+                showToast('Notification marked as read', 'success');
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+                showToast('Error marking notification as read', 'error');
+            }
+        }
+
+        async function archiveNotification(notificationId) {
+            try {
+                await axios.put(`/api/notifications/in-app/${notificationId}/archive`, {
+                    user_id: currentUserId
+                });
+                
+                // Remove the notification element
+                const element = document.querySelector(`[data-id="${notificationId}"]`);
+                if (element) {
+                    element.remove();
+                }
+
+                updateNotificationBell();
+                showToast('Notification archived', 'success');
+            } catch (error) {
+                console.error('Error archiving notification:', error);
+                showToast('Error archiving notification', 'error');
+            }
+        }
+
+        async function markAllAsRead() {
+            // This would need a bulk endpoint in a real implementation
+            showToast('Bulk actions coming soon!', 'info');
+        }
+
+        function loadMoreNotifications() {
+            loadNotifications(false);
+        }
+
+        // Load Preferences
+        async function loadPreferences() {
+            try {
+                const response = await axios.get(`/api/notifications/preferences/${currentUserId}`);
+                const preferences = response.data.preferences;
+
+                // Group preferences by type
+                const grouped = preferences.reduce((acc, pref) => {
+                    if (!acc[pref.preference_type]) acc[pref.preference_type] = [];
+                    acc[pref.preference_type].push(pref);
+                    return acc;
+                }, {});
+
+                // Render email preferences
+                renderPreferences('email', grouped.email || [], 'emailPreferences');
+                renderPreferences('sms', grouped.sms || [], 'smsPreferences');
+                renderPreferences('in_app', grouped.in_app || [], 'inAppPreferences');
+
+            } catch (error) {
+                console.error('Error loading preferences:', error);
+                showToast('Error loading preferences', 'error');
+            }
+        }
+
+        function renderPreferences(type, preferences, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            const categories = ['job_alert', 'payment', 'booking', 'system', 'marketing', 'security'];
+            
+            categories.forEach(category => {
+                const pref = preferences.find(p => p.category === category) || {
+                    preference_type: type,
+                    category: category,
+                    is_enabled: false,
+                    frequency: 'immediate'
+                };
+
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-3 border border-gray-200 rounded-lg';
+                div.innerHTML = `
+                    <div>
+                        <label class="font-medium text-gray-900">${formatCategoryName(category)}</label>
+                        <p class="text-sm text-gray-500">Receive notifications for ${category.replace('_', ' ')}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <select onchange="updatePreference('${type}', '${category}', 'frequency', this.value)" class="text-sm border rounded px-2 py-1">
+                            <option value="immediate" ${pref.frequency === 'immediate' ? 'selected' : ''}>Immediate</option>
+                            <option value="daily" ${pref.frequency === 'daily' ? 'selected' : ''}>Daily</option>
+                            <option value="weekly" ${pref.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+                            <option value="never" ${pref.frequency === 'never' ? 'selected' : ''}>Never</option>
+                        </select>
+                        <label class="flex items-center">
+                            <input type="checkbox" ${pref.is_enabled ? 'checked' : ''} 
+                                   onchange="updatePreference('${type}', '${category}', 'is_enabled', this.checked)" 
+                                   class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm">Enabled</span>
+                        </label>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        async function updatePreference(type, category, field, value) {
+            try {
+                await axios.put(`/api/notifications/preferences/${currentUserId}`, {
+                    preference_type: type,
+                    category: category,
+                    [field]: value
+                });
+                
+                showToast('Preference updated', 'success');
+            } catch (error) {
+                console.error('Error updating preference:', error);
+                showToast('Error updating preference', 'error');
+            }
+        }
+
+        // Load History
+        async function loadHistory() {
+            try {
+                const type = document.getElementById('historyType').value;
+                const category = document.getElementById('historyCategory').value;
+                
+                const response = await axios.get(`/api/notifications/history/${currentUserId}`, {
+                    params: {
+                        type: type || undefined,
+                        category: category || undefined,
+                        limit: 50
+                    }
+                });
+
+                const container = document.getElementById('historyList');
+                container.innerHTML = '';
+
+                const history = response.data.history;
+                
+                if (history.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-history text-4xl mb-4"></i>
+                            <p>No notification history found</p>
+                        </div>
+                    `;
+                } else {
+                    history.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'border border-gray-200 rounded-lg p-4';
+                        div.innerHTML = `
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <span class="text-sm font-medium px-2 py-1 rounded ${getTypeColor(item.notification_type)}">${item.notification_type.toUpperCase()}</span>
+                                        <span class="text-sm text-gray-500">${formatCategoryName(item.category)}</span>
+                                        <span class="text-sm px-2 py-1 rounded ${getStatusColor(item.status)}">${item.status.toUpperCase()}</span>
+                                    </div>
+                                    ${item.subject ? `<h4 class="font-medium text-gray-900 mb-1">${item.subject}</h4>` : ''}
+                                    <p class="text-gray-600 text-sm">${item.message_body}</p>
+                                    <div class="text-xs text-gray-500 mt-2">
+                                        Sent to: ${item.recipient_info} • ${formatDate(item.created_at)}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                showToast('Error loading history', 'error');
+            }
+        }
+
+        // Push Notifications
+        function checkPushNotificationSupport() {
+            const statusDiv = document.getElementById('pushStatus');
+            
+            if (!('serviceWorker' in navigator)) {
+                statusDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+                        <span class="text-sm text-red-600">Service Worker not supported</span>
+                    </div>
+                `;
+                return;
+            }
+
+            if (!('PushManager' in window)) {
+                statusDiv.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-red-500 mr-2"></i>
+                        <span class="text-sm text-red-600">Push messaging not supported</span>
+                    </div>
+                `;
+                return;
+            }
+
+            navigator.serviceWorker.ready.then(function(registration) {
+                return registration.pushManager.getSubscription();
+            }).then(function(subscription) {
+                if (subscription) {
+                    statusDiv.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span class="text-sm text-green-600">Push notifications are enabled</span>
+                        </div>
+                    `;
+                    document.getElementById('pushToggleBtn').textContent = 'Disable Push Notifications';
+                    document.getElementById('pushToggleBtn').className = 'w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors';
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="flex items-center">
+                            <i class="fas fa-bell-slash text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">Push notifications are disabled</span>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function loadPushSettings() {
+            // Load existing subscriptions would go here
+            checkPushNotificationSupport();
+        }
+
+        async function togglePushNotifications() {
+            // This is a simplified version - in production, you'd need a proper service worker
+            showToast('Push notification toggle functionality would be implemented with a service worker', 'info');
+        }
+
+        async function sendTestPush() {
+            const title = document.getElementById('pushTestTitle').value || 'Test Push';
+            const message = document.getElementById('pushTestMessage').value || 'This is a test push notification';
+            
+            try {
+                await axios.post(`/api/notifications/push/${currentUserId}/test`, {
+                    title,
+                    message
+                });
+                
+                showToast('Test push notification sent', 'success');
+            } catch (error) {
+                console.error('Error sending test push:', error);
+                showToast('Error sending test push', 'error');
+            }
+        }
+
+        // Admin Settings
+        async function loadAdminSettings() {
+            try {
+                const response = await axios.get('/api/notifications/admin/settings');
+                const settings = response.data.settings;
+
+                const container = document.getElementById('adminSettings');
+                container.innerHTML = '';
+
+                Object.entries(settings).forEach(([key, setting]) => {
+                    const div = document.createElement('div');
+                    div.className = 'space-y-2';
+                    div.innerHTML = `
+                        <label class="block text-sm font-medium text-gray-700">${formatSettingName(key)}</label>
+                        <input type="${setting.type === 'number' ? 'number' : setting.type === 'boolean' ? 'checkbox' : 'text'}" 
+                               value="${setting.type === 'boolean' ? '' : setting.value}" 
+                               ${setting.type === 'boolean' && setting.value ? 'checked' : ''}
+                               onchange="updateAdminSetting('${key}', this.${setting.type === 'boolean' ? 'checked' : 'value'}, '${setting.type}')"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <p class="text-xs text-gray-500">${setting.description}</p>
+                    `;
+                    container.appendChild(div);
+                });
+
+            } catch (error) {
+                console.error('Error loading admin settings:', error);
+                showToast('Error loading admin settings', 'error');
+            }
+        }
+
+        async function updateAdminSetting(key, value, type) {
+            try {
+                await axios.put(`/api/notifications/admin/settings/${key}`, {
+                    value,
+                    type
+                });
+                
+                showToast('Admin setting updated', 'success');
+            } catch (error) {
+                console.error('Error updating admin setting:', error);
+                showToast('Error updating admin setting', 'error');
+            }
+        }
+
+        async function loadAnalytics() {
+            try {
+                const response = await axios.get('/api/notifications/analytics');
+                const analytics = response.data.analytics;
+
+                const container = document.getElementById('notificationAnalytics');
+                container.innerHTML = '';
+
+                if (analytics.length === 0) {
+                    container.innerHTML = '<p class="text-gray-500 text-sm">No analytics data available</p>';
+                    return;
+                }
+
+                // Simple analytics display
+                const summary = analytics.reduce((acc, item) => {
+                    if (!acc[item.notification_type]) {
+                        acc[item.notification_type] = { sent: 0, delivered: 0, failed: 0 };
+                    }
+                    acc[item.notification_type].sent += item.total_sent;
+                    acc[item.notification_type].delivered += item.total_delivered;
+                    acc[item.notification_type].failed += item.total_failed;
+                    return acc;
+                }, {});
+
+                Object.entries(summary).forEach(([type, stats]) => {
+                    const div = document.createElement('div');
+                    div.className = 'border border-gray-200 rounded-lg p-4';
+                    div.innerHTML = `
+                        <h4 class="font-medium text-gray-900 mb-2">${type.toUpperCase()} Notifications</h4>
+                        <div class="grid grid-cols-3 gap-2 text-sm">
+                            <div class="text-center">
+                                <div class="font-bold text-blue-600">${stats.sent}</div>
+                                <div class="text-gray-500">Sent</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-bold text-green-600">${stats.delivered}</div>
+                                <div class="text-gray-500">Delivered</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="font-bold text-red-600">${stats.failed}</div>
+                                <div class="text-gray-500">Failed</div>
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                showToast('Error loading analytics', 'error');
+            }
+        }
+
+        // Test Functions
+        async function testInAppNotification() {
+            try {
+                await axios.post(`/api/notifications/in-app/${currentUserId}/test`, {
+                    title: 'Test In-App Notification',
+                    message: 'This is a test in-app notification to verify the system is working correctly.',
+                    category: 'system'
+                });
+                
+                showToast('Test in-app notification created', 'success');
+                if (currentTab === 'in-app') {
+                    loadNotifications();
+                }
+                updateNotificationBell();
+            } catch (error) {
+                console.error('Error creating test notification:', error);
+                showToast('Error creating test notification', 'error');
+            }
+        }
+
+        async function testEmailNotification() {
+            try {
+                await axios.post('/api/notifications/simulate/email', {
+                    user_id: currentUserId,
+                    template_name: 'welcome_email',
+                    data: {
+                        user_name: 'Test User',
+                        dashboard_url: '/dashboard'
+                    }
+                });
+                
+                showToast('Test email notification simulated (check console for details)', 'success');
+            } catch (error) {
+                console.error('Error simulating email:', error);
+                showToast('Error simulating email notification', 'error');
+            }
+        }
+
+        async function testSMSNotification() {
+            try {
+                await axios.post('/api/notifications/simulate/sms', {
+                    user_id: currentUserId,
+                    template_name: 'new_job_match_sms',
+                    data: {
+                        job_title: 'Test Job',
+                        location: 'Test City',
+                        budget: '100',
+                        short_url: 'https://kwikr.directory/job/123'
+                    }
+                });
+                
+                showToast('Test SMS notification simulated (check console for details)', 'success');
+            } catch (error) {
+                console.error('Error simulating SMS:', error);
+                showToast('Error simulating SMS notification', 'error');
+            }
+        }
+
+        // Utility Functions
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffInSeconds = Math.floor((now - date) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+            if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+            if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
+            
+            return date.toLocaleDateString();
+        }
+
+        function formatCategoryName(category) {
+            return category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        function formatSettingName(key) {
+            return key.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        }
+
+        function getTypeColor(type) {
+            const colors = {
+                'email': 'bg-blue-100 text-blue-800',
+                'sms': 'bg-green-100 text-green-800',
+                'push': 'bg-purple-100 text-purple-800',
+                'in_app': 'bg-gray-100 text-gray-800'
+            };
+            return colors[type] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'sent': 'bg-blue-100 text-blue-800',
+                'delivered': 'bg-green-100 text-green-800',
+                'failed': 'bg-red-100 text-red-800',
+                'cancelled': 'bg-gray-100 text-gray-800'
+            };
+            return colors[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                'success': 'bg-green-500',
+                'error': 'bg-red-500',
+                'warning': 'bg-yellow-500',
+                'info': 'bg-blue-500'
+            };
+
+            toast.className = `${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 transform translate-x-full transition-transform duration-300`;
+            toast.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                <span>${message}</span>
+                <button onclick="this.parentElement.remove()" class="ml-2 text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+
+            // Animate in
+            setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+
+            // Auto remove
+            setTimeout(() => {
+                toast.classList.add('translate-x-full');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+
+        // Placeholder functions
+        function saveQuietHours() {
+            showToast('Quiet hours saved', 'success');
+        }
+
+        function clearArchivedNotifications() {
+            showToast('Archived notifications cleared', 'success');
+        }
+
+        function exportNotifications() {
+            showToast('Export functionality coming soon!', 'info');
+        }
+    </script>
+</body>
+</html>

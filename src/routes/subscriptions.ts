@@ -8,7 +8,19 @@ export const subscriptionRoutes = new Hono<{ Bindings: Bindings }>()
 
 // Middleware to verify authentication
 const requireAuth = async (c: any, next: any) => {
-  const sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+  // Try to get session token from multiple sources
+  let sessionToken = c.req.header('Authorization')?.replace('Bearer ', '')
+  
+  // If no Authorization header, try to get from cookies
+  if (!sessionToken) {
+    const cookies = c.req.header('Cookie')
+    if (cookies) {
+      const match = cookies.match(/session=([^;]+)/)
+      if (match) {
+        sessionToken = match[1]
+      }
+    }
+  }
   
   if (!sessionToken) {
     return c.json({ error: 'Authentication required', expired: true }, 401)

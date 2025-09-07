@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File & Media Manager - getKwikr</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'kwikr-green': '#00C881',
+              'kwikr-dark': '#1a1a1a',
+              'kwikr-gray': '#f8f9fa'
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <style>
+        .drag-over {
+            background-color: #e0f7e9 !important;
+            border-color: #00C881 !important;
+            border-width: 2px !important;
+        }
+        
+        .file-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .upload-progress {
+            transition: width 0.3s ease;
+        }
+        
+        .image-preview {
+            max-width: 100px;
+            max-height: 100px;
+            object-fit: cover;
+        }
+        
+        .modal {
+            backdrop-filter: blur(4px);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .file-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b border-gray-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
+                        <img src="/getkwikr-logo.png" alt="getKwikr" class="h-8 w-8 mr-2 inline-block">getKwikr
+                    </a>
+                    <span class="ml-4 text-gray-400">|</span>
+                    <h1 class="ml-4 text-xl font-semibold text-gray-700">File Manager</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-600">
+                        <span id="quotaInfo">Loading quota...</span>
+                    </div>
+                    <button onclick="refreshFiles()" class="text-gray-500 hover:text-gray-700" title="Refresh">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                    <button class="text-gray-500 hover:text-gray-700" title="Settings">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-lg shadow-sm mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('upload')" id="uploadTab" class="tab-button py-4 px-1 border-b-2 border-kwikr-green text-kwikr-green font-medium text-sm">
+                        <i class="fas fa-upload mr-2"></i>Upload Files
+                    </button>
+                    <button onclick="switchTab('files')" id="filesTab" class="tab-button py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-folder mr-2"></i>My Files
+                    </button>
+                    <button onclick="switchTab('collections')" id="collectionsTab" class="tab-button py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-images mr-2"></i>Collections
+                    </button>
+                    <button onclick="switchTab('shared')" id="sharedTab" class="tab-button py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                        <i class="fas fa-share mr-2"></i>Shared Files
+                    </button>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Upload Tab -->
+        <div id="uploadContent" class="tab-content active">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Upload Files</h2>
+                        <p class="text-gray-600 mt-1">Drag and drop files or click to browse</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <select id="categorySelect" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Loading categories...</option>
+                        </select>
+                        <button onclick="clearUploads()" class="text-red-600 hover:text-red-800">
+                            <i class="fas fa-trash mr-1"></i>Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Upload Area -->
+                <div id="uploadArea" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-kwikr-green transition-colors cursor-pointer">
+                    <div class="space-y-4">
+                        <div class="text-6xl text-gray-400">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <div>
+                            <p class="text-lg font-medium text-gray-900">Drop files here or click to browse</p>
+                            <p class="text-gray-500">Supports images, documents, and more</p>
+                        </div>
+                        <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
+                            <span><i class="fas fa-image mr-1"></i>Images</span>
+                            <span><i class="fas fa-file-pdf mr-1"></i>Documents</span>
+                            <span><i class="fas fa-file-word mr-1"></i>Office Files</span>
+                        </div>
+                    </div>
+                    <input type="file" id="fileInput" multiple class="hidden">
+                </div>
+
+                <!-- Upload Options -->
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Visibility</label>
+                        <select id="visibilitySelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="private">Private</option>
+                            <option value="public">Public</option>
+                            <option value="shared">Shared</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Processing Options</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="generateThumbnail" checked class="mr-2 rounded">
+                                <span class="text-sm">Generate thumbnails</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="compressImages" class="mr-2 rounded">
+                                <span class="text-sm">Compress images</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                        <input type="text" id="tagsInput" placeholder="Enter tags separated by commas" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                    </div>
+                </div>
+
+                <!-- Upload Queue -->
+                <div id="uploadQueue" class="mt-8 space-y-4 hidden">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-900">Upload Queue</h3>
+                        <button onclick="startUploads()" id="startUploadBtn" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fas fa-play mr-2"></i>Start Upload
+                        </button>
+                    </div>
+                    <div id="uploadList" class="space-y-3">
+                        <!-- Upload items will be added here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Files Tab -->
+        <div id="filesContent" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm">
+                <!-- Filters and Search -->
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">
+                        <div class="flex items-center space-x-4">
+                            <h2 class="text-2xl font-bold text-gray-900">My Files</h2>
+                            <span id="fileCount" class="text-sm text-gray-500">Loading...</span>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <input type="text" id="searchFiles" placeholder="Search files..." 
+                                       class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                            <select id="filterCategory" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                <option value="">All Categories</option>
+                            </select>
+                            <select id="sortFiles" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                                <option value="created_at_desc">Newest First</option>
+                                <option value="created_at_asc">Oldest First</option>
+                                <option value="filename_asc">Name A-Z</option>
+                                <option value="filename_desc">Name Z-A</option>
+                                <option value="file_size_desc">Largest First</option>
+                                <option value="file_size_asc">Smallest First</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Files Grid -->
+                <div class="p-6">
+                    <div id="filesGrid" class="file-grid">
+                        <!-- Files will be loaded here -->
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="filesLoading" class="text-center py-12">
+                        <i class="fas fa-spinner fa-spin text-3xl text-gray-400"></i>
+                        <p class="text-gray-500 mt-2">Loading files...</p>
+                    </div>
+                    
+                    <!-- Empty State -->
+                    <div id="filesEmpty" class="text-center py-12 hidden">
+                        <i class="fas fa-folder-open text-4xl text-gray-400"></i>
+                        <p class="text-gray-500 mt-2">No files found</p>
+                        <button onclick="switchTab('upload')" class="mt-4 bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            <i class="fas fa-upload mr-2"></i>Upload Files
+                        </button>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div id="filesPagination" class="flex justify-center mt-8 hidden">
+                        <div class="flex items-center space-x-2">
+                            <button onclick="loadFiles(currentPage - 1)" id="prevBtn" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <span id="pageInfo" class="px-4 py-2 text-sm text-gray-600">Page 1</span>
+                            <button onclick="loadFiles(currentPage + 1)" id="nextBtn" class="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collections Tab -->
+        <div id="collectionsContent" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Collections</h2>
+                        <p class="text-gray-600 mt-1">Organize your files into albums and portfolios</p>
+                    </div>
+                    <button onclick="showCreateCollectionModal()" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                        <i class="fas fa-plus mr-2"></i>Create Collection
+                    </button>
+                </div>
+
+                <div id="collectionsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Collections will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Shared Files Tab -->
+        <div id="sharedContent" class="tab-content">
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold text-gray-900">Shared Files</h2>
+                        <p class="text-gray-600 mt-1">Files you've shared with others</p>
+                    </div>
+                    <button onclick="refreshSharedFiles()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+
+                <div id="sharedGrid" class="space-y-4">
+                    <!-- Shared files will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- File Details Modal -->
+    <div id="fileDetailsModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-screen overflow-y-auto">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-2xl font-bold text-gray-900">File Details</h3>
+                    <button onclick="closeFileDetailsModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+
+                <div id="fileDetailsContent">
+                    <!-- File details will be loaded here -->
+                </div>
+
+                <div class="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-200">
+                    <button onclick="closeFileDetailsModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Collection Modal -->
+    <div id="createCollectionModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Create Collection</h3>
+                    <button onclick="closeCreateCollectionModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="createCollectionForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Collection Name</label>
+                        <input type="text" id="collectionName" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                        <select id="collectionType" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="portfolio">Portfolio</option>
+                            <option value="album">Photo Album</option>
+                            <option value="document_set">Document Set</option>
+                            <option value="gallery">Gallery</option>
+                            <option value="archive">Archive</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                        <textarea id="collectionDescription" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="collectionPublic" class="mr-2 rounded">
+                            <span class="text-sm">Make public</span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="closeCreateCollectionModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            Create Collection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share File Modal -->
+    <div id="shareFileModal" class="modal fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-900">Share File</h3>
+                    <button onclick="closeShareFileModal()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="shareFileForm" class="space-y-4">
+                    <input type="hidden" id="shareFileId">
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Access Level</label>
+                        <select id="shareAccessLevel" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="view">View Only</option>
+                            <option value="download">View & Download</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Expiration</label>
+                        <select id="shareExpiration" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                            <option value="">Never expires</option>
+                            <option value="1">1 day</option>
+                            <option value="7">7 days</option>
+                            <option value="30">30 days</option>
+                            <option value="90">90 days</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password (Optional)</label>
+                        <input type="password" id="sharePassword" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-kwikr-green focus:border-kwikr-green">
+                    </div>
+                    
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="sharePublic" class="mr-2 rounded">
+                            <span class="text-sm">Public access (no login required)</span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                        <button type="button" onclick="closeShareFileModal()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button type="submit" class="bg-kwikr-green text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                            Create Share Link
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let uploadQueue = [];
+        let currentFiles = [];
+        let currentPage = 1;
+        let currentUser = 1; // Demo user ID
+        let fileCategories = [];
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                // Load file categories
+                await loadFileCategories();
+                
+                // Load user quota
+                await loadUserQuota();
+                
+                // Set up event listeners
+                setupEventListeners();
+                
+                // Load initial data
+                await loadFiles();
+                
+                showNotification('File manager loaded successfully', 'success');
+            } catch (error) {
+                console.error('Initialization error:', error);
+                showNotification('Failed to initialize file manager', 'error');
+            }
+        }
+
+        function setupEventListeners() {
+            // Upload area drag and drop
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', handleDragOver);
+            uploadArea.addEventListener('dragleave', handleDragLeave);
+            uploadArea.addEventListener('drop', handleDrop);
+
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // Search functionality
+            document.getElementById('searchFiles').addEventListener('input', debounce(searchFiles, 300));
+            document.getElementById('filterCategory').addEventListener('change', filterFiles);
+            document.getElementById('sortFiles').addEventListener('change', sortFiles);
+
+            // Form submissions
+            document.getElementById('createCollectionForm').addEventListener('submit', handleCreateCollection);
+            document.getElementById('shareFileForm').addEventListener('submit', handleCreateShare);
+        }
+
+        // Drag and drop handlers
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            
+            const files = Array.from(e.dataTransfer.files);
+            addFilesToQueue(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = Array.from(e.target.files);
+            addFilesToQueue(files);
+        }
+
+        function addFilesToQueue(files) {
+            const categoryId = document.getElementById('categorySelect').value;
+            if (!categoryId) {
+                showNotification('Please select a category first', 'error');
+                return;
+            }
+
+            files.forEach(file => {
+                const uploadItem = {
+                    id: Date.now() + Math.random(),
+                    file: file,
+                    status: 'pending',
+                    progress: 0,
+                    error: null
+                };
+
+                uploadQueue.push(uploadItem);
+                addUploadItemToUI(uploadItem);
+            });
+
+            // Show upload queue
+            document.getElementById('uploadQueue').classList.remove('hidden');
+            updateStartUploadButton();
+        }
+
+        function addUploadItemToUI(item) {
+            const uploadList = document.getElementById('uploadList');
+            const itemElement = document.createElement('div');
+            itemElement.id = `upload-${item.id}`;
+            itemElement.className = 'border border-gray-200 rounded-lg p-4 flex items-center justify-between';
+
+            const isImage = item.file.type.startsWith('image/');
+            const fileIcon = getFileIcon(item.file.type);
+
+            itemElement.innerHTML = `
+                <div class="flex items-center space-x-4">
+                    ${isImage ? 
+                        `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <i class="${fileIcon} text-gray-500"></i>
+                        </div>` :
+                        `<div class="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <i class="${fileIcon} text-gray-500"></i>
+                        </div>`
+                    }
+                    <div>
+                        <p class="font-medium text-gray-900">${item.file.name}</p>
+                        <p class="text-sm text-gray-500">${formatBytes(item.file.size)}</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex-1 max-w-32">
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div class="bg-kwikr-green h-2 rounded-full upload-progress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <span class="upload-status text-sm text-gray-500">Pending</span>
+                    <button onclick="removeFromQueue('${item.id}')" class="text-red-600 hover:text-red-800">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+
+            uploadList.appendChild(itemElement);
+        }
+
+        async function startUploads() {
+            const startButton = document.getElementById('startUploadBtn');
+            startButton.disabled = true;
+            startButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...';
+
+            const categoryId = document.getElementById('categorySelect').value;
+            const visibility = document.getElementById('visibilitySelect').value;
+            const generateThumbnail = document.getElementById('generateThumbnail').checked;
+            const compress = document.getElementById('compressImages').checked;
+            const tags = document.getElementById('tagsInput').value;
+
+            for (const item of uploadQueue) {
+                if (item.status === 'pending') {
+                    await uploadFile(item, {
+                        categoryId,
+                        visibility,
+                        generateThumbnail,
+                        compress,
+                        tags
+                    });
+                }
+            }
+
+            // Reset after all uploads complete
+            setTimeout(() => {
+                clearUploads();
+                loadFiles(); // Refresh file list
+                loadUserQuota(); // Update quota
+            }, 1000);
+        }
+
+        async function uploadFile(item, options) {
+            const itemElement = document.getElementById(`upload-${item.id}`);
+            const progressBar = itemElement.querySelector('.upload-progress');
+            const statusElement = itemElement.querySelector('.upload-status');
+
+            try {
+                item.status = 'uploading';
+                statusElement.textContent = 'Uploading...';
+                statusElement.className = 'upload-status text-sm text-blue-600';
+
+                const formData = new FormData();
+                formData.append('file', item.file);
+                formData.append('categoryId', options.categoryId);
+                formData.append('visibility', options.visibility);
+                formData.append('generateThumbnail', options.generateThumbnail);
+                formData.append('compress', options.compress);
+                if (options.tags) formData.append('tags', options.tags);
+
+                const response = await axios.post('/api/files/upload', formData, {
+                    headers: {
+                        'X-User-ID': currentUser,
+                        'Content-Type': 'multipart/form-data'
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        progressBar.style.width = percentCompleted + '%';
+                        item.progress = percentCompleted;
+                    }
+                });
+
+                if (response.data.success) {
+                    item.status = 'completed';
+                    statusElement.textContent = 'Completed';
+                    statusElement.className = 'upload-status text-sm text-green-600';
+                    itemElement.classList.add('bg-green-50', 'border-green-200');
+                } else {
+                    throw new Error(response.data.error || 'Upload failed');
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                item.status = 'failed';
+                item.error = error.response?.data?.error || error.message;
+                statusElement.textContent = 'Failed';
+                statusElement.className = 'upload-status text-sm text-red-600';
+                itemElement.classList.add('bg-red-50', 'border-red-200');
+                
+                showNotification(`Upload failed: ${item.error}`, 'error');
+            }
+        }
+
+        function removeFromQueue(itemId) {
+            uploadQueue = uploadQueue.filter(item => item.id !== itemId);
+            const itemElement = document.getElementById(`upload-${itemId}`);
+            if (itemElement) {
+                itemElement.remove();
+            }
+            updateStartUploadButton();
+        }
+
+        function clearUploads() {
+            uploadQueue = [];
+            document.getElementById('uploadList').innerHTML = '';
+            document.getElementById('uploadQueue').classList.add('hidden');
+            document.getElementById('startUploadBtn').disabled = false;
+            document.getElementById('startUploadBtn').innerHTML = '<i class="fas fa-play mr-2"></i>Start Upload';
+        }
+
+        function updateStartUploadButton() {
+            const button = document.getElementById('startUploadBtn');
+            const pendingUploads = uploadQueue.filter(item => item.status === 'pending');
+            button.disabled = pendingUploads.length === 0;
+        }
+
+        // Load functions
+        async function loadFileCategories() {
+            try {
+                const response = await axios.get('/api/files/categories');
+                if (response.data.success) {
+                    fileCategories = response.data.categories;
+                    populateCategorySelects();
+                }
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+            }
+        }
+
+        function populateCategorySelects() {
+            const selects = ['categorySelect', 'filterCategory'];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = selectId === 'filterCategory' ? '<option value="">All Categories</option>' : '<option value="">Select category</option>';
+                
+                fileCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.category_name;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        async function loadUserQuota() {
+            try {
+                const response = await axios.get(`/api/files/quota/user/${currentUser}`, {
+                    headers: { 'X-User-ID': currentUser }
+                });
+                
+                if (response.data.success) {
+                    const quota = response.data.quota;
+                    const quotaInfo = document.getElementById('quotaInfo');
+                    quotaInfo.innerHTML = `
+                        <div class="flex items-center space-x-2">
+                            <span>${quota.usedBytesFormatted} / ${quota.totalQuotaFormatted}</span>
+                            <div class="w-20 bg-gray-200 rounded-full h-2">
+                                <div class="bg-kwikr-green h-2 rounded-full" style="width: ${quota.percentUsed}%"></div>
+                            </div>
+                            <span class="text-xs">${quota.percentUsed}%</span>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to load quota:', error);
+            }
+        }
+
+        async function loadFiles(page = 1) {
+            try {
+                document.getElementById('filesLoading').classList.remove('hidden');
+                document.getElementById('filesGrid').innerHTML = '';
+                
+                const categoryFilter = document.getElementById('filterCategory').value;
+                const searchTerm = document.getElementById('searchFiles').value;
+                const sortOption = document.getElementById('sortFiles').value;
+                const [sortBy, sortOrder] = sortOption.split('_');
+
+                const params = {
+                    limit: 12,
+                    offset: (page - 1) * 12,
+                    sortBy,
+                    sortOrder
+                };
+
+                if (categoryFilter) params.categoryId = categoryFilter;
+                if (searchTerm) params.search = searchTerm;
+
+                const response = await axios.get(`/api/files/user/${currentUser}`, {
+                    headers: { 'X-User-ID': currentUser },
+                    params
+                });
+
+                if (response.data.success) {
+                    currentFiles = response.data.files;
+                    currentPage = page;
+                    displayFiles(currentFiles);
+                    updatePagination(response.data.pagination);
+                    updateFileCount(currentFiles.length);
+                }
+
+                document.getElementById('filesLoading').classList.add('hidden');
+
+            } catch (error) {
+                console.error('Failed to load files:', error);
+                document.getElementById('filesLoading').classList.add('hidden');
+                showNotification('Failed to load files', 'error');
+            }
+        }
+
+        function displayFiles(files) {
+            const grid = document.getElementById('filesGrid');
+            const emptyState = document.getElementById('filesEmpty');
+
+            if (files.length === 0) {
+                grid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            grid.innerHTML = files.map(file => {
+                const isImage = file.mime_type.startsWith('image/');
+                const fileIcon = getFileIcon(file.mime_type);
+                const statusColor = getStatusColor(file.upload_status);
+
+                return `
+                    <div class="file-item bg-white border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all duration-200 cursor-pointer">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex-1">
+                                ${isImage ? 
+                                    `<div class="w-full h-32 bg-gray-200 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                                        ${file.cdn_url ? 
+                                            `<img src="${file.cdn_url}" alt="${file.original_filename}" class="w-full h-full object-cover">` :
+                                            `<i class="${fileIcon} text-2xl text-gray-400"></i>`
+                                        }
+                                    </div>` :
+                                    `<div class="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                                        <i class="${fileIcon} text-4xl text-gray-400"></i>
+                                    </div>`
+                                }
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <h3 class="font-medium text-gray-900 truncate" title="${file.original_filename}">
+                                ${file.original_filename}
+                            </h3>
+                            <div class="flex items-center justify-between text-sm text-gray-500">
+                                <span>${formatBytes(file.file_size)}</span>
+                                <span class="px-2 py-1 rounded-full text-xs ${statusColor}">
+                                    ${file.upload_status}
+                                </span>
+                            </div>
+                            <div class="text-xs text-gray-400">
+                                ${new Date(file.created_at).toLocaleDateString()}
+                            </div>
+                            
+                            ${file.tags ? `
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                    ${JSON.parse(file.tags).slice(0, 3).map(tag => 
+                                        `<span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">${tag}</span>`
+                                    ).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        
+                        <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                            <div class="flex items-center space-x-2">
+                                <button onclick="downloadFile(${file.id})" class="text-blue-600 hover:text-blue-800" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button onclick="showFileDetails(${file.id})" class="text-gray-600 hover:text-gray-800" title="Details">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                                <button onclick="showShareFileModal(${file.id})" class="text-green-600 hover:text-green-800" title="Share">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                            </div>
+                            <button onclick="deleteFile(${file.id})" class="text-red-600 hover:text-red-800" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Utility functions
+        function getFileIcon(mimeType) {
+            if (mimeType.startsWith('image/')) return 'fas fa-image';
+            if (mimeType.startsWith('video/')) return 'fas fa-video';
+            if (mimeType.startsWith('audio/')) return 'fas fa-music';
+            if (mimeType.includes('pdf')) return 'fas fa-file-pdf';
+            if (mimeType.includes('word')) return 'fas fa-file-word';
+            if (mimeType.includes('excel')) return 'fas fa-file-excel';
+            if (mimeType.includes('powerpoint')) return 'fas fa-file-powerpoint';
+            return 'fas fa-file';
+        }
+
+        function getStatusColor(status) {
+            switch (status) {
+                case 'completed': return 'bg-green-100 text-green-800';
+                case 'pending': return 'bg-yellow-100 text-yellow-800';
+                case 'failed': return 'bg-red-100 text-red-800';
+                case 'processing': return 'bg-blue-100 text-blue-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 transform translate-x-full ${
+                type === 'success' ? 'bg-green-500 text-white' : 
+                type === 'error' ? 'bg-red-500 text-white' : 
+                'bg-blue-500 text-white'
+            }`;
+            
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.remove('translate-x-full'), 100);
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active state from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('border-kwikr-green', 'text-kwikr-green');
+                button.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + 'Content').classList.add('active');
+            
+            // Add active state to selected tab button
+            const activeButton = document.getElementById(tabName + 'Tab');
+            activeButton.classList.remove('border-transparent', 'text-gray-500');
+            activeButton.classList.add('border-kwikr-green', 'text-kwikr-green');
+            
+            // Load tab-specific data
+            if (tabName === 'files') {
+                loadFiles();
+            } else if (tabName === 'collections') {
+                loadCollections();
+            } else if (tabName === 'shared') {
+                loadSharedFiles();
+            }
+        }
+
+        // Additional functionality stubs
+        async function downloadFile(fileId) {
+            try {
+                window.open(`/api/files/${fileId}/download?X-User-ID=${currentUser}`, '_blank');
+            } catch (error) {
+                console.error('Download error:', error);
+                showNotification('Download failed', 'error');
+            }
+        }
+
+        async function deleteFile(fileId) {
+            if (!confirm('Are you sure you want to delete this file?')) return;
+            
+            try {
+                const response = await axios.delete(`/api/files/${fileId}`, {
+                    headers: { 'X-User-ID': currentUser }
+                });
+                
+                if (response.data.success) {
+                    showNotification('File deleted successfully', 'success');
+                    loadFiles(); // Refresh
+                    loadUserQuota(); // Update quota
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                showNotification('Failed to delete file', 'error');
+            }
+        }
+
+        function searchFiles() {
+            loadFiles(1); // Reset to first page when searching
+        }
+
+        function filterFiles() {
+            loadFiles(1); // Reset to first page when filtering
+        }
+
+        function sortFiles() {
+            loadFiles(1); // Reset to first page when sorting
+        }
+
+        function refreshFiles() {
+            loadFiles(currentPage);
+        }
+
+        function updateFileCount(count) {
+            document.getElementById('fileCount').textContent = `${count} files`;
+        }
+
+        function updatePagination(pagination) {
+            const paginationElement = document.getElementById('filesPagination');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const pageInfo = document.getElementById('pageInfo');
+
+            if (pagination.count > 0) {
+                paginationElement.classList.remove('hidden');
+                pageInfo.textContent = `Page ${currentPage}`;
+                prevBtn.disabled = currentPage === 1;
+                nextBtn.disabled = !pagination.hasMore;
+            } else {
+                paginationElement.classList.add('hidden');
+            }
+        }
+
+        // Modal functions
+        function showFileDetails(fileId) {
+            // Implementation for file details modal
+            console.log('Show file details for:', fileId);
+        }
+
+        function closeFileDetailsModal() {
+            document.getElementById('fileDetailsModal').classList.add('hidden');
+        }
+
+        function showCreateCollectionModal() {
+            document.getElementById('createCollectionModal').classList.remove('hidden');
+        }
+
+        function closeCreateCollectionModal() {
+            document.getElementById('createCollectionModal').classList.add('hidden');
+        }
+
+        function showShareFileModal(fileId) {
+            document.getElementById('shareFileId').value = fileId;
+            document.getElementById('shareFileModal').classList.remove('hidden');
+        }
+
+        function closeShareFileModal() {
+            document.getElementById('shareFileModal').classList.add('hidden');
+        }
+
+        async function handleCreateCollection(e) {
+            e.preventDefault();
+            // Implementation for creating collections
+            console.log('Create collection');
+        }
+
+        async function handleCreateShare(e) {
+            e.preventDefault();
+            // Implementation for creating file shares
+            console.log('Create file share');
+        }
+
+        async function loadCollections() {
+            // Implementation for loading collections
+            console.log('Load collections');
+        }
+
+        async function loadSharedFiles() {
+            // Implementation for loading shared files
+            console.log('Load shared files');
+        }
+    </script>
+</body>
+</html>

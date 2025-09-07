@@ -48,7 +48,7 @@ async function loadJobPostingPage() {
 async function loadJobCategories() {
     try {
         console.log('Loading job categories...');
-        const response = await window.apiRequest('/jobs/categories');
+        const response = await window.apiRequest('/client/job-categories');
         console.log('Categories response:', response);
         
         if (response && response.categories) {
@@ -163,7 +163,7 @@ function renderJobPostingForm() {
                     <label class="block text-sm font-medium text-gray-700 mb-2">Required Skills</label>
                     <input type="text" id="skills" name="skills"
                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="e.g., JavaScript, React, Node.js, API Development (comma separated)">
+                           placeholder="e.g., Deep cleaning, Move-in/out cleaning, Commercial cleaning, Carpet cleaning (comma separated)">
                     <p class="text-sm text-gray-500 mt-1">Enter skills separated by commas</p>
                 </div>
                 
@@ -238,20 +238,22 @@ async function submitJob(event) {
             return;
         }
         
-        // Prepare data for API
+        // Prepare data for API - match the backend schema
         const apiData = {
             title: jobData.title,
             description: jobData.description,
-            categoryId: parseInt(jobData.category),
-            budgetMin: minBudget,
-            budgetMax: maxBudget,
-            urgency: jobData.urgency || 'normal',
-            locationAddress: jobData.locationAddress || null
+            category_id: parseInt(jobData.category),
+            budget_min: minBudget,
+            budget_max: maxBudget,
+            location_province: window.currentUser?.province || 'ON',
+            location_city: window.currentUser?.city || jobData.locationAddress || 'Unknown',
+            location_address: jobData.locationAddress || null,
+            urgency: jobData.urgency || 'normal'
         };
         
         console.log('Submitting job data:', apiData);
         
-        const url = currentJob ? `/jobs/${currentJob.id}` : '/jobs';
+        const url = currentJob ? `/client/jobs/${currentJob.id}` : '/client/jobs';
         const method = currentJob ? 'PUT' : 'POST';
         
         const response = await window.apiRequest(url, {
@@ -306,7 +308,7 @@ async function saveDraft() {
 async function loadMyJobs() {
     try {
         console.log('Loading client jobs...');
-        const response = await window.apiRequest('/jobs/client');
+        const response = await window.apiRequest('/client/jobs');
         console.log('Jobs response:', response);
         
         const jobsContainer = document.getElementById('jobs-list');

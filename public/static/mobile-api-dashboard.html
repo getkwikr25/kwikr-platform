@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile & API Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-button.active { @apply bg-blue-500 text-white; }
+        .metric-card { transition: transform 0.2s ease-in-out; }
+        .metric-card:hover { transform: translateY(-2px); }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class="fas fa-mobile-alt text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-2xl font-bold text-gray-900">Mobile & API Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="refreshDashboard()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                    <a href="/" class="text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-home mr-1"></i>Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Alert Banner -->
+        <div id="alertBanner" class="hidden mb-6 bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-400"></i>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700" id="alertMessage"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overview Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- API Documentation Card -->
+            <div class="metric-card bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-book text-blue-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm font-medium text-gray-500">API Endpoints</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="totalEndpoints">-</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center text-sm">
+                        <span class="text-green-600 font-medium" id="activeDevelopers">-</span>
+                        <span class="text-gray-500 ml-1">active developers</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webhooks Card -->
+            <div class="metric-card bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-webhook text-green-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm font-medium text-gray-500">Webhooks</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="totalWebhooks">-</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center text-sm">
+                        <span class="text-green-600 font-medium" id="webhookSuccessRate">-</span>
+                        <span class="text-gray-500 ml-1">% success rate</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SDK Downloads Card -->
+            <div class="metric-card bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-download text-purple-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm font-medium text-gray-500">SDK Downloads</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="totalDownloads">-</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center text-sm">
+                        <span class="text-purple-600 font-medium" id="supportedPlatforms">-</span>
+                        <span class="text-gray-500 ml-1">platforms</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PWA Installations Card -->
+            <div class="metric-card bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-mobile-alt text-orange-600"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <p class="text-sm font-medium text-gray-500">PWA Installs</p>
+                        <p class="text-2xl font-semibold text-gray-900" id="pwaInstalls">-</p>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <div class="flex items-center text-sm">
+                        <span class="text-orange-600 font-medium" id="activePWA">-</span>
+                        <span class="text-gray-500 ml-1">active</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-lg shadow mb-6">
+            <div class="border-b border-gray-200">
+                <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                    <button onclick="switchTab('api-docs')" id="tab-api-docs" 
+                            class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-book mr-2"></i>API Documentation
+                    </button>
+                    <button onclick="switchTab('webhooks')" id="tab-webhooks"
+                            class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-webhook mr-2"></i>Webhooks
+                    </button>
+                    <button onclick="switchTab('sdk')" id="tab-sdk"
+                            class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-code mr-2"></i>SDK Development
+                    </button>
+                    <button onclick="switchTab('pwa')" id="tab-pwa"
+                            class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                        <i class="fas fa-mobile-alt mr-2"></i>Progressive Web App
+                    </button>
+                </nav>
+            </div>
+
+            <!-- API Documentation Tab -->
+            <div id="content-api-docs" class="tab-content p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- API Endpoints Management -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-list text-blue-600 mr-2"></i>API Endpoints
+                        </h3>
+                        
+                        <div class="space-y-4 mb-4">
+                            <button onclick="showAddEndpointModal()" 
+                                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Add New Endpoint
+                            </button>
+                            
+                            <div class="relative">
+                                <input type="text" id="endpointSearch" placeholder="Search endpoints..." 
+                                       class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                            </div>
+                        </div>
+
+                        <div id="apiEndpointsList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Developer Portal -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-users text-green-600 mr-2"></i>Developer Portal
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <button onclick="showAddDeveloperModal()" 
+                                    class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-user-plus mr-2"></i>Add Developer
+                            </button>
+
+                            <button onclick="generateOpenAPISpec()" 
+                                    class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+                                <i class="fas fa-file-code mr-2"></i>Generate OpenAPI Spec
+                            </button>
+                        </div>
+
+                        <div id="developersList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Usage Chart -->
+                <div class="mt-6 bg-white border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-chart-line text-blue-600 mr-2"></i>API Usage Analytics
+                    </h3>
+                    <canvas id="apiUsageChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Webhooks Tab -->
+            <div id="content-webhooks" class="tab-content p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Webhook Endpoints -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-webhook text-green-600 mr-2"></i>Webhook Endpoints
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <button onclick="showAddWebhookModal()" 
+                                    class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Add Webhook
+                            </button>
+                            
+                            <button onclick="retryFailedWebhooks()" 
+                                    class="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
+                                <i class="fas fa-redo mr-2"></i>Retry Failed Deliveries
+                            </button>
+                        </div>
+
+                        <div id="webhooksList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Webhook Events -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-bolt text-yellow-600 mr-2"></i>Recent Events
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <button onclick="showTriggerEventModal()" 
+                                    class="w-full bg-yellow-600 text-white py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors">
+                                <i class="fas fa-play mr-2"></i>Trigger Test Event
+                            </button>
+                        </div>
+
+                        <div id="webhookEventsList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Webhook Analytics -->
+                <div class="mt-6 bg-white border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-chart-bar text-green-600 mr-2"></i>Webhook Performance
+                    </h3>
+                    <canvas id="webhookChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- SDK Development Tab -->
+            <div id="content-sdk" class="tab-content p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- SDK Versions -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-code text-purple-600 mr-2"></i>SDK Versions
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <select id="sdkPlatformFilter" onchange="filterSDKVersions()" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                                <option value="">All Platforms</option>
+                            </select>
+                            
+                            <button onclick="showGenerateSDKModal()" 
+                                    class="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
+                                <i class="fas fa-code mr-2"></i>Generate SDK
+                            </button>
+                        </div>
+
+                        <div id="sdkVersionsList" class="space-y-2 max-h-96 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SDK Statistics -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-chart-pie text-indigo-600 mr-2"></i>SDK Statistics
+                        </h3>
+
+                        <div id="sdkStatsList" class="space-y-4">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SDK Downloads Chart -->
+                <div class="mt-6 bg-white border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-download text-purple-600 mr-2"></i>SDK Downloads by Platform
+                    </h3>
+                    <canvas id="sdkChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- PWA Tab -->
+            <div id="content-pwa" class="tab-content p-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- PWA Installations -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-mobile-alt text-orange-600 mr-2"></i>PWA Installations
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="bg-white p-3 rounded border">
+                                    <p class="text-xs text-gray-500">Total</p>
+                                    <p class="text-lg font-semibold" id="pwaTotal">-</p>
+                                </div>
+                                <div class="bg-white p-3 rounded border">
+                                    <p class="text-xs text-gray-500">Active</p>
+                                    <p class="text-lg font-semibold" id="pwaActive">-</p>
+                                </div>
+                            </div>
+                            
+                            <button onclick="showPWACompatibilityModal()" 
+                                    class="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
+                                <i class="fas fa-check mr-2"></i>Check Compatibility
+                            </button>
+                        </div>
+
+                        <div id="pwaInstallationsList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Push Notifications -->
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold mb-4">
+                            <i class="fas fa-bell text-red-600 mr-2"></i>Push Notifications
+                        </h3>
+
+                        <div class="space-y-4 mb-4">
+                            <button onclick="showSendNotificationModal()" 
+                                    class="w-full bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
+                                <i class="fas fa-paper-plane mr-2"></i>Send Notification
+                            </button>
+                            
+                            <button onclick="generateVAPIDKeys()" 
+                                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-key mr-2"></i>Generate VAPID Keys
+                            </button>
+                        </div>
+
+                        <div id="pushNotificationsList" class="space-y-2 max-h-64 overflow-y-auto">
+                            <div class="flex justify-center py-8">
+                                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mobile Sessions Chart -->
+                <div class="mt-6 bg-white border rounded-lg p-4">
+                    <h3 class="text-lg font-semibold mb-4">
+                        <i class="fas fa-chart-area text-orange-600 mr-2"></i>Mobile App Sessions
+                    </h3>
+                    <canvas id="pwaChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals will be inserted here -->
+    <div id="modalContainer"></div>
+
+    <script src="/static/mobile-api-dashboard.js"></script>
+</body>
+</html>

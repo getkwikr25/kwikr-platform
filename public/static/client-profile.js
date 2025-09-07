@@ -174,7 +174,7 @@ function renderProfileForm() {
 
                     <div class="view-mode">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                        <div class="text-gray-900">${clientData.phone}</div>
+                        <div class="text-gray-900">${formatPhoneNumber(clientData.phone)}</div>
                     </div>
                     <div class="edit-mode hidden">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
@@ -622,6 +622,22 @@ function showNotification(message, type = 'info') {
             notification.remove();
         }
     }, 5000);
+}
+
+// Phone number formatting with privacy protection - mask last 4 digits
+function formatPhoneNumber(phone) {
+    if (!phone) return 'Not provided';
+    
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+        // Format: (416) 555-**** - mask last 4 digits for privacy
+        return `(${cleaned.substring(0,3)}) ${cleaned.substring(3,6)}-****`;
+    } else if (cleaned.length === 11 && cleaned[0] === '1') {
+        // Format: +1 (416) 555-**** - mask last 4 digits for privacy
+        return `+1 (${cleaned.substring(1,4)}) ${cleaned.substring(4,7)}-****`;
+    }
+    // For any other format, try to mask last 4 characters
+    return phone.length > 4 ? phone.substring(0, phone.length - 4) + '****' : phone;
 }
 
 // Initialize when page loads
