@@ -43,9 +43,9 @@ export class PaymentWorkflow {
   private stripeService: StripePaymentService
   private escrowService: EscrowService
 
-  constructor(db: D1Database) {
+  constructor(db: D1Database, env?: any) {
     this.db = db
-    this.stripeService = new StripePaymentService(db)
+    this.stripeService = new StripePaymentService(env)
     this.escrowService = new EscrowService(db, this.stripeService)
   }
 

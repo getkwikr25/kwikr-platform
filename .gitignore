@@ -31,3 +31,6 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+# Environment variables
+.dev.vars
+.env

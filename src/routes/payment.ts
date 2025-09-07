@@ -10,7 +10,7 @@ const payment = new Hono<{ Bindings: Bindings }>()
 
 // Initialize payment workflow service
 const getPaymentWorkflow = (c: any) => {
-  return new PaymentWorkflow(c.env.DB)
+  return new PaymentWorkflow(c.env.DB, c.env)
 }
 
 // Initialize payment workflow

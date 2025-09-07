@@ -11,7 +11,7 @@ const escrow = new Hono<{ Bindings: Bindings }>()
 
 // Initialize services
 const getEscrowService = (c: any) => {
-  const stripeService = new StripePaymentService(c.env.DB)
+  const stripeService = new StripePaymentService(c.env)
   return new EscrowService(c.env.DB, stripeService)
 }
 

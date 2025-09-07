@@ -87,6 +87,52 @@ app.route('/api/marketing', marketingRoutes)
 // Mobile & API Management API Routes
 app.route('/api/mobile-api', mobileApiRoutes)
 
+// Stripe Configuration API Route
+app.get('/api/stripe/config', async (c) => {
+  try {
+    const { StripePaymentService } = await import('./utils/stripe-payment-service')
+    const stripeService = new StripePaymentService(c.env)
+    
+    return c.json({
+      publishable_key: stripeService.getPublishableKey(),
+      country: 'CA',
+      currency: 'cad'
+    })
+  } catch (error) {
+    console.error('Error getting Stripe config:', error)
+    return c.json({ error: 'Configuration error' }, 500)
+  }
+})
+
+// Stripe Webhook Endpoint
+app.post('/api/stripe/webhook', async (c) => {
+  try {
+    const signature = c.req.header('stripe-signature')
+    const payload = await c.req.text()
+    
+    if (!signature) {
+      return c.json({ error: 'Missing stripe-signature header' }, 400)
+    }
+
+    const { StripePaymentService } = await import('./utils/stripe-payment-service')
+    const stripeService = new StripePaymentService(c.env)
+    
+    const result = await stripeService.handleWebhook(payload, signature)
+    
+    if (!result.success) {
+      console.error('Webhook processing failed:', result.error)
+      return c.json({ error: result.error }, 400)
+    }
+
+    console.log('Webhook processed successfully:', result.event?.type)
+    return c.json({ received: true })
+    
+  } catch (error) {
+    console.error('Webhook error:', error)
+    return c.json({ error: 'Webhook processing failed' }, 500)
+  }
+})
+
 // Admin Subscription Management Pages
 app.route('/admin', adminSubscriptionRoutes)
 
@@ -3941,6 +3987,11 @@ app.get('/marketing-dashboard', (c) => {
   return c.redirect('/static/marketing-dashboard.html')
 })
 
+// Stripe Payment Demo Route
+app.get('/payment-demo', (c) => {
+  return c.redirect('/static/stripe-payment-demo.html')
+})
+
 // Original homepage restored
 app.get('/', (c) => {
   return c.html(`
@@ -3989,6 +4040,9 @@ app.get('/', (c) => {
                         </a>
                         <a href="/clear-cookies" class="text-gray-500 hover:text-red-600 transition-colors text-sm" title="Clear sessions if experiencing redirect loops">
                             <i class="fas fa-sign-out-alt mr-1"></i>Clear Session
+                        </a>
+                        <a href="/payment-demo" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
+                            <i class="fas fa-credit-card mr-1"></i>Payment Demo
                         </a>
                         <a href="/subscriptions/pricing" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
                             <i class="fas fa-tools mr-1"></i>Join Kwikr

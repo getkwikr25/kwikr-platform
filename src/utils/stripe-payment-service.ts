@@ -1,5 +1,6 @@
 // Stripe Payment Processing Integration
 // Production-ready payment processing with Canadian support
+import Stripe from 'stripe'
 
 export interface StripePaymentMethod {
   id: string;
@@ -68,12 +69,19 @@ export class StripePaymentService {
   private stripePublishableKey: string;
   private stripeSecretKey: string;
   private webhookSecret: string;
+  private stripe: Stripe;
 
-  constructor() {
-    // In production, these would come from environment variables
-    this.stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_not_configured';
-    this.stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_not_configured';
-    this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_not_configured';
+  constructor(env?: any) {
+    // Get environment variables from Cloudflare Workers env or process.env
+    this.stripePublishableKey = env?.STRIPE_PUBLISHABLE_KEY || process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_not_configured';
+    this.stripeSecretKey = env?.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY || 'sk_test_not_configured';
+    this.webhookSecret = env?.STRIPE_WEBHOOK_SECRET || process.env.STRIPE_WEBHOOK_SECRET || 'whsec_not_configured';
+    
+    // Initialize Stripe SDK
+    this.stripe = new Stripe(this.stripeSecretKey, {
+      apiVersion: '2024-06-20', // Latest Stripe API version
+      typescript: true
+    });
   }
 
   /**
@@ -107,8 +115,8 @@ export class StripePaymentService {
         }
       };
 
-      // Simulate Stripe API call (in production, use actual Stripe SDK)
-      const paymentIntent = await this.simulateStripeApiCall('payment_intents', 'create', paymentIntentData);
+      // Create actual Stripe Payment Intent
+      const paymentIntent = await this.stripe.paymentIntents.create(paymentIntentData);
 
       return {
         success: true,
@@ -141,7 +149,7 @@ export class StripePaymentService {
         expand: ['charges']
       };
 
-      const paymentIntent = await this.simulateStripeApiCall('payment_intents', 'confirm', confirmationData, payment_intent_id);
+      const paymentIntent = await this.stripe.paymentIntents.confirm(payment_intent_id, confirmationData);
 
       const result: PaymentProcessingResult = {
         success: paymentIntent.status === 'succeeded',
@@ -198,8 +206,8 @@ export class StripePaymentService {
     };
   }): Promise<{ success: boolean; payment_method?: StripePaymentMethod; error?: StripeError }> {
     try {
-      // Simulate payment method creation
-      const paymentMethod = await this.simulateStripeApiCall('payment_methods', 'create', params);
+      // Create actual Stripe Payment Method
+      const paymentMethod = await this.stripe.paymentMethods.create(params);
 
       return {
         success: true,
@@ -232,7 +240,7 @@ export class StripePaymentService {
     metadata?: Record<string, string>;
   }): Promise<{ success: boolean; customer_id?: string; error?: StripeError }> {
     try {
-      const customer = await this.simulateStripeApiCall('customers', 'create', params);
+      const customer = await this.stripe.customers.create(params);
 
       return {
         success: true,
@@ -255,9 +263,9 @@ export class StripePaymentService {
     customer_id: string
   ): Promise<{ success: boolean; error?: StripeError }> {
     try {
-      await this.simulateStripeApiCall('payment_methods', 'attach', {
+      await this.stripe.paymentMethods.attach(payment_method_id, {
         customer: customer_id
-      }, payment_method_id);
+      });
 
       return { success: true };
 
@@ -285,7 +293,7 @@ export class StripePaymentService {
         expand: ['charge']
       };
 
-      const refund = await this.simulateStripeApiCall('refunds', 'create', refundData);
+      const refund = await this.stripe.refunds.create(refundData);
 
       return {
         success: true,
@@ -305,7 +313,7 @@ export class StripePaymentService {
    */
   async getPaymentIntent(payment_intent_id: string): Promise<{ success: boolean; payment_intent?: PaymentIntent; error?: StripeError }> {
     try {
-      const paymentIntent = await this.simulateStripeApiCall('payment_intents', 'retrieve', {}, payment_intent_id);
+      const paymentIntent = await this.stripe.paymentIntents.retrieve(payment_intent_id);
 
       return {
         success: true,
@@ -328,15 +336,8 @@ export class StripePaymentService {
     signature: string
   ): Promise<{ success: boolean; event?: any; error?: string }> {
     try {
-      // In production, verify webhook signature
-      if (!this.verifyWebhookSignature(payload, signature)) {
-        return {
-          success: false,
-          error: 'Invalid webhook signature'
-        };
-      }
-
-      const event = JSON.parse(payload);
+      // Verify webhook signature using Stripe SDK
+      const event = this.stripe.webhooks.constructEvent(payload, signature, this.webhookSecret);
 
       // Process different event types
       switch (event.type) {
@@ -427,104 +428,17 @@ export class StripePaymentService {
            this.stripePublishableKey !== 'pk_test_not_configured';
   }
 
-  // Private helper methods
-
-  private async simulateStripeApiCall(
-    resource: string,
-    method: string,
-    data: any,
-    id?: string
-  ): Promise<any> {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 100));
-
-    // Simulate occasional failures
-    if (Math.random() < 0.02) { // 2% failure rate
-      throw new Error('Simulated Stripe API failure');
-    }
-
-    // Generate mock responses based on resource and method
-    switch (`${resource}.${method}`) {
-      case 'payment_intents.create':
-        return {
-          id: `pi_${Math.random().toString(36).substring(2, 15)}`,
-          amount: data.amount,
-          currency: data.currency,
-          status: 'requires_payment_method',
-          client_secret: `pi_${Math.random().toString(36).substring(2, 15)}_secret_${Math.random().toString(36).substring(2, 15)}`,
-          metadata: data.metadata
-        };
-
-      case 'payment_intents.confirm':
-        return {
-          id: id,
-          status: Math.random() > 0.1 ? 'succeeded' : 'requires_action',
-          client_secret: `pi_${id}_secret_confirmed`,
-          charges: {
-            data: [{
-              id: `ch_${Math.random().toString(36).substring(2, 15)}`,
-              amount: data.amount || 5000,
-              currency: 'cad',
-              status: 'succeeded',
-              payment_method_details: {
-                card: {
-                  brand: 'visa',
-                  last4: '4242'
-                }
-              }
-            }]
-          }
-        };
-
-      case 'payment_methods.create':
-        return {
-          id: `pm_${Math.random().toString(36).substring(2, 15)}`,
-          type: data.type,
-          card: data.card ? {
-            brand: this.getCardBrand(data.card.number),
-            last4: data.card.number.slice(-4),
-            exp_month: data.card.exp_month,
-            exp_year: data.card.exp_year,
-            fingerprint: `fp_${Math.random().toString(36).substring(2, 15)}`
-          } : undefined,
-          billing_details: data.billing_details
-        };
-
-      case 'customers.create':
-        return {
-          id: `cus_${Math.random().toString(36).substring(2, 15)}`,
-          email: data.email,
-          name: data.name,
-          phone: data.phone,
-          address: data.address,
-          metadata: data.metadata
-        };
-
-      case 'refunds.create':
-        return {
-          id: `re_${Math.random().toString(36).substring(2, 15)}`,
-          amount: data.amount || 5000,
-          charge: data.charge_id,
-          payment_intent: data.payment_intent_id,
-          status: 'succeeded',
-          reason: data.reason
-        };
-
-      case 'payment_intents.retrieve':
-        return {
-          id: id,
-          status: 'succeeded',
-          amount: 5000,
-          currency: 'cad'
-        };
-
-      default:
-        return { id: `mock_${Math.random().toString(36).substring(2, 15)}` };
-    }
+  /**
+   * Get Stripe publishable key for frontend
+   */
+  getPublishableKey(): string {
+    return this.stripePublishableKey;
   }
 
+  // Private helper methods
+
   private parseStripeError(error: any): StripeError {
-    if (error.type === 'StripeCardError') {
+    if (error.type === 'StripeCardError' || error.type === 'card_error') {
       return {
         type: 'card_error',
         code: error.code || 'card_declined',
@@ -533,28 +447,20 @@ export class StripePaymentService {
       };
     }
 
+    if (error.type === 'StripeInvalidRequestError') {
+      return {
+        type: 'invalid_request_error',
+        code: error.code || 'invalid_request',
+        message: error.message || 'Invalid request.',
+        param: error.param
+      };
+    }
+
     return {
       type: 'api_error',
-      code: 'api_error',
+      code: error.code || 'api_error',
       message: error.message || 'An unexpected error occurred.'
     };
-  }
-
-  private getCardBrand(cardNumber: string): string {
-    const number = cardNumber.replace(/\s/g, '');
-    
-    if (number.startsWith('4')) return 'visa';
-    if (number.startsWith('5') || number.startsWith('2')) return 'mastercard';
-    if (number.startsWith('34') || number.startsWith('37')) return 'amex';
-    if (number.startsWith('6')) return 'discover';
-    
-    return 'unknown';
-  }
-
-  private verifyWebhookSignature(payload: string, signature: string): boolean {
-    // In production, use Stripe's webhook signature verification
-    // This is a simplified check
-    return signature.startsWith('t=') && signature.includes('v1=');
   }
 
   private async handlePaymentSucceeded(paymentIntent: PaymentIntent): Promise<void> {
