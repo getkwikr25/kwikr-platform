@@ -38,7 +38,7 @@ loginRoutes.get('/', async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">

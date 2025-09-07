@@ -542,7 +542,7 @@ app.get('/search', async (c) => {
                     <div class="flex items-center">
                         <a href="/" class="flex-shrink-0">
                             <h1 class="text-2xl font-bold text-kwikr-green">
-                                <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                                <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                             </h1>
                         </a>
                     </div>
@@ -1083,7 +1083,7 @@ app.get('/payment-demo', (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3976,7 +3976,7 @@ app.get('/', (c) => {
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <a href="/" class="flex items-center">
-                                <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-12 mr-3">
+                                <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-3">
                                 <h1 class="text-2xl font-bold text-kwikr-green">Kwikr</h1>
                             </a>
                         </div>
@@ -11320,7 +11320,7 @@ function createInfoPage(title: string, content: string) {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -11633,7 +11633,7 @@ app.get('/admin/login', async (c) => {
             <!-- Logo -->
             <div class="text-center mb-8">
                 <a href="/" class="text-3xl font-bold text-kwikr-green">
-                    <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                    <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                 </a>
                 <p class="text-gray-300 mt-2">Platform Administration</p>
             </div>
@@ -11951,7 +11951,7 @@ function getSubscriptionPricingHTML() {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">

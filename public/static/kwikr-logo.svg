@@ -1,0 +1,12 @@
+<svg width="90" height="90" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="45" cy="45" r="43" fill="#00C881" stroke="#fff" stroke-width="4"/>
+  
+  <!-- Letter K -->
+  <g fill="#ffffff" font-family="Arial, sans-serif" font-weight="bold" font-size="48">
+    <text x="45" y="60" text-anchor="middle" dominant-baseline="middle">K</text>
+  </g>
+  
+  <!-- Small accent -->
+  <circle cx="65" cy="25" r="6" fill="#ffffff" opacity="0.8"/>
+</svg>

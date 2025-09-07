@@ -485,7 +485,7 @@ dashboardRoutes.get('/client', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -850,7 +850,7 @@ dashboardRoutes.get('/worker/select-plan', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </h1>
                         <span class="ml-4 text-gray-400">|</span>
                         <span class="ml-4 text-lg text-gray-600">Subscription Required</span>
@@ -1061,7 +1061,7 @@ dashboardRoutes.get('/worker', requireAuth, requireWorkerSubscription, async (c)
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -3548,7 +3548,7 @@ dashboardRoutes.get('/admin', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <h1 class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr Admin
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr Admin
                         </h1>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -4526,7 +4526,7 @@ dashboardRoutes.get('/client/profile', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5023,7 +5023,7 @@ dashboardRoutes.get('/client/post-job', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5124,7 +5124,7 @@ dashboardRoutes.get('/client/browse-workers', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5670,7 +5670,7 @@ dashboardRoutes.get('/client/job/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5758,7 +5758,7 @@ dashboardRoutes.get('/client/job/:id/edit', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5846,7 +5846,7 @@ dashboardRoutes.get('/client/worker/:id', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/client" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -5941,7 +5941,7 @@ dashboardRoutes.get('/worker/kanban', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6032,7 +6032,7 @@ dashboardRoutes.get('/worker/bids', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6552,7 +6552,7 @@ dashboardRoutes.get('/worker/payments', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -6794,7 +6794,7 @@ dashboardRoutes.get('/worker/earnings', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7139,7 +7139,7 @@ dashboardRoutes.get('/worker/calendar', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7382,7 +7382,7 @@ dashboardRoutes.get('/worker/messages', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/worker" class="text-2xl font-bold text-kwikr-green">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -7703,7 +7703,7 @@ dashboardRoutes.get('/worker/portfolio', requireAuth, async (c) => {
                 <div class="flex justify-between items-center h-16">
                     <div class="flex items-center">
                         <a href="/dashboard/worker" class="text-2xl font-bold text-kwikr-green hover:text-green-600">
-                            <img src="/static/kwikr-logo.png" alt="Kwikr" class="h-8 w-8 mr-2 inline-block">Kwikr
+                            <img src="/static/kwikr-logo.svg" alt="Kwikr" class="h-12 w-12 mr-2 inline-block">Kwikr
                         </a>
                     </div>
                     <div class="flex items-center space-x-4">
