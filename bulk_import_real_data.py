@@ -18,7 +18,7 @@ def import_real_data():
     success_count = 0
     error_count = 0
     
-    for idx, row in df.head(100).iterrows():  # Import 100 workers
+    for idx, row in df.iterrows():  # Import ALL 943 workers
         user_id = 1000 + idx
         
         # Extract data from row

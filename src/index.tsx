@@ -13,6 +13,7 @@ import clientRoutes from './routes/client'
 import clientDashboard from './routes/client-dashboard'
 import { dashboardRoutes } from './routes/dashboard'
 import complianceRoutes from './routes/compliance'
+import dataImportRoutes from './routes/data-import'
 import { subscriptionRoutes } from './routes/subscriptions'
 import { workerSubscriptionRoutes } from './routes/worker-subscriptions'
 import { adminSubscriptionRoutes } from './routes/admin-subscriptions'
@@ -51,6 +52,7 @@ app.use('/static/*', serveStatic({ root: './public' }))
 // API Routes
 app.route('/api/auth', authRoutes)
 app.route('/api/jobs', jobsRoutes)
+app.route('/api/data', dataImportRoutes)
 app.route('/api/users', userRoutes)
 app.route('/api/admin', admin)
 app.route('/api/worker', workerRoutes)
@@ -297,17 +299,18 @@ app.post('/api/providers/search', async (c) => {
     Logger.info('Provider search request', { serviceType, province, city, budget })
     
     // Build the main query using same structure as SSR search (users + worker_services)
+    // Made resilient to work even when worker_services table is empty
     let searchQuery = `
       SELECT DISTINCT
         u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
         p.bio, p.profile_image_url, p.company_name,
-        AVG(ws.hourly_rate) as avg_rate,
-        COUNT(ws.id) as service_count,
-        GROUP_CONCAT(ws.service_name) as services_list
+        COALESCE(AVG(ws.hourly_rate), 75) as avg_rate,
+        COALESCE(COUNT(ws.id), 0) as service_count,
+        COALESCE(GROUP_CONCAT(ws.service_name), 'Professional Services') as services_list
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN worker_services ws ON u.id = ws.user_id
-      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
+      LEFT JOIN worker_services ws ON u.id = ws.user_id AND ws.is_available = 1
+      WHERE u.role = 'worker' AND u.is_active = 1
     `
     
     const params = []
@@ -348,9 +351,15 @@ app.post('/api/providers/search', async (c) => {
       searchTerms = [...new Set(searchTerms.filter(term => term && term.length > 0))]
       
       // Build LIKE conditions for all search terms against service_name
-      const likeConditions = searchTerms.map(() => 'LOWER(ws.service_name) LIKE ?').join(' OR ')
+      // Make resilient to empty worker_services by also checking company names and profiles
+      const likeConditions = searchTerms.map(() => 
+        '(LOWER(ws.service_name) LIKE ? OR LOWER(p.company_name) LIKE ? OR LOWER(u.first_name || " " || u.last_name) LIKE ?)'
+      ).join(' OR ')
       searchQuery += ` AND (${likeConditions})`
-      params.push(...searchTerms.map(term => `%${term}%`))
+      // Add parameters 3 times for each search term (service_name, company_name, full_name)
+      searchTerms.forEach(term => {
+        params.push(`%${term}%`, `%${term}%`, `%${term}%`)
+      })
     }
     
     // Filter by province if specified
@@ -365,9 +374,9 @@ app.post('/api/providers/search', async (c) => {
       params.push(`%${city.trim()}%`)
     }
     
-    // Filter by budget if specified
+    // Filter by budget if specified - made resilient to empty worker_services
     if (budget && budget > 0) {
-      searchQuery += ` AND ws.hourly_rate <= ?`
+      searchQuery += ` AND (ws.hourly_rate <= ? OR ws.hourly_rate IS NULL)`
       params.push(budget)
     }
     
