@@ -290,159 +290,140 @@ app.get('/api/locations/cities/:province', async (c) => {
   }
 })
 
-// Provider Search API Endpoint
+// Provider Search API Endpoint - REBUILT FROM SCRATCH
 app.post('/api/providers/search', async (c) => {
   try {
     const body = await c.req.json()
-    const { serviceType, province, city, budget, additionalServices } = body
+    const { serviceType, province, city, budget } = body
     
-    Logger.info('Provider search request', { serviceType, province, city, budget })
+    // REBUILT: Use same simple logic as page search
     
-    // Build the main query using same structure as SSR search (users + worker_services)
-    // Made resilient to work even when worker_services table is empty
-    let searchQuery = `
-      SELECT DISTINCT
-        u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-        p.bio, p.profile_image_url, p.company_name,
-        COALESCE(AVG(ws.hourly_rate), 75) as avg_rate,
-        COALESCE(COUNT(ws.id), 0) as service_count,
-        COALESCE(GROUP_CONCAT(ws.service_name), 'Professional Services') as services_list
+    // Step 1: Get all active workers
+    const allWorkersQuery = `
+      SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
+             p.company_name, p.bio, p.profile_image_url
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN worker_services ws ON u.id = ws.user_id AND ws.is_available = 1
       WHERE u.role = 'worker' AND u.is_active = 1
     `
     
-    const params = []
+    const allWorkersResult = await c.env.DB.prepare(allWorkersQuery).all()
+    let allWorkers = allWorkersResult.results || []
     
-    // Filter by service type if specified (with enhanced synonyms)
+    // Step 2: Filter by location
+    if (province && province.trim()) {
+      allWorkers = allWorkers.filter(worker => 
+        worker.province && worker.province.toLowerCase() === province.toLowerCase()
+      )
+    }
+    
+    if (city && city.trim()) {
+      allWorkers = allWorkers.filter(worker => 
+        worker.city && worker.city.toLowerCase().includes(city.toLowerCase())
+      )
+    }
+    
+    // Step 3: Filter by service type with synonyms
     if (serviceType && serviceType.trim()) {
-      const serviceTypeLower = serviceType.toLowerCase().trim()
+      const serviceTypeFiltered = []
+      const serviceTypeLower = serviceType.toLowerCase()
       
-      // Enhanced service type synonym mapping for better matching
+      // Service type synonyms
       const synonymMap: { [key: string]: string[] } = {
-        'electricians': ['electrical services', 'electrical', 'electric', 'electrician'],
-        'plumbers': ['plumbing services', 'plumbing', 'professional plumbing services', 'residential plumbing', 'commercial plumbing', 'plumber'],
-        'cleaners': ['cleaning services', 'cleaning', 'cleaner', 'house cleaning', 'commercial cleaning'],
-        'cleaning services': ['cleaners', 'cleaning', 'cleaner', 'house cleaning', 'commercial cleaning'],
-        'hvac': ['hvac services', 'heating', 'cooling', 'air conditioning', 'furnace'],
-        'contractors': ['general contracting services', 'general contractor', 'contractor', 'construction'],
-        'flooring': ['flooring services', 'floor installation', 'hardwood', 'carpet', 'tile'],
-        'roofing': ['roofing services', 'roof repair', 'roof installation'],
-        'landscaping': ['landscaping services', 'lawn care', 'gardening', 'yard work']
+        'landscaping': ['landscape', 'lawn care', 'gardening', 'yard work', 'garden'],
+        'cleaning': ['cleaners', 'house cleaning', 'office cleaning', 'janitorial'],
+        'plumbing': ['plumbers', 'plumber'],
+        'electrical': ['electricians', 'electrician', 'electric']
       }
       
-      // Get all possible search terms including synonyms
+      // Build search terms including synonyms
       let searchTerms = [serviceTypeLower]
-      
-      // Add synonyms if available
-      if (synonymMap[serviceTypeLower]) {
-        searchTerms = [...searchTerms, ...synonymMap[serviceTypeLower]]
-      }
-      
-      // Also check reverse mapping (in case user searches for synonym first)
       Object.entries(synonymMap).forEach(([key, synonyms]) => {
-        if (synonyms.includes(serviceTypeLower) && !searchTerms.includes(key)) {
+        if (synonyms.includes(serviceTypeLower)) {
           searchTerms.push(key)
+        }
+        if (key === serviceTypeLower) {
+          searchTerms.push(...synonyms)
         }
       })
       
-      // Remove duplicates and empty terms
-      searchTerms = [...new Set(searchTerms.filter(term => term && term.length > 0))]
-      
-      // Build LIKE conditions for all search terms against service_name
-      // Make resilient to empty worker_services by also checking company names and profiles
-      const likeConditions = searchTerms.map(() => 
-        '(LOWER(ws.service_name) LIKE ? OR LOWER(p.company_name) LIKE ? OR LOWER(u.first_name || " " || u.last_name) LIKE ?)'
-      ).join(' OR ')
-      searchQuery += ` AND (${likeConditions})`
-      // Add parameters 3 times for each search term (service_name, company_name, full_name)
-      searchTerms.forEach(term => {
-        params.push(`%${term}%`, `%${term}%`, `%${term}%`)
-      })
-    }
-    
-    // Filter by province if specified
-    if (province && province.trim()) {
-      searchQuery += ` AND LOWER(u.province) = LOWER(?)`
-      params.push(province.trim())
-    }
-    
-    // Filter by city if specified
-    if (city && city.trim()) {
-      searchQuery += ` AND LOWER(u.city) LIKE LOWER(?)`
-      params.push(`%${city.trim()}%`)
-    }
-    
-    // Filter by budget if specified - made resilient to empty worker_services
-    if (budget && budget > 0) {
-      searchQuery += ` AND (ws.hourly_rate <= ? OR ws.hourly_rate IS NULL)`
-      params.push(budget)
-    }
-    
-    searchQuery += `
-      GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-               p.bio, p.profile_image_url, p.company_name
-      ORDER BY u.is_verified DESC, avg_rate ASC
-      LIMIT 100
-    `
-    
-    Logger.info('Executing search query', { query: searchQuery, params })
-    const searchResults = await c.env.DB.prepare(searchQuery).bind(...params).all()
-    
-    // Transform results to match expected frontend format
-    const providers = (searchResults.results || []).map((worker: any) => {
-      const fullName = `${worker.first_name || ''} ${worker.last_name || ''}`.trim()
-      const displayName = worker.company_name || fullName || 'Professional Service Provider'
-      
-      // Parse services list
-      const servicesList = worker.services_list ? worker.services_list.split(',') : []
-      
-      // Generate initials from display name
-      const nameParts = displayName.split(' ')
-      const initials = nameParts.length >= 2 
-        ? `${nameParts[0].charAt(0)}${nameParts[1].charAt(0)}`
-        : displayName.charAt(0) + (displayName.charAt(1) || '')
-      
-      return {
-        id: worker.id,
-        name: displayName,
-        company: worker.company_name || displayName,
-        rating: 4.5 + Math.random() * 0.4, // Random rating between 4.5-4.9
-        reviews: Math.floor(Math.random() * 100) + 10, // Random reviews 10-110
-        rate: Math.round(worker.avg_rate || 75 + Math.random() * 50), // Use actual rate or random
-        distance: Math.round(Math.random() * 15 * 10) / 10, // Random distance 0-15km
-        services: servicesList.length > 0 ? servicesList : ['General Services'],
-        image: worker.profile_image_url,
-        initials: initials.toUpperCase(),
-        verified: worker.is_verified === 1,
-        available: ['Available Today', 'Available Tomorrow', 'Available This Week'][Math.floor(Math.random() * 3)],
-        bio: worker.bio || 'Professional service provider with excellent customer reviews.',
-        location: `${worker.city || 'City'}, ${worker.province || 'Province'}`,
-        phone: worker.phone,
-        email: worker.email
+      for (const worker of allWorkers) {
+        // Check if worker has matching services
+        const hasMatchingService = await Promise.all(
+          searchTerms.map(async (term) => {
+            const serviceCheck = await c.env.DB.prepare(`
+              SELECT service_name, hourly_rate 
+              FROM worker_services 
+              WHERE user_id = ? AND is_available = 1 
+                AND LOWER(service_name) LIKE LOWER(?)
+            `).bind(worker.id, `%${term}%`).all()
+            
+            return serviceCheck.results && serviceCheck.results.length > 0 ? serviceCheck.results : null
+          })
+        )
+        
+        const matchingServices = hasMatchingService.find(result => result !== null)
+        if (matchingServices) {
+          worker.matchingServices = matchingServices
+          worker.avg_rate = matchingServices[0]?.hourly_rate || 75
+          serviceTypeFiltered.push(worker)
+        }
       }
-    })
+      
+      allWorkers = serviceTypeFiltered
+    } else {
+      // No service filter - get services for all workers
+      for (const worker of allWorkers) {
+        const services = await c.env.DB.prepare(`
+          SELECT service_name, hourly_rate 
+          FROM worker_services 
+          WHERE user_id = ? AND is_available = 1 
+          LIMIT 3
+        `).bind(worker.id).all()
+        
+        worker.matchingServices = services.results || []
+        worker.avg_rate = services.results && services.results.length > 0 
+          ? services.results[0].hourly_rate 
+          : 75
+      }
+    }
     
-    Logger.info('Provider search completed', { 
-      resultsCount: providers.length,
-      serviceType,
-      province,
-      city
-    })
+    // Step 4: Filter by budget
+    if (budget && budget > 0) {
+      allWorkers = allWorkers.filter(worker => worker.avg_rate <= budget)
+    }
+    
+    // Step 5: Transform to API format
+    const providers = allWorkers.slice(0, 50).map(worker => ({
+      id: worker.id,
+      name: `${worker.first_name} ${worker.last_name}`,
+      company: worker.company_name || `${worker.first_name}'s Services`,
+      rating: 4.5 + Math.random() * 0.4,
+      reviews: Math.floor(Math.random() * 100) + 25,
+      rate: Math.round(worker.avg_rate || 75),
+      distance: Math.round(Math.random() * 15 * 10) / 10,
+      services: (worker.matchingServices || []).map(s => s.service_name).slice(0, 3),
+      image: worker.profile_image_url,
+      initials: `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`,
+      verified: worker.is_verified === 1,
+      available: 'Available Today',
+      bio: worker.bio || `Professional service provider in ${worker.city}, ${worker.province}.`,
+      location: `${worker.city}, ${worker.province}`,
+      phone: worker.phone,
+      email: worker.email
+    }))
     
     return c.json({
       success: true,
       providers,
       total: providers.length,
-      searchParams: { serviceType, province, city, budget, additionalServices }
+      searchParams: { serviceType, province, city, budget }
     })
     
   } catch (error) {
-    Logger.error('Provider search error', error as Error)
     return c.json({ 
       success: false,
-      error: 'Search failed',
+      error: error instanceof Error ? error.message : 'Search failed',
       providers: [],
       total: 0 
     }, 500)
@@ -485,78 +466,110 @@ app.get('/search', async (c) => {
   let totalResults = 0
   
   try {
-    // First, get total count of all matching results without pagination
-    const countQuery = `
-      SELECT COUNT(DISTINCT u.id) as total
+    // REBUILT FROM SCRATCH: Simple, working search logic
+    
+    // Step 1: Get all active workers first
+    const allWorkersQuery = `
+      SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
+             p.company_name, p.bio, p.profile_image_url
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN worker_services ws ON u.id = ws.user_id
-      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
-        ${searchParams.serviceType ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%')` : ''}
-        ${searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
-        ${searchParams.city ? `AND LOWER(u.city) LIKE LOWER('%${searchParams.city}%')` : ''}
-        ${searchParams.budget && searchParams.budget > 0 ? `AND ws.hourly_rate <= ${searchParams.budget}` : ''}
-    `
-    
-    const countResult = await c.env.DB.prepare(countQuery).all()
-    totalResults = countResult.results[0]?.total || 0
-    
-    // Then get the paginated results  
-    const offset = (searchParams.page - 1) * searchParams.limit
-    
-    const query = `
-      SELECT DISTINCT
-        u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-        p.bio, p.profile_image_url, p.company_name,
-        ws.hourly_rate as avg_rate
-      FROM users u
-      LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN worker_services ws ON u.id = ws.user_id
       WHERE u.role = 'worker' AND u.is_active = 1
-        ${searchParams.serviceType && searchParams.province ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%') AND ws.is_available = 1` : ''}
-        ${!searchParams.serviceType && searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
-        ${searchParams.serviceType && !searchParams.province ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%') AND ws.is_available = 1` : ''}
-        ${!searchParams.serviceType && !searchParams.province ? '' : ''}
-        ${searchParams.city ? `AND LOWER(u.city) LIKE LOWER('%${searchParams.city}%')` : ''}
-        ${searchParams.budget && searchParams.budget > 0 ? `AND ws.hourly_rate <= ${searchParams.budget}` : ''}
       ORDER BY u.is_verified DESC, u.id ASC
-      LIMIT ${searchParams.limit} OFFSET ${offset}
     `
     
-    const results = await c.env.DB.prepare(query).all()
+    const allWorkersResult = await c.env.DB.prepare(allWorkersQuery).all()
+    let allWorkers = allWorkersResult.results || []
     
-    // Get actual services for each provider
-    const providersWithServices = []
-    for (const provider of results.results || []) {
-      // Fetch services for this provider
-      const servicesQuery = `
-        SELECT service_name, hourly_rate 
-        FROM worker_services 
-        WHERE user_id = ? AND is_available = 1 
-        LIMIT 5
-      `
-      const servicesResult = await c.env.DB.prepare(servicesQuery).bind(provider.id).all()
-      const services = (servicesResult.results || []).map((s: any) => s.service_name)
-      
-      providersWithServices.push({
-        id: provider.id,
-        name: `${provider.first_name} ${provider.last_name}`,
-        company: provider.company_name || `${provider.first_name}'s Services`,
-        rating: 4.5 + Math.random() * 0.5, // Mock rating for demo
-        reviews: Math.floor(Math.random() * 200) + 50, // Mock review count
-        rate: Math.round(provider.avg_rate || 40),
-        distance: Math.round((Math.random() * 10 + 1) * 10) / 10, // Mock distance
-        services: services.length > 0 ? services : ['Professional Service'],
-        image: provider.profile_image_url,
-        initials: `${provider.first_name.charAt(0)}${provider.last_name.charAt(0)}`,
-        verified: provider.is_verified,
-        available: Math.random() > 0.5 ? 'Today' : 'Tomorrow',
-        bio: provider.bio || `Professional service provider in ${provider.city}, ${provider.province}. Licensed and insured.`,
-        location: `${provider.city}, ${provider.province}`
-      })
+    // Step 2: Filter by location if specified
+    if (searchParams.province && searchParams.province.trim()) {
+      allWorkers = allWorkers.filter(worker => 
+        worker.province && worker.province.toLowerCase() === searchParams.province.toLowerCase()
+      )
     }
     
-    providers = providersWithServices
+    if (searchParams.city && searchParams.city.trim()) {
+      allWorkers = allWorkers.filter(worker => 
+        worker.city && worker.city.toLowerCase().includes(searchParams.city.toLowerCase())
+      )
+    }
+    
+    // Step 3: Filter by service type if specified
+    if (searchParams.serviceType && searchParams.serviceType.trim()) {
+      const serviceTypeFiltered = []
+      
+      for (const worker of allWorkers) {
+        // Check if worker has matching services
+        const workerServicesQuery = `
+          SELECT service_name, hourly_rate 
+          FROM worker_services 
+          WHERE user_id = ? AND is_available = 1 
+            AND LOWER(service_name) LIKE LOWER(?)
+        `
+        const workerServices = await c.env.DB.prepare(workerServicesQuery)
+          .bind(worker.id, `%${searchParams.serviceType}%`)
+          .all()
+        
+        if (workerServices.results && workerServices.results.length > 0) {
+          // Add the worker with their matching services
+          worker.matchingServices = workerServices.results
+          worker.avg_rate = workerServices.results[0]?.hourly_rate || 75
+          serviceTypeFiltered.push(worker)
+        }
+      }
+      
+      allWorkers = serviceTypeFiltered
+    } else {
+      // No service type filter - get services for all workers
+      for (const worker of allWorkers) {
+        const workerServicesQuery = `
+          SELECT service_name, hourly_rate 
+          FROM worker_services 
+          WHERE user_id = ? AND is_available = 1 
+          LIMIT 3
+        `
+        const workerServices = await c.env.DB.prepare(workerServicesQuery)
+          .bind(worker.id)
+          .all()
+        
+        worker.matchingServices = workerServices.results || []
+        worker.avg_rate = workerServices.results && workerServices.results.length > 0 
+          ? workerServices.results[0].hourly_rate 
+          : 75
+      }
+    }
+    
+    // Step 4: Filter by budget if specified
+    if (searchParams.budget && searchParams.budget > 0) {
+      allWorkers = allWorkers.filter(worker => 
+        worker.avg_rate <= searchParams.budget
+      )
+    }
+    
+    // Step 5: Set total and paginate
+    totalResults = allWorkers.length
+    const offset = (searchParams.page - 1) * searchParams.limit
+    const paginatedWorkers = allWorkers.slice(offset, offset + searchParams.limit)
+    
+    // Step 6: Transform to provider format
+    providers = paginatedWorkers.map(worker => ({
+      id: worker.id,
+      name: `${worker.first_name} ${worker.last_name}`,
+      company: worker.company_name || `${worker.first_name}'s Services`,
+      rating: 4.5 + Math.random() * 0.4,
+      reviews: Math.floor(Math.random() * 150) + 25,
+      rate: Math.round(worker.avg_rate || 75),
+      distance: Math.round(Math.random() * 15 * 10) / 10,
+      services: (worker.matchingServices || []).map(s => s.service_name).slice(0, 3),
+      image: worker.profile_image_url,
+      initials: `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`,
+      verified: worker.is_verified === 1,
+      available: ['Available Today', 'Available Tomorrow', 'Available This Week'][Math.floor(Math.random() * 3)],
+      bio: worker.bio || `Professional service provider in ${worker.city}, ${worker.province}. Licensed and insured.`,
+      location: `${worker.city}, ${worker.province}`,
+      phone: worker.phone,
+      email: worker.email
+    }))
     
   } catch (error) {
     console.error('Search error:', error)
