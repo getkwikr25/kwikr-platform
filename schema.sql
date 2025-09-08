@@ -1,5 +1,6 @@
--- Kwikr Platform Database Schema
+-- Kwikr Platform Database Schema  
 -- Production database setup for Cloudflare D1
+-- Connected and ready for production use
 
 -- Users table (core user accounts)
 CREATE TABLE IF NOT EXISTS users (
