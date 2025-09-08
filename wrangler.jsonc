@@ -1,7 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "kwikr",
-  "main": "src/index.tsx",
+  "name": "kwikr-platform",
   "compatibility_date": "2025-08-23",
   "pages_build_output_dir": "./dist",
   "compatibility_flags": ["nodejs_compat"],
