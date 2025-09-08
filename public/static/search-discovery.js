@@ -52,7 +52,7 @@ function updateCityFilter() {
         citySelect.innerHTML = '<option value="">Loading cities...</option>'
         
         // Fetch cities for selected province
-        fetch(`/api/search/cities/${encodeURIComponent(provinceSelect.value)}`)
+        fetch(`/search/api/cities/${encodeURIComponent(provinceSelect.value)}`)
             .then(response => response.json())
             .then(data => {
                 citySelect.innerHTML = '<option value="">All Cities</option>'

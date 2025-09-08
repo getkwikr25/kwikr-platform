@@ -206,12 +206,11 @@ searchRoutes.get('/directory', async (c) => {
     let workerQuery = `
       SELECT DISTINCT u.*, p.bio, p.profile_image_url, p.company_name, p.website_url,
              AVG(r.rating) as avg_rating, COUNT(r.id) as review_count,
-             CASE WHEN s.plan_type = 'premium' THEN 1 ELSE 0 END as is_featured,
-             s.plan_type as subscription_tier
+             0 as is_featured,
+             'basic' as subscription_tier
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id
       WHERE u.role = 'worker' AND u.is_active = 1
     `
@@ -241,7 +240,7 @@ searchRoutes.get('/directory', async (c) => {
     // Group by worker and add sorting
     workerQuery += ` 
       GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, 
-               u.is_verified, u.created_at, p.bio, p.profile_image_url, p.company_name, p.website_url, s.plan_type
+               u.is_verified, u.created_at, p.bio, p.profile_image_url, p.company_name, p.website_url
       HAVING 1=1
     `
 
@@ -323,8 +322,7 @@ searchRoutes.get('/directory', async (c) => {
       SELECT COUNT(DISTINCT u.id) as total
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id
       WHERE u.role = 'worker' AND u.is_active = 1
     `
@@ -1334,16 +1332,15 @@ searchRoutes.get('/categories', async (c) => {
           AVG(ws.hourly_rate) as avg_rate,
           AVG(r.rating) as avg_rating,
           COUNT(r.id) as review_count,
-          CASE WHEN s.plan_type = 'premium' THEN 1 ELSE 0 END as is_featured
+          0 as is_featured
         FROM users u
         LEFT JOIN user_profiles p ON u.id = p.user_id
         LEFT JOIN worker_services ws ON u.id = ws.user_id
-        LEFT JOIN reviews r ON u.id = r.worker_id
-        LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
+        LEFT JOIN reviews r ON u.id = r.reviewee_id
         WHERE u.role = 'worker' AND u.is_active = 1 
           AND (ws.service_category LIKE ? OR ws.service_name LIKE ?)
         GROUP BY u.id
-        ORDER BY is_featured DESC, avg_rating DESC, u.is_verified DESC
+        ORDER BY avg_rating DESC, u.is_verified DESC
         LIMIT 6
       `
       
@@ -1736,12 +1733,11 @@ searchRoutes.get('/nearby', async (c) => {
         AVG(ws.hourly_rate) as avg_rate,
         AVG(r.rating) as avg_rating,
         COUNT(r.id) as review_count,
-        CASE WHEN s.plan_type = 'premium' THEN 1 ELSE 0 END as is_featured
+        0 as is_featured
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id  
       LEFT JOIN worker_services ws ON u.id = ws.user_id
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
       WHERE u.role = 'worker' AND u.is_active = 1
     `
     
@@ -2008,16 +2004,15 @@ searchRoutes.get('/featured', async (c) => {
         AVG(ws.hourly_rate) as avg_rate,
         AVG(r.rating) as avg_rating,
         COUNT(r.id) as review_count,
-        s.plan_type,
-        s.monthly_fee,
+        'premium' as plan_type,
+        50.0 as monthly_fee,
         GROUP_CONCAT(DISTINCT ws.service_name) as services_offered,
         COUNT(DISTINCT ws.id) as service_count
       FROM users u
-      JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active' AND s.plan_type IN ('premium', 'professional')
       LEFT JOIN user_profiles p ON u.id = p.user_id  
       LEFT JOIN worker_services ws ON u.id = ws.user_id AND ws.is_available = 1
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      WHERE u.role = 'worker' AND u.is_active = 1
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
+      WHERE u.role = 'worker' AND u.is_active = 1 AND u.is_verified = 1
     `
     
     const params = []
@@ -2058,12 +2053,10 @@ searchRoutes.get('/featured', async (c) => {
         AVG(r.rating) as avg_rating,
         COUNT(r.id) as review_count
       FROM users u
-      LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
       LEFT JOIN user_profiles p ON u.id = p.user_id  
       LEFT JOIN worker_services ws ON u.id = ws.user_id
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      WHERE u.role = 'worker' AND u.is_active = 1 
-        AND (s.plan_type IS NULL OR s.plan_type = 'pay_as_you_go')
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
+      WHERE u.role = 'worker' AND u.is_active = 1
       GROUP BY u.id
       ORDER BY avg_rating DESC, u.is_verified DESC
       LIMIT 12
@@ -2522,12 +2515,11 @@ searchRoutes.post('/api/search', async (c) => {
         AVG(r.rating) as avg_rating,
         COUNT(DISTINCT r.id) as review_count,
         COUNT(DISTINCT ws.id) as service_count,
-        CASE WHEN s.plan_type = 'premium' THEN 1 ELSE 0 END as is_featured,
-        s.plan_type as subscription_tier,
+        0 as is_featured,
+        'basic' as subscription_tier,
         GROUP_CONCAT(DISTINCT ws.service_name) as services_list,
         
         -- Relevance scoring components
-        (CASE WHEN s.plan_type = 'premium' THEN 20 ELSE 0 END) +
         (CASE WHEN u.is_verified THEN 15 ELSE 0 END) +
         (CASE WHEN AVG(r.rating) >= 4.5 THEN 15 ELSE AVG(r.rating) * 3 END) +
         (CASE WHEN COUNT(r.id) > 10 THEN 10 ELSE COUNT(r.id) / 2 END) +
@@ -2538,8 +2530,7 @@ searchRoutes.post('/api/search', async (c) => {
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id AND ws.is_available = 1
-      LEFT JOIN reviews r ON u.id = r.worker_id
-      LEFT JOIN subscriptions s ON u.id = s.user_id AND s.status = 'active'
+      LEFT JOIN reviews r ON u.id = r.reviewee_id
       WHERE u.role = 'worker' AND u.is_active = 1
     `
     

@@ -17,17 +17,17 @@ INSERT OR REPLACE INTO job_categories (id, name, description, icon_class, is_act
 (12, 'Carpentry', 'Custom carpentry and woodwork', 'fas fa-hammer', 1);
 
 -- Insert sample users (workers and clients)
-INSERT OR REPLACE INTO users (id, email, first_name, last_name, phone, role, province, city, is_verified, is_active) VALUES
-(1, 'admin@kwikr.ca', 'Admin', 'User', '+1-416-555-0001', 'admin', 'ON', 'Toronto', 1, 1),
-(2, 'john.client@example.com', 'John', 'Anderson', '+1-416-555-0100', 'client', 'ON', 'Toronto', 1, 1),
-(3, 'sarah.client@example.com', 'Sarah', 'Thompson', '+1-604-555-0101', 'client', 'BC', 'Vancouver', 1, 1),
-(4, 'mike.client@example.com', 'Mike', 'Roberts', '+1-403-555-0102', 'client', 'AB', 'Calgary', 1, 1),
-(5, 'john.smith@example.com', 'John', 'Smith', '+1-416-555-0201', 'worker', 'ON', 'Toronto', 1, 1),
-(6, 'maria.gonzalez@example.com', 'Maria', 'Gonzalez', '+1-604-555-0202', 'worker', 'BC', 'Vancouver', 1, 1),
-(7, 'david.brown@example.com', 'David', 'Brown', '+1-403-555-0203', 'worker', 'AB', 'Calgary', 1, 1),
-(8, 'lisa.wilson@example.com', 'Lisa', 'Wilson', '+1-416-555-0204', 'worker', 'ON', 'Ottawa', 1, 1),
-(9, 'carlos.martinez@example.com', 'Carlos', 'Martinez', '+1-514-555-0205', 'worker', 'QC', 'Montreal', 1, 1),
-(10, 'jennifer.davis@example.com', 'Jennifer', 'Davis', '+1-902-555-0206', 'worker', 'NS', 'Halifax', 1, 1);
+INSERT OR REPLACE INTO users (id, email, password_hash, first_name, last_name, phone, role, province, city, is_verified, is_active) VALUES
+(1, 'admin@kwikr.ca', '$2b$10$hashedpassword', 'Admin', 'User', '+1-416-555-0001', 'admin', 'ON', 'Toronto', 1, 1),
+(2, 'john.client@example.com', '$2b$10$hashedpassword', 'John', 'Anderson', '+1-416-555-0100', 'client', 'ON', 'Toronto', 1, 1),
+(3, 'sarah.client@example.com', '$2b$10$hashedpassword', 'Sarah', 'Thompson', '+1-604-555-0101', 'client', 'BC', 'Vancouver', 1, 1),
+(4, 'mike.client@example.com', '$2b$10$hashedpassword', 'Mike', 'Roberts', '+1-403-555-0102', 'client', 'AB', 'Calgary', 1, 1),
+(5, 'john.smith@example.com', '$2b$10$hashedpassword', 'John', 'Smith', '+1-416-555-0201', 'worker', 'ON', 'Toronto', 1, 1),
+(6, 'maria.gonzalez@example.com', '$2b$10$hashedpassword', 'Maria', 'Gonzalez', '+1-604-555-0202', 'worker', 'BC', 'Vancouver', 1, 1),
+(7, 'david.brown@example.com', '$2b$10$hashedpassword', 'David', 'Brown', '+1-403-555-0203', 'worker', 'AB', 'Calgary', 1, 1),
+(8, 'lisa.wilson@example.com', '$2b$10$hashedpassword', 'Lisa', 'Wilson', '+1-416-555-0204', 'worker', 'ON', 'Ottawa', 1, 1),
+(9, 'carlos.martinez@example.com', '$2b$10$hashedpassword', 'Carlos', 'Martinez', '+1-514-555-0205', 'worker', 'QC', 'Montreal', 1, 1),
+(10, 'jennifer.davis@example.com', '$2b$10$hashedpassword', 'Jennifer', 'Davis', '+1-902-555-0206', 'worker', 'NS', 'Halifax', 1, 1);
 
 -- Insert user profiles
 INSERT OR REPLACE INTO user_profiles (user_id, bio, company_name, company_description, website_url, years_in_business) VALUES
