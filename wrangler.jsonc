@@ -3,5 +3,12 @@
   "name": "kwikr-platform",
   "compatibility_date": "2025-08-23",
   "pages_build_output_dir": "./dist",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kwikr-production",
+      "database_id": "b0db02fd-d6f3-41e4-b7a7-383b8bc08cb0"
+    }
+  ]
 }
