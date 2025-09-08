@@ -294,7 +294,9 @@ app.get('/api/locations/cities/:province', async (c) => {
 app.post('/api/providers/search', async (c) => {
   try {
     const body = await c.req.json()
-    const { serviceType, province, city, budget } = body
+    const { service, serviceType, province, city, budget, location } = body
+    const actualService = service || serviceType  // Support both formats
+    const actualProvince = location || province   // Support both formats
     
     // REBUILT: Use same simple logic as page search
     
@@ -311,9 +313,9 @@ app.post('/api/providers/search', async (c) => {
     let allWorkers = allWorkersResult.results || []
     
     // Step 2: Filter by location
-    if (province && province.trim()) {
+    if (actualProvince && actualProvince.trim()) {
       allWorkers = allWorkers.filter(worker => 
-        worker.province && worker.province.toLowerCase() === province.toLowerCase()
+        worker.province && worker.province.toLowerCase() === actualProvince.toLowerCase()
       )
     }
     
@@ -324,9 +326,9 @@ app.post('/api/providers/search', async (c) => {
     }
     
     // Step 3: Filter by service type with synonyms
-    if (serviceType && serviceType.trim()) {
+    if (actualService && actualService.trim()) {
       const serviceTypeFiltered = []
-      const serviceTypeLower = serviceType.toLowerCase()
+      const serviceTypeLower = actualService.toLowerCase()
       
       // Service type synonyms
       const synonymMap: { [key: string]: string[] } = {
@@ -347,23 +349,27 @@ app.post('/api/providers/search', async (c) => {
         }
       })
       
+      // Check each worker for matching services
       for (const worker of allWorkers) {
-        // Check if worker has matching services
-        const hasMatchingService = await Promise.all(
-          searchTerms.map(async (term) => {
-            const serviceCheck = await c.env.DB.prepare(`
-              SELECT service_name, hourly_rate 
-              FROM worker_services 
-              WHERE user_id = ? AND is_available = 1 
-                AND (LOWER(service_name) LIKE LOWER(?) OR LOWER(service_category) LIKE LOWER(?))
-            `).bind(worker.id, `%${term}%`, `%${term}%`).all()
-            
-            return serviceCheck.results && serviceCheck.results.length > 0 ? serviceCheck.results : null
-          })
-        )
+        let matchingServices = []
         
-        const matchingServices = hasMatchingService.find(result => result !== null)
-        if (matchingServices) {
+        // Check each search term
+        for (const term of searchTerms) {
+          const serviceCheck = await c.env.DB.prepare(`
+            SELECT service_name, hourly_rate 
+            FROM worker_services 
+            WHERE user_id = ? AND is_available = 1 
+              AND (LOWER(service_name) LIKE LOWER(?) OR LOWER(service_category) LIKE LOWER(?))
+          `).bind(worker.id, `%${term}%`, `%${term}%`).all()
+          
+          if (serviceCheck.results && serviceCheck.results.length > 0) {
+            matchingServices = serviceCheck.results
+            break // Found matching services, no need to check other terms
+          }
+        }
+        
+        // If worker has matching services, add to filtered results
+        if (matchingServices.length > 0) {
           worker.matchingServices = matchingServices
           worker.avg_rate = matchingServices[0]?.hourly_rate || 75
           serviceTypeFiltered.push(worker)
@@ -417,7 +423,7 @@ app.post('/api/providers/search', async (c) => {
       success: true,
       providers,
       total: providers.length,
-      searchParams: { serviceType, province, city, budget }
+      searchParams: { service: actualService, location: actualProvince, city, budget }
     })
     
   } catch (error) {
