@@ -508,19 +508,18 @@ app.get('/search', async (c) => {
       SELECT DISTINCT
         u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
         p.bio, p.profile_image_url, p.company_name,
-        AVG(ws.hourly_rate) as avg_rate,
-        COUNT(ws.id) as service_count
+        ws.hourly_rate as avg_rate
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       LEFT JOIN worker_services ws ON u.id = ws.user_id
-      WHERE u.role = 'worker' AND u.is_active = 1 AND ws.is_available = 1
-        ${searchParams.serviceType ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%')` : ''}
-        ${searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
+      WHERE u.role = 'worker' AND u.is_active = 1
+        ${searchParams.serviceType && searchParams.province ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%') AND ws.is_available = 1` : ''}
+        ${!searchParams.serviceType && searchParams.province ? `AND LOWER(u.province) = LOWER('${searchParams.province}')` : ''}
+        ${searchParams.serviceType && !searchParams.province ? `AND LOWER(ws.service_name) LIKE LOWER('%${searchParams.serviceType}%') AND ws.is_available = 1` : ''}
+        ${!searchParams.serviceType && !searchParams.province ? '' : ''}
         ${searchParams.city ? `AND LOWER(u.city) LIKE LOWER('%${searchParams.city}%')` : ''}
         ${searchParams.budget && searchParams.budget > 0 ? `AND ws.hourly_rate <= ${searchParams.budget}` : ''}
-      GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-               p.bio, p.profile_image_url, p.company_name
-      ORDER BY u.is_verified DESC, avg_rate ASC
+      ORDER BY u.is_verified DESC, u.id ASC
       LIMIT ${searchParams.limit} OFFSET ${offset}
     `
     
