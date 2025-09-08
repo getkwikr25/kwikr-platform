@@ -57,16 +57,20 @@ class ChatbotService {
         for (const keyword of keywords) {
           const keywordLower = keyword.toLowerCase()
           if (normalizedQuestion.includes(keywordLower)) {
-            // Exact phrase matches score higher
-            if (normalizedQuestion.includes(keywordLower)) {
-              score += keywordLower.split(' ').length * 2
-            }
-            // Individual word matches
+            // Exact phrase matches score much higher
+            score += keywordLower.split(' ').length * 5
+          } else {
+            // Individual word matches (only if exact phrase doesn't match)
             const words = keywordLower.split(' ')
+            let wordMatches = 0
             for (const word of words) {
-              if (normalizedQuestion.includes(word)) {
-                score += 1
+              if (word.length > 2 && normalizedQuestion.includes(word)) {
+                wordMatches += 1
               }
+            }
+            // Only add score if significant portion of words match
+            if (wordMatches > 0 && wordMatches / words.length >= 0.5) {
+              score += wordMatches
             }
           }
         }
@@ -75,14 +79,18 @@ class ChatbotService {
         for (const pattern of patterns) {
           const patternLower = pattern.toLowerCase()
           if (normalizedQuestion.includes(patternLower)) {
-            score += patternLower.split(' ').length * 3 // Patterns score higher
+            // Exact pattern matches score highest
+            score += patternLower.split(' ').length * 8
           } else {
             // Check for partial pattern matches
             const patternWords = patternLower.split(' ')
             const matchingWords = patternWords.filter(word => 
-              normalizedQuestion.includes(word) && word.length > 2
+              word.length > 2 && normalizedQuestion.includes(word)
             )
-            score += matchingWords.length
+            // Only add if substantial pattern match
+            if (matchingWords.length >= 2 || (matchingWords.length / patternWords.length) >= 0.6) {
+              score += matchingWords.length * 2
+            }
           }
         }
 
@@ -96,8 +104,8 @@ class ChatbotService {
         }
       }
 
-      // Return best match if score is sufficient
-      if (bestMatch && highestScore >= 2) {
+      // Return best match if score is sufficient (lowered threshold for better matching)
+      if (bestMatch && highestScore >= 3) {
         return bestMatch.response as string
       }
 
