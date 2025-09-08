@@ -17,8 +17,8 @@ universalProfileRoutes.get('/:workerId', async (c) => {
     // Fetch worker profile data from database
     const workerProfile = await c.env.DB.prepare(`
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.province, u.city,
-             u.is_verified, u.created_at, u.business_name, u.business_email, u.service_type,
-             up.bio, up.company_name, up.company_description
+             u.is_verified, u.created_at,
+             up.bio, up.company_name, up.company_description, up.website_url, up.years_in_business
       FROM users u LEFT JOIN user_profiles up ON u.id = up.user_id
       WHERE u.id = ? AND u.role = 'worker' AND u.is_active = 1
     `).bind(workerId).first()
@@ -79,14 +79,14 @@ universalProfileRoutes.get('/:workerId', async (c) => {
       city: workerProfile.city || '',
       isVerified: workerProfile.is_verified || 0,
       memberSince: workerProfile.created_at ? new Date(workerProfile.created_at).getFullYear() : new Date().getFullYear(),
-      companyName: workerProfile.business_name || workerProfile.company_name || `${workerProfile.first_name} ${workerProfile.last_name}`,
-      businessEmail: workerProfile.business_email || workerProfile.email,
-      serviceType: workerProfile.service_type || 'Professional Services',
+      companyName: workerProfile.company_name || `${workerProfile.first_name} ${workerProfile.last_name}`,
+      businessEmail: workerProfile.email,
+      serviceType: 'Professional Services',
       bio: workerProfile.bio || 'Professional service provider committed to delivering high-quality work.',
       companyDescription: workerProfile.company_description || 'Experienced professional ready to serve your needs with reliable and quality service.',
       services: workerServices.results || [{
-        service_category: workerProfile.service_type || 'Professional Services',
-        service_name: workerProfile.service_type || 'Professional Services', 
+        service_category: 'Professional Services',
+        service_name: 'Professional Services', 
         description: 'Quality professional service tailored to your needs',
         hourly_rate: 85,
         is_available: 1,
