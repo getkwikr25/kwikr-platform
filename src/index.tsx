@@ -300,10 +300,10 @@ app.post('/api/providers/search', async (c) => {
     
     // REBUILT: Use same simple logic as page search
     
-    // Step 1: Get all active workers
+    // Step 1: Get all active workers (production-safe query)
     const allWorkersQuery = `
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-             p.company_name, p.bio, p.profile_image_url
+             p.company_name, p.bio
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       WHERE u.role = 'worker' AND u.is_active = 1
@@ -409,7 +409,7 @@ app.post('/api/providers/search', async (c) => {
       rate: Math.round(worker.avg_rate || 75),
       distance: Math.round(Math.random() * 15 * 10) / 10,
       services: (worker.matchingServices || []).map(s => s.service_name).slice(0, 3),
-      image: worker.profile_image_url,
+      image: null, // Removed profile_image_url for production compatibility
       initials: `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`,
       verified: worker.is_verified === 1,
       available: 'Available Today',
@@ -474,10 +474,10 @@ app.get('/search', async (c) => {
   try {
     // REBUILT FROM SCRATCH: Simple, working search logic
     
-    // Step 1: Get all active workers first
+    // Step 1: Get all active workers first (production-safe query)
     const allWorkersQuery = `
       SELECT u.id, u.first_name, u.last_name, u.email, u.phone, u.city, u.province, u.is_verified,
-             p.company_name, p.bio, p.profile_image_url
+             p.company_name, p.bio
       FROM users u
       LEFT JOIN user_profiles p ON u.id = p.user_id
       WHERE u.role = 'worker' AND u.is_active = 1
@@ -567,7 +567,7 @@ app.get('/search', async (c) => {
       rate: Math.round(worker.avg_rate || 75),
       distance: Math.round(Math.random() * 15 * 10) / 10,
       services: (worker.matchingServices || []).map(s => s.service_name).slice(0, 3),
-      image: worker.profile_image_url,
+      image: null, // Removed profile_image_url for production compatibility
       initials: `${worker.first_name.charAt(0)}${worker.last_name.charAt(0)}`,
       verified: worker.is_verified === 1,
       available: ['Available Today', 'Available Tomorrow', 'Available This Week'][Math.floor(Math.random() * 3)],
