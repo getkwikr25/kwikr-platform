@@ -457,8 +457,8 @@ function getAvatarColor(initials: string): string {
 // Search Results Page
 app.get('/search', async (c) => {
   const searchParams = {
-    serviceType: c.req.query('serviceType') || 'Cleaning',
-    province: c.req.query('province') || '',
+    serviceType: c.req.query('service') || c.req.query('serviceType') || 'Cleaning',
+    province: c.req.query('location') || c.req.query('province') || '',
     city: c.req.query('city') || '',
     budget: c.req.query('budget') || '5000',
     additionalServices: c.req.query('additionalServices') || '',
@@ -510,10 +510,10 @@ app.get('/search', async (c) => {
           SELECT service_name, hourly_rate 
           FROM worker_services 
           WHERE user_id = ? AND is_available = 1 
-            AND LOWER(service_name) LIKE LOWER(?)
+            AND (LOWER(service_name) LIKE LOWER(?) OR LOWER(service_category) LIKE LOWER(?))
         `
         const workerServices = await c.env.DB.prepare(workerServicesQuery)
-          .bind(worker.id, `%${searchParams.serviceType}%`)
+          .bind(worker.id, `%${searchParams.serviceType}%`, `%${searchParams.serviceType}%`)
           .all()
         
         if (workerServices.results && workerServices.results.length > 0) {
