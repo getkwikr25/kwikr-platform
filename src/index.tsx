@@ -355,8 +355,8 @@ app.post('/api/providers/search', async (c) => {
               SELECT service_name, hourly_rate 
               FROM worker_services 
               WHERE user_id = ? AND is_available = 1 
-                AND LOWER(service_name) LIKE LOWER(?)
-            `).bind(worker.id, `%${term}%`).all()
+                AND (LOWER(service_name) LIKE LOWER(?) OR LOWER(service_category) LIKE LOWER(?))
+            `).bind(worker.id, `%${term}%`, `%${term}%`).all()
             
             return serviceCheck.results && serviceCheck.results.length > 0 ? serviceCheck.results : null
           })
