@@ -151,7 +151,7 @@
                                 <i class="fas fa-clipboard-list text-blue-600 mr-2"></i>
                                 Job Applications Tracking
                             </h3>
-                            <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</button>
+                            <button onclick="viewAllApplications()" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</button>
                         </div>
                     </div>
                     <div class="p-6">
@@ -159,7 +159,7 @@
                             <!-- Applications will be loaded here -->
                         </div>
                         <div class="mt-4 text-center">
-                            <button class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            <button onclick="findNewJobs()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                                 <i class="fas fa-search mr-2"></i>Find New Jobs
                             </button>
                         </div>
@@ -194,7 +194,7 @@
                                 <i class="fas fa-handshake text-purple-600 mr-2"></i>
                                 Customer Relationships
                             </h3>
-                            <button class="text-purple-600 hover:text-purple-800 text-sm font-medium">Manage All</button>
+                            <button onclick="manageAllCustomers()" class="text-purple-600 hover:text-purple-800 text-sm font-medium">Manage All</button>
                         </div>
                     </div>
                     <div class="p-6">
@@ -244,7 +244,7 @@
                                 <i class="fas fa-calendar text-orange-600 mr-2"></i>
                                 Availability
                             </h3>
-                            <button class="text-orange-600 hover:text-orange-800 text-sm font-medium">Edit Schedule</button>
+                            <button onclick="editSchedule()" class="text-orange-600 hover:text-orange-800 text-sm font-medium">Edit Schedule</button>
                         </div>
                     </div>
                     <div class="p-6">
@@ -262,7 +262,7 @@
                                 <span class="text-gray-500">32 hours available</span>
                             </div>
                         </div>
-                        <button class="w-full mt-4 bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
+                        <button onclick="updateAvailability()" class="w-full mt-4 bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
                             <i class="fas fa-clock mr-2"></i>Update Availability
                         </button>
                     </div>
@@ -276,7 +276,7 @@
                                 <i class="fas fa-briefcase text-teal-600 mr-2"></i>
                                 Portfolio
                             </h3>
-                            <button class="text-teal-600 hover:text-teal-800 text-sm font-medium">Add Work</button>
+                            <button onclick="addWork()" class="text-teal-600 hover:text-teal-800 text-sm font-medium">Add Work</button>
                         </div>
                     </div>
                     <div class="p-6">
@@ -289,7 +289,7 @@
                             </div>
                         </div>
                         <p class="text-sm text-gray-500 mt-3">Showcase your best work</p>
-                        <button class="w-full mt-3 border border-teal-600 text-teal-600 py-2 px-4 rounded-lg hover:bg-teal-50 transition-colors">
+                        <button onclick="uploadSample()" class="w-full mt-3 border border-teal-600 text-teal-600 py-2 px-4 rounded-lg hover:bg-teal-50 transition-colors">
                             <i class="fas fa-plus mr-2"></i>Upload Sample
                         </button>
                     </div>
@@ -307,7 +307,7 @@
                             <i class="fas fa-target text-red-600 mr-2"></i>
                             Performance Goals
                         </h3>
-                        <button class="text-red-600 hover:text-red-800 text-sm font-medium">Set New Goal</button>
+                        <button onclick="setNewGoal()" class="text-red-600 hover:text-red-800 text-sm font-medium">Set New Goal</button>
                     </div>
                 </div>
                 <div class="p-6">
@@ -607,6 +607,39 @@
 
         function getInitials(name) {
             return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+        }
+
+        // Button functionality
+        function viewAllApplications() {
+            alert('View All Applications - This feature will show all your job applications in a detailed view.');
+        }
+
+        function findNewJobs() {
+            alert('Find New Jobs - This feature will take you to the job search page where you can browse available opportunities.');
+        }
+
+        function manageAllCustomers() {
+            alert('Manage All Customers - This feature will show your customer relationship management dashboard.');
+        }
+
+        function editSchedule() {
+            alert('Edit Schedule - This feature will open a calendar interface to modify your availability schedule.');
+        }
+
+        function updateAvailability() {
+            alert('Update Availability - This feature will allow you to quickly update your current availability status.');
+        }
+
+        function addWork() {
+            alert('Add Work - This feature will allow you to add new work samples to your portfolio.');
+        }
+
+        function uploadSample() {
+            alert('Upload Sample - This feature will open a file upload dialog for portfolio samples.');
+        }
+
+        function setNewGoal() {
+            alert('Set New Goal - This feature will allow you to set performance targets and goals.');
         }
     </script>
 </body>

@@ -32,6 +32,7 @@ import files from './routes/files'
 import analyticsRoutes from './routes/analytics'
 import marketingRoutes from './routes/marketing'
 import mobileApiRoutes from './routes/mobile-api'
+import chatbot from './routes/chatbot'
 import { Logger } from './utils/logger'
 
 type Bindings = {
@@ -74,6 +75,9 @@ app.route('/api/worker-dashboard', workerDashboard)
 
 // Notification System API Routes
 app.route('/api/notifications', notifications)
+
+// Chatbot API Routes
+app.route('/api/chatbot', chatbot)
 
 // File & Media Management API Routes
 app.route('/api/files', files)
@@ -4048,6 +4052,11 @@ app.get('/', (c) => {
 
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <link href="/static/styles.css" rel="stylesheet">
+        <style>
+            html {
+                scroll-behavior: smooth;
+            }
+        </style>
     </head>
     <body class="bg-white font-sans">
         <!-- Navigation -->
@@ -4063,8 +4072,6 @@ app.get('/', (c) => {
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <button onclick="showHowItWorksModal()" class="text-gray-700 hover:text-kwikr-green transition-colors">How it Works</button>
-                        <a href="#services" class="text-gray-700 hover:text-kwikr-green transition-colors">Find Services</a>
                         <a href="/auth/login" class="text-gray-700 hover:text-kwikr-green transition-colors font-medium">
                             <i class="fas fa-sign-in-alt mr-1"></i>Login
                         </a>
@@ -4448,6 +4455,137 @@ app.get('/', (c) => {
                             <div class="font-medium text-white">Admin Dashboard</div>
                             <div class="text-green-100 text-sm">Manage users & view analytics</div>
                         </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works Section -->
+        <div id="how-it-works" class="py-24 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold text-gray-900 mb-4">
+                        <i class="fas fa-lightbulb mr-3 text-kwikr-green"></i>How Kwikr Works
+                    </h2>
+                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Getting quality services or finding great clients has never been easier. Here's how our platform works for everyone.
+                    </p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    <!-- For Clients -->
+                    <div class="bg-blue-50 rounded-2xl p-8">
+                        <h3 class="text-2xl font-bold text-blue-700 mb-6 flex items-center">
+                            <i class="fas fa-user-circle mr-3"></i>For Clients (Need Services)
+                        </h3>
+                        
+                        <div class="space-y-6">
+                            <div class="flex items-start">
+                                <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">1</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Post Your Job for Free</h4>
+                                    <p class="text-gray-600">Describe what you need done with details, timeline, and budget. It only takes a few minutes.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">2</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Review Competitive Bids</h4>
+                                    <p class="text-gray-600">Verified providers submit quotes with their rates, timelines, and detailed proposals.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">3</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Choose & Hire</h4>
+                                    <p class="text-gray-600">Select the best provider based on reviews, price, experience, and credentials.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-blue-600 text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">4</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Pay Securely</h4>
+                                    <p class="text-gray-600">Pay safely through our platform with escrow protection until work is completed.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 text-center">
+                            <a href="/signup/client" class="bg-blue-600 text-white px-8 py-4 rounded-xl font-semibold hover:bg-blue-700 transition-colors inline-flex items-center text-lg">
+                                <i class="fas fa-briefcase mr-3"></i>Post Your First Job (Free)
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- For Service Providers -->
+                    <div class="bg-green-50 rounded-2xl p-8">
+                        <h3 class="text-2xl font-bold text-kwikr-green mb-6 flex items-center">
+                            <i class="fas fa-tools mr-3"></i>For Service Providers (Workers)
+                        </h3>
+                        
+                        <div class="space-y-6">
+                            <div class="flex items-start">
+                                <div class="bg-kwikr-green text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">1</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Sign Up & Get Verified</h4>
+                                    <p class="text-gray-600">Create your profile, upload credentials, and complete our verification process for trust.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-kwikr-green text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">2</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Browse & Bid on Jobs</h4>
+                                    <p class="text-gray-600">Find jobs that match your skills and submit competitive proposals with your rates.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-kwikr-green text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">3</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Get Hired & Work</h4>
+                                    <p class="text-gray-600">Win jobs, complete quality work, and build your reputation on the platform.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-start">
+                                <div class="bg-kwikr-green text-white w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mr-4 flex-shrink-0">4</div>
+                                <div>
+                                    <h4 class="font-semibold text-gray-900 text-lg mb-2">Get Paid Guaranteed</h4>
+                                    <p class="text-gray-600">Receive secure payment upon job completion and client approval through our escrow system.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mt-8 text-center">
+                            <a href="/signup/worker" class="bg-kwikr-green text-white px-8 py-4 rounded-xl font-semibold hover:bg-green-600 transition-colors inline-flex items-center text-lg">
+                                <i class="fas fa-tools mr-3"></i>Join as Service Provider
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Stats -->
+                <div class="mt-16 text-center">
+                    <div class="bg-gradient-to-r from-kwikr-green to-green-600 rounded-2xl p-8 text-white">
+                        <h3 class="text-2xl font-bold mb-6">Join Thousands of Satisfied Users</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                            <div>
+                                <div class="text-4xl font-bold mb-2">2,500+</div>
+                                <div class="text-green-100">Jobs Completed</div>
+                            </div>
+                            <div>
+                                <div class="text-4xl font-bold mb-2">1,200+</div>
+                                <div class="text-green-100">Verified Providers</div>
+                            </div>
+                            <div>
+                                <div class="text-4xl font-bold mb-2">4.8/5</div>
+                                <div class="text-green-100">Average Rating</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -4837,115 +4975,7 @@ app.get('/', (c) => {
 
         <!-- Job Posting Modal Replaced with Direct Links -->
 
-        <!-- How It Works Modal -->
-        <div id="howItWorksModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-            <div class="bg-white p-8 rounded-lg max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
-                <div class="flex justify-between items-center mb-6">
-                    <h3 class="text-2xl font-bold text-kwikr-green">
-                        <i class="fas fa-lightbulb mr-2"></i>How Kwikr Works
-                    </h3>
-                    <button onclick="hideHowItWorksModal()" class="text-gray-400 hover:text-gray-600">
-                        <i class="fas fa-times text-xl"></i>
-                    </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- For Clients -->
-                    <div>
-                        <h4 class="text-lg font-bold text-blue-600 mb-4 flex items-center">
-                            <i class="fas fa-user mr-2"></i>For Clients (Need Services)
-                        </h4>
-                        
-                        <div class="space-y-4">
-                            <div class="flex items-start">
-                                <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">1</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Post Your Job for Free</p>
-                                    <p class="text-sm text-gray-600">Describe what you need done with details, timeline, and budget</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">2</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Review Competitive Bids</p>
-                                    <p class="text-sm text-gray-600">Verified providers submit quotes with their rates and timelines</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">3</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Choose & Hire</p>
-                                    <p class="text-sm text-gray-600">Select the best provider based on reviews, price, and experience</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">4</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Secure Payment</p>
-                                    <p class="text-sm text-gray-600">Pay safely through our platform with escrow protection</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- For Workers -->
-                    <div>
-                        <h4 class="text-lg font-bold text-kwikr-green mb-4 flex items-center">
-                            <i class="fas fa-tools mr-2"></i>For Service Providers (Workers)
-                        </h4>
-                        
-                        <div class="space-y-4">
-                            <div class="flex items-start">
-                                <div class="bg-green-100 text-kwikr-green w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">1</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Sign Up & Get Verified</p>
-                                    <p class="text-sm text-gray-600">Create profile, upload credentials, and complete verification process</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-green-100 text-kwikr-green w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">2</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Browse & Bid on Jobs</p>
-                                    <p class="text-sm text-gray-600">Find jobs that match your skills and submit competitive proposals</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-green-100 text-kwikr-green w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">3</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Get Hired & Work</p>
-                                    <p class="text-sm text-gray-600">Win jobs, complete quality work, and build your reputation</p>
-                                </div>
-                            </div>
-                            
-                            <div class="flex items-start">
-                                <div class="bg-green-100 text-kwikr-green w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm mr-3 mt-1">4</div>
-                                <div>
-                                    <p class="font-medium text-gray-800">Get Paid Securely</p>
-                                    <p class="text-sm text-gray-600">Receive guaranteed payment upon job completion and client approval</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-8 text-center bg-kwikr-gray p-6 rounded-lg">
-                    <h5 class="text-lg font-bold text-gray-800 mb-2">Ready to Get Started?</h5>
-                    <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href="/signup/client" onclick="hideHowItWorksModal()" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center">
-                            <i class="fas fa-briefcase mr-2"></i>Post a Job (Free)
-                        </a>
-                        <a href="/signup/worker" onclick="hideHowItWorksModal()" class="bg-kwikr-green text-white px-6 py-3 rounded-lg font-medium hover:bg-green-600 transition-colors inline-flex items-center">
-                            <i class="fas fa-tools mr-2"></i>Join as Service Provider
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
+
 
         <!-- Login Modal -->
         <div id="loginModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
@@ -5472,14 +5502,7 @@ app.get('/', (c) => {
           
           // Job Posting Modal Functions - Replaced with Direct Links
           
-          // How It Works Modal Functions
-          function showHowItWorksModal() {
-            document.getElementById('howItWorksModal').classList.remove('hidden');
-          }
-          
-          function hideHowItWorksModal() {
-            document.getElementById('howItWorksModal').classList.add('hidden');
-          }
+
           
           // Login/Signup Functions - Using Direct Links Now
           
@@ -5639,8 +5662,7 @@ app.get('/', (c) => {
           
           // Make functions globally available
           // Job posting modal functions removed - using direct links now
-          window.showHowItWorksModal = showHowItWorksModal;
-          window.hideHowItWorksModal = hideHowItWorksModal;
+
           // Signup/login redirect functions removed - using direct links now
           window.showLoginModal = showLoginModal;
           window.hideLoginModal = hideLoginModal;
@@ -5653,6 +5675,10 @@ app.get('/', (c) => {
           // Subscription plan selection now uses direct links - no JavaScript function needed
 
         </script>
+        
+        <!-- Chatbot Widget -->
+        <script src="/static/chatbot.js"></script>
+        
     </body>
     </html>
   `)
@@ -12197,6 +12223,9 @@ function getSubscriptionPricingHTML() {
             </div>
         </div>
 
+        <!-- Chatbot Widget -->
+        <script src="/static/chatbot.js"></script>
+        
         <script>
           // Billing Toggle
           document.getElementById('billingToggle').addEventListener('change', function() {

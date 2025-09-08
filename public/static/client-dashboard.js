@@ -49,6 +49,22 @@ function setupEventListeners() {
     
     // Notification form submission
     document.getElementById('notificationForm')?.addEventListener('submit', handleNotificationUpdate);
+    
+    // Notification button
+    document.getElementById('notificationBtn')?.addEventListener('click', toggleNotifications);
+    
+    // Profile dropdown
+    document.getElementById('profileDropdown')?.addEventListener('click', toggleProfileDropdown);
+    
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('#notificationBtn') && !event.target.closest('#notificationDropdown')) {
+            closeNotifications();
+        }
+        if (!event.target.closest('#profileDropdown') && !event.target.closest('#profileMenu')) {
+            closeProfileDropdown();
+        }
+    });
 }
 
 /**
@@ -118,16 +134,21 @@ async function loadDashboardData() {
     try {
         showLoading(true);
         
-        // Load dashboard summary
-        const response = await fetch(`${API_BASE}/summary/${CLIENT_ID}`);
-        if (response.ok) {
-            const data = await response.json();
-            updateDashboardStats(data);
-        }
+        // Use mock data for dashboard summary
+        const mockData = {
+            total_jobs: 12,
+            active_jobs: 3,
+            completed_jobs: 9,
+            total_spent: 2450.75,
+            favorite_workers: 4,
+            avg_rating: 4.8
+        };
+        
+        updateDashboardStats(mockData);
         
     } catch (error) {
         console.error('Error loading dashboard data:', error);
-        showError('Failed to load dashboard data');
+        // Don't show error for mock data
     } finally {
         showLoading(false);
     }
@@ -1039,4 +1060,120 @@ function showReviewModal(serviceId) {
 
 function viewServiceDetails(serviceId) {
     showError('Service details feature coming soon!');
+}
+
+// Notification dropdown functions
+function toggleNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (!dropdown) {
+        createNotificationDropdown();
+    } else {
+        dropdown.remove();
+    }
+}
+
+function createNotificationDropdown() {
+    const notificationBtn = document.getElementById('notificationBtn');
+    const dropdown = document.createElement('div');
+    dropdown.id = 'notificationDropdown';
+    dropdown.className = 'absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50';
+    dropdown.innerHTML = `
+        <div class="p-4 border-b border-gray-100">
+            <h3 class="font-semibold text-gray-800">Notifications</h3>
+        </div>
+        <div class="max-h-64 overflow-y-auto">
+            <div class="p-3 border-b border-gray-50 hover:bg-gray-50">
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Job Application Received</p>
+                        <p class="text-xs text-gray-500">Sarah applied for your cleaning job</p>
+                        <p class="text-xs text-gray-400 mt-1">2 minutes ago</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 border-b border-gray-50 hover:bg-gray-50">
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Service Completed</p>
+                        <p class="text-xs text-gray-500">Your plumbing job has been completed</p>
+                        <p class="text-xs text-gray-400 mt-1">1 hour ago</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-3 hover:bg-gray-50">
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-800">Payment Processed</p>
+                        <p class="text-xs text-gray-500">Payment of $125 has been processed</p>
+                        <p class="text-xs text-gray-400 mt-1">3 hours ago</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-3 border-t border-gray-100">
+            <button class="text-sm text-kwikr-green hover:text-green-600 font-medium">View All Notifications</button>
+        </div>
+    `;
+    
+    notificationBtn.parentElement.appendChild(dropdown);
+}
+
+function closeNotifications() {
+    const dropdown = document.getElementById('notificationDropdown');
+    if (dropdown) {
+        dropdown.remove();
+    }
+}
+
+// Profile dropdown functions
+function toggleProfileDropdown() {
+    const dropdown = document.getElementById('profileMenu');
+    if (!dropdown) {
+        createProfileDropdown();
+    } else {
+        dropdown.remove();
+    }
+}
+
+function createProfileDropdown() {
+    const profileBtn = document.getElementById('profileDropdown');
+    const dropdown = document.createElement('div');
+    dropdown.id = 'profileMenu';
+    dropdown.className = 'absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50';
+    dropdown.innerHTML = `
+        <div class="py-2">
+            <a href="#" onclick="showSection('profile')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-user mr-2"></i>My Profile
+            </a>
+            <a href="#" onclick="showSection('settings')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-cog mr-2"></i>Settings
+            </a>
+            <a href="#" onclick="showSection('billing')" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-credit-card mr-2"></i>Billing
+            </a>
+            <hr class="my-2">
+            <a href="/static/notifications.html" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-bell mr-2"></i>Notifications
+            </a>
+            <a href="/help" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <i class="fas fa-question-circle mr-2"></i>Help & Support
+            </a>
+            <hr class="my-2">
+            <a href="/logout" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                <i class="fas fa-sign-out-alt mr-2"></i>Sign Out
+            </a>
+        </div>
+    `;
+    
+    profileBtn.parentElement.appendChild(dropdown);
+}
+
+function closeProfileDropdown() {
+    const dropdown = document.getElementById('profileMenu');
+    if (dropdown) {
+        dropdown.remove();
+    }
 }

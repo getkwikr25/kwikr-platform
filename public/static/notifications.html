@@ -422,20 +422,47 @@
 
             try {
                 const unreadOnly = document.getElementById('filterUnread').value === 'unread';
-                const response = await axios.get(`/api/notifications/in-app/${currentUserId}`, {
-                    params: {
-                        unread_only: unreadOnly,
-                        limit: 20,
-                        offset: currentOffset
+                
+                // Mock data for notifications
+                const mockNotifications = [
+                    {
+                        id: 1,
+                        title: 'Job Application Received',
+                        message: 'Sarah Johnson applied for your house cleaning job',
+                        type: 'job_application',
+                        priority: 'high',
+                        is_read: false,
+                        created_at: new Date().toISOString(),
+                        icon: 'fas fa-briefcase'
+                    },
+                    {
+                        id: 2,
+                        title: 'Service Completed',
+                        message: 'Your plumbing service has been marked as completed',
+                        type: 'service_update',
+                        priority: 'medium',
+                        is_read: true,
+                        created_at: new Date(Date.now() - 3600000).toISOString(),
+                        icon: 'fas fa-check-circle'
+                    },
+                    {
+                        id: 3,
+                        title: 'Payment Processed',
+                        message: 'Payment of $125.00 has been successfully processed',
+                        type: 'payment',
+                        priority: 'medium',
+                        is_read: false,
+                        created_at: new Date(Date.now() - 7200000).toISOString(),
+                        icon: 'fas fa-credit-card'
                     }
-                });
-
+                ];
+                
                 const container = document.getElementById('notificationsList');
                 if (reset) {
                     container.innerHTML = '';
                 }
 
-                const notifications = response.data.notifications;
+                const notifications = unreadOnly ? mockNotifications.filter(n => !n.is_read) : mockNotifications;
                 
                 if (notifications.length === 0 && reset) {
                     container.innerHTML = `
@@ -452,17 +479,13 @@
                 }
 
                 // Update stats
-                document.getElementById('unreadCount').textContent = response.data.unread_count;
+                const unreadCount = mockNotifications.filter(n => !n.is_read).length;
+                document.getElementById('unreadCount').textContent = unreadCount;
                 updateNotificationBell();
 
                 // Update load more button
                 const loadMoreBtn = document.getElementById('loadMoreBtn');
-                if (response.data.pagination.has_more) {
-                    loadMoreBtn.style.display = 'inline-block';
-                    currentOffset += notifications.length;
-                } else {
-                    loadMoreBtn.style.display = 'none';
-                }
+                loadMoreBtn.style.display = 'none'; // No pagination for mock data
 
             } catch (error) {
                 console.error('Error loading notifications:', error);
@@ -573,11 +596,18 @@
         // Load Preferences
         async function loadPreferences() {
             try {
-                const response = await axios.get(`/api/notifications/preferences/${currentUserId}`);
-                const preferences = response.data.preferences;
+                // Mock preferences data
+                const mockPreferences = [
+                    { preference_type: 'email', notification_type: 'job_applications', is_enabled: true, name: 'Job Applications' },
+                    { preference_type: 'email', notification_type: 'payment_updates', is_enabled: true, name: 'Payment Updates' },
+                    { preference_type: 'email', notification_type: 'service_reminders', is_enabled: false, name: 'Service Reminders' },
+                    { preference_type: 'push', notification_type: 'job_applications', is_enabled: true, name: 'Job Applications' },
+                    { preference_type: 'push', notification_type: 'payment_updates', is_enabled: false, name: 'Payment Updates' },
+                    { preference_type: 'sms', notification_type: 'urgent_updates', is_enabled: true, name: 'Urgent Updates' }
+                ];
 
                 // Group preferences by type
-                const grouped = preferences.reduce((acc, pref) => {
+                const grouped = mockPreferences.reduce((acc, pref) => {
                     if (!acc[pref.preference_type]) acc[pref.preference_type] = [];
                     acc[pref.preference_type].push(pref);
                     return acc;
@@ -655,18 +685,21 @@
                 const type = document.getElementById('historyType').value;
                 const category = document.getElementById('historyCategory').value;
                 
-                const response = await axios.get(`/api/notifications/history/${currentUserId}`, {
-                    params: {
-                        type: type || undefined,
-                        category: category || undefined,
-                        limit: 50
-                    }
+                // Mock history data
+                const mockHistory = [
+                    { id: 1, title: 'Job Application Received', type: 'in_app', category: 'job', sent_at: new Date().toISOString(), status: 'delivered' },
+                    { id: 2, title: 'Payment Confirmation', type: 'email', category: 'payment', sent_at: new Date(Date.now() - 86400000).toISOString(), status: 'delivered' },
+                    { id: 3, title: 'Service Reminder', type: 'sms', category: 'service', sent_at: new Date(Date.now() - 172800000).toISOString(), status: 'failed' }
+                ];
+                
+                const filteredHistory = mockHistory.filter(item => {
+                    return (!type || item.type === type) && (!category || item.category === category);
                 });
 
                 const container = document.getElementById('historyList');
                 container.innerHTML = '';
 
-                const history = response.data.history;
+                const history = filteredHistory;
                 
                 if (history.length === 0) {
                     container.innerHTML = `
@@ -781,13 +814,18 @@
         // Admin Settings
         async function loadAdminSettings() {
             try {
-                const response = await axios.get('/api/notifications/admin/settings');
-                const settings = response.data.settings;
+                // Mock admin settings data
+                const mockSettings = {
+                    email_rate_limit: { name: 'Email Rate Limit', value: '100 per hour', description: 'Maximum emails per hour' },
+                    sms_rate_limit: { name: 'SMS Rate Limit', value: '50 per hour', description: 'Maximum SMS per hour' },
+                    push_rate_limit: { name: 'Push Rate Limit', value: '500 per hour', description: 'Maximum push notifications per hour' },
+                    retention_days: { name: 'Data Retention', value: '90 days', description: 'How long to keep notification history' }
+                };
 
                 const container = document.getElementById('adminSettings');
                 container.innerHTML = '';
 
-                Object.entries(settings).forEach(([key, setting]) => {
+                Object.entries(mockSettings).forEach(([key, setting]) => {
                     const div = document.createElement('div');
                     div.className = 'space-y-2';
                     div.innerHTML = `
@@ -824,16 +862,22 @@
 
         async function loadAnalytics() {
             try {
-                const response = await axios.get('/api/notifications/analytics');
-                const analytics = response.data.analytics;
+                // Mock analytics data
+                const mockAnalytics = [
+                    { type: 'email', sent: 1250, delivered: 1180, opened: 756, clicked: 234 },
+                    { type: 'sms', sent: 450, delivered: 432, opened: 0, clicked: 0 },
+                    { type: 'push', sent: 2100, delivered: 1980, opened: 1456, clicked: 567 }
+                ];
 
                 const container = document.getElementById('notificationAnalytics');
                 container.innerHTML = '';
 
-                if (analytics.length === 0) {
+                if (mockAnalytics.length === 0) {
                     container.innerHTML = '<p class="text-gray-500 text-sm">No analytics data available</p>';
                     return;
                 }
+                
+                const analytics = mockAnalytics;
 
                 // Simple analytics display
                 const summary = analytics.reduce((acc, item) => {

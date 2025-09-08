@@ -9,23 +9,92 @@ export const workerSubscriptionRoutes = new Hono<{ Bindings: Bindings }>()
 // Worker Subscription Management Page
 workerSubscriptionRoutes.get('/pricing', async (c) => {
   try {
-    // Get all active subscription plans
-    const plans = await c.env.DB.prepare(`
-      SELECT * FROM subscription_plans 
-      WHERE is_active = 1 
-      ORDER BY display_order, monthly_price
-    `).all()
+    // Try to get subscription plans, fallback to default plans if table doesn't exist
+    let plans = { results: [] }
+    let planFeatures = new Map()
+    
+    try {
+      plans = await c.env.DB.prepare(`
+        SELECT * FROM subscription_plans 
+        WHERE is_active = 1 
+        ORDER BY display_order, monthly_price
+      `).all()
 
-    // Get plan features for each plan
-    const planFeatures = new Map()
-    for (const plan of (plans.results || [])) {
-      const features = await c.env.DB.prepare(`
-        SELECT feature_key, feature_name, feature_value, feature_type
-        FROM subscription_plan_features
-        WHERE plan_id = ? AND is_active = 1
-        ORDER BY display_order
-      `).bind(plan.id).all()
-      planFeatures.set(plan.id, features.results || [])
+      // Get plan features for each plan
+      for (const plan of (plans.results || [])) {
+        const features = await c.env.DB.prepare(`
+          SELECT feature_key, feature_name, feature_value, feature_type
+          FROM subscription_plan_features
+          WHERE plan_id = ? AND is_active = 1
+          ORDER BY display_order
+        `).bind(plan.id).all()
+        planFeatures.set(plan.id, features.results || [])
+      }
+    } catch (dbError) {
+      // Use fallback plans if database tables don't exist
+      plans = {
+        results: [
+          {
+            id: 1,
+            plan_name: 'Starter Plan',
+            plan_slug: 'starter-plan',
+            monthly_price: 0.00,
+            annual_price: 0.00,
+            per_job_fee: 12.00,
+            description: 'Perfect for getting started',
+            max_active_jobs: 3,
+            max_bids_per_month: 10,
+            priority_support: false,
+            is_active: true
+          },
+          {
+            id: 2,
+            plan_name: 'Growth Plan',
+            plan_slug: 'growth-plan',
+            monthly_price: 29.99,
+            annual_price: 323.89,
+            per_job_fee: 6.00,
+            description: 'Most popular for growing businesses',
+            max_active_jobs: 10,
+            max_bids_per_month: 50,
+            priority_support: true,
+            is_active: true
+          },
+          {
+            id: 3,
+            plan_name: 'Pro Plan',
+            plan_slug: 'pro-plan',
+            monthly_price: 59.99,
+            annual_price: 647.89,
+            per_job_fee: 3.00,
+            description: 'For established service providers',
+            max_active_jobs: -1,
+            max_bids_per_month: -1,
+            priority_support: true,
+            is_active: true
+          }
+        ]
+      }
+      
+      // Set default features for each plan
+      planFeatures.set(1, [
+        { feature_name: 'Active Job Listings', feature_value: '3', feature_type: 'number' },
+        { feature_name: 'Monthly Bids', feature_value: '10', feature_type: 'number' },
+        { feature_name: 'Basic Support', feature_value: 'true', feature_type: 'boolean' }
+      ])
+      planFeatures.set(2, [
+        { feature_name: 'Active Job Listings', feature_value: '10', feature_type: 'number' },
+        { feature_name: 'Monthly Bids', feature_value: '50', feature_type: 'number' },
+        { feature_name: 'Priority Support', feature_value: 'true', feature_type: 'boolean' },
+        { feature_name: 'Featured Listings', feature_value: 'true', feature_type: 'boolean' }
+      ])
+      planFeatures.set(3, [
+        { feature_name: 'Unlimited Job Listings', feature_value: 'true', feature_type: 'boolean' },
+        { feature_name: 'Unlimited Monthly Bids', feature_value: 'true', feature_type: 'boolean' },
+        { feature_name: 'Priority Support', feature_value: 'true', feature_type: 'boolean' },
+        { feature_name: 'Featured Listings', feature_value: 'true', feature_type: 'boolean' },
+        { feature_name: 'Advanced Analytics', feature_value: 'true', feature_type: 'boolean' }
+      ])
     }
 
     return c.html(`

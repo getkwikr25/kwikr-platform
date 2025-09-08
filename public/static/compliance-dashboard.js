@@ -89,8 +89,80 @@ class ComplianceDashboard {
             this.showToast('Dashboard updated successfully', 'success');
         } catch (error) {
             console.error('Error loading dashboard:', error);
-            this.showToast('Error loading dashboard data', 'error');
+            
+            // Load mock data when API fails
+            this.data.overview = {
+                backgroundChecks: {
+                    total: 156,
+                    completed: 142,
+                    pending: 14,
+                    failed: 0,
+                    complianceRate: 91.0
+                },
+                insurance: {
+                    total: 156,
+                    verified: 134,
+                    expired: 8,
+                    pending: 14,
+                    coverageRate: 85.9
+                },
+                licenses: {
+                    total: 203,
+                    valid: 189,
+                    expired: 12,
+                    pending: 2,
+                    validityRate: 93.1
+                },
+                gdpr: {
+                    consentRate: 98.5,
+                    dataRequests: 12,
+                    deletionRequests: 3,
+                    dataBreaches: 0
+                },
+                security: {
+                    threatLevel: 'Low',
+                    blockedAttempts: 247,
+                    securityScore: 94,
+                    vulnerabilities: 2
+                },
+                rateLimiting: {
+                    requestsPerMinute: 1247,
+                    blockedRequests: 23,
+                    successRate: 98.2,
+                    topEndpoints: [
+                        { endpoint: '/api/jobs', requests: 456 },
+                        { endpoint: '/api/users', requests: 234 }
+                    ]
+                }
+            };
+            
+            this.data.alerts = [
+                {
+                    id: 1,
+                    type: 'license',
+                    severity: 'medium',
+                    title: 'License Expiry Alert',
+                    message: '12 worker licenses expire within 30 days',
+                    timestamp: new Date().toISOString(),
+                    resolved: false
+                },
+                {
+                    id: 2,
+                    type: 'security',
+                    severity: 'low',
+                    title: 'Security Scan Complete',
+                    message: 'Weekly security scan completed successfully',
+                    timestamp: new Date().toISOString(),
+                    resolved: true
+                }
+            ];
+            
+            this.updateOverviewCards();
+            this.updateAlerts();
+            this.updateLastUpdated();
             this.hideLoading();
+            
+            this.showToast('Using demo data - API connection failed', 'warning');
         }
     }
 

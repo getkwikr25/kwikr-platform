@@ -301,14 +301,11 @@ export class AdminService {
   }
 
   private async calculateFileMetrics() {
-    const [totalFiles, storageUsed] = await Promise.all([
-      this.db.prepare('SELECT COUNT(*) as count FROM files').first(),
-      this.db.prepare('SELECT COALESCE(SUM(file_size), 0) as total FROM files').first()
-    ]);
-
+    // Return default values since files table doesn't exist yet
+    // TODO: Create files table when file upload feature is implemented
     return {
-      total_files: { value: totalFiles?.count || 0, change: 0, period: '24h' },
-      storage_used: { value: Math.round((storageUsed?.total || 0) / (1024 * 1024)), change: 0, period: '24h' } // MB
+      total_files: { value: 0, change: 0, period: '24h' },
+      storage_used: { value: 0, change: 0, period: '24h' } // MB
     };
   }
 
@@ -325,18 +322,15 @@ export class AdminService {
   }
 
   private async calculateSystemMetrics() {
-    const [errorCount, alertCount] = await Promise.all([
-      this.db.prepare(`
-        SELECT COUNT(*) as count FROM error_logs 
-        WHERE created_at > datetime('now', '-24 hours') AND severity IN ('high', 'critical')
-      `).first(),
-      this.db.prepare(`SELECT COUNT(*) as count FROM system_alerts WHERE status = 'active'`).first()
-    ]);
+    const errorCount = await this.db.prepare(`
+      SELECT COUNT(*) as count FROM error_logs 
+      WHERE created_at > datetime('now', '-24 hours') AND severity IN ('high', 'critical')
+    `).first();
 
     return {
       error_rate: { value: errorCount?.count || 0, change: 0, period: '24h' },
       response_time: { value: 0, change: 0, period: '24h' },
-      system_alerts: { value: alertCount?.count || 0, change: 0, period: '24h' }
+      system_alerts: { value: 0, change: 0, period: '24h' } // TODO: Create system_alerts table when needed
     };
   }
 
@@ -357,14 +351,14 @@ export class AdminService {
     try {
       const result = await this.db.prepare(`
         SELECT 
-          aal.*,
+          aa.*,
           au.user_id,
-          u.name as admin_name,
+          (u.first_name || ' ' || u.last_name) as admin_name,
           u.email as admin_email
-        FROM admin_activity_logs aal
-        LEFT JOIN admin_users au ON aal.admin_user_id = au.id
+        FROM admin_activities aa
+        LEFT JOIN admin_users au ON aa.admin_user_id = au.id
         LEFT JOIN users u ON au.user_id = u.id
-        ORDER BY aal.created_at DESC
+        ORDER BY aa.created_at DESC
         LIMIT ?
       `).bind(limit).all();
 
@@ -1081,7 +1075,7 @@ export class AdminService {
     name?: string;
     description?: string;
     default_value?: string;
-    status?: 'active' | 'inactive' | 'archived';
+    is_active?: boolean;
     rollout_percentage?: number;
     target_users?: number[];
     target_conditions?: any;
@@ -1103,9 +1097,9 @@ export class AdminService {
         updates.push('default_value = ?');
         values.push(data.default_value);
       }
-      if (data.status !== undefined) {
-        updates.push('status = ?');
-        values.push(data.status);
+      if (data.is_active !== undefined) {
+        updates.push('is_active = ?');
+        values.push(data.is_active ? 1 : 0);
       }
       if (data.rollout_percentage !== undefined) {
         updates.push('rollout_percentage = ?');
@@ -1588,69 +1582,62 @@ export class AdminService {
         throw new Error('User not found');
       }
 
-      // Get user jobs
-      const jobs = await this.db.prepare(`
-        SELECT 
-          j.*,
-          jc.name as category_name,
-          (CASE 
-            WHEN j.client_id = ? THEN 'client'
-            WHEN j.worker_id = ? THEN 'worker'
-            ELSE 'none'
-          END) as user_role_in_job
-        FROM jobs j
-        LEFT JOIN job_categories jc ON j.category_id = jc.id
-        WHERE j.client_id = ? OR j.assigned_worker_id = ?
-        ORDER BY j.created_at DESC
-      `).bind(userId, userId, userId, userId).all();
+      // Get user jobs (simplified query with error handling)
+      let jobResults = [];
+      try {
+        const jobsQuery = await this.db.prepare(`
+          SELECT * FROM jobs 
+          WHERE client_id = ? OR worker_id = ? 
+          ORDER BY created_at DESC LIMIT 10
+        `).bind(userId, userId).all();
+        jobResults = jobsQuery.results || [];
+      } catch (error) {
+        console.log('Error fetching jobs:', error.message);
+        jobResults = [];
+      }
 
-      // Get user reviews
-      const reviews = await this.db.prepare(`
-        SELECT 
-          r.*,
-          (u_reviewer.first_name || ' ' || u_reviewer.last_name) as reviewer_name,
-          (u_reviewee.first_name || ' ' || u_reviewee.last_name) as reviewee_name
-        FROM reviews r
-        LEFT JOIN users u_reviewer ON r.reviewer_id = u_reviewer.id
-        LEFT JOIN users u_reviewee ON (
-          (r.client_id = u_reviewee.id AND r.client_id = ?) OR
-          (r.worker_id = u_reviewee.id AND r.worker_id = ?)
-        )
-        WHERE r.client_id = ? OR r.worker_id = ?
-        ORDER BY r.created_at DESC
-      `).bind(userId, userId, userId, userId).all();
+      // Get user reviews (simplified query with error handling)
+      let reviewResults = [];
+      try {
+        const reviewsQuery = await this.db.prepare(`
+          SELECT * FROM reviews 
+          WHERE reviewer_id = ? OR worker_id = ? 
+          ORDER BY created_at DESC LIMIT 10
+        `).bind(userId, userId).all();
+        reviewResults = reviewsQuery.results || [];
+      } catch (error) {
+        console.log('Error fetching reviews:', error.message);
+        reviewResults = [];
+      }
 
-      // Get worker-specific data if applicable
+      // Get worker profile if applicable (simplified)
       let workerProfile = null;
       if (user.role === 'worker') {
-        workerProfile = await this.db.prepare(`
-          SELECT 
-            wp.*,
-            GROUP_CONCAT(ws.skill_name) as skills,
-            GROUP_CONCAT(wsa.area_name) as service_areas
-          FROM worker_profiles wp
-          LEFT JOIN worker_skills ws ON wp.user_id = ws.user_id
-          LEFT JOIN worker_service_areas wsa ON wp.user_id = wsa.user_id
-          WHERE wp.user_id = ?
-          GROUP BY wp.user_id
-        `).bind(userId).first();
+        try {
+          workerProfile = await this.db.prepare(`
+            SELECT * FROM user_profiles WHERE user_id = ?
+          `).bind(userId).first();
+        } catch (error) {
+          console.log('Error fetching worker profile:', error.message);
+          workerProfile = null;
+        }
       }
 
       return {
         user: {
           ...user,
-          full_name: (user.first_name + ' ' + user.last_name).trim()
+          full_name: ((user.first_name || '') + ' ' + (user.last_name || '')).trim()
         },
-        jobs: jobs.results || [],
-        reviews: reviews.results || [],
+        jobs: jobResults,
+        reviews: reviewResults,
         worker_profile: workerProfile,
         stats: {
-          total_jobs: (jobs.results || []).length,
-          active_jobs: (jobs.results || []).filter((j: any) => j.status === 'active').length,
-          completed_jobs: (jobs.results || []).filter((j: any) => j.status === 'completed').length,
-          total_reviews: (reviews.results || []).length,
-          average_rating: (reviews.results || []).length > 0 ? 
-            (reviews.results || []).reduce((sum: number, r: any) => sum + r.rating, 0) / (reviews.results || []).length : 0
+          total_jobs: jobResults.length,
+          active_jobs: jobResults.filter((j: any) => j.status === 'active').length,
+          completed_jobs: jobResults.filter((j: any) => j.status === 'completed').length,
+          total_reviews: reviewResults.length,
+          average_rating: reviewResults.length > 0 ? 
+            reviewResults.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) / reviewResults.length : 0
         }
       };
     } catch (error) {

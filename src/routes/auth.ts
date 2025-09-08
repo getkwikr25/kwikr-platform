@@ -161,7 +161,7 @@ authRoutes.post('/login', async (c) => {
     
     // Find user
     const user = await c.env.DB.prepare(`
-      SELECT id, email, password_hash, password_salt, role, first_name, last_name, province, city, is_verified, is_active
+      SELECT id, email, password_hash, role, first_name, last_name, province, city, is_verified, is_active
       FROM users WHERE email = ?
     `).bind(email).first()
     
@@ -169,16 +169,8 @@ authRoutes.post('/login', async (c) => {
       return c.json({ error: 'Invalid credentials' }, 401)
     }
     
-    // Verify password - handle both new secure hashes and legacy base64
-    let passwordValid = false
-    
-    if (user.password_salt && !PasswordUtils.isLegacyHash(user.password_hash)) {
-      // New secure password verification
-      passwordValid = await PasswordUtils.verifyPassword(password, user.password_hash, user.password_salt)
-    } else {
-      // Legacy base64 password verification
-      passwordValid = PasswordUtils.verifyLegacyPassword(password, user.password_hash)
-    }
+    // Verify password - use legacy base64 verification since password_salt column doesn't exist
+    const passwordValid = PasswordUtils.verifyLegacyPassword(password, user.password_hash)
     
     if (!passwordValid) {
       return c.json({ error: 'Invalid credentials' }, 401)
